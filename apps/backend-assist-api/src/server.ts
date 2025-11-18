@@ -1,0 +1,47 @@
+import { createApp } from "./app"
+import { config } from "./config/index"
+import { logger } from "./config/logger"
+
+const startServer = async () => {
+  try {
+    const app = await createApp()
+
+    const server = app.listen(config.port, () => {
+      logger.info(`
+╔════════════════════════════════════════════════════════╗
+║                                                        ║
+║   🚀 Server is running!                               ║
+║                                                        ║
+║   📡 Port: ${config.port}                                    ║
+║   🌍 Environment: ${config.nodeEnv}                    ║
+║   🔗 API: http://localhost:${config.port}${config.api.prefix}       ║
+║   ❤️  Health: http://localhost:${config.port}/health          ║
+║                                                        ║
+╚════════════════════════════════════════════════════════╝
+      `)
+    })
+
+    // Graceful shutdown
+    const gracefulShutdown = async (signal: string) => {
+      logger.info(`\n${signal} received, closing server gracefully...`)
+      server.close(() => {
+        logger.info("Server closed")
+        process.exit(0)
+      })
+
+      // Force close after 10 seconds
+      setTimeout(() => {
+        logger.error("Forcing server shutdown...")
+        process.exit(1)
+      }, 10000)
+    }
+
+    process.on("SIGTERM", () => gracefulShutdown("SIGTERM"))
+    process.on("SIGINT", () => gracefulShutdown("SIGINT"))
+  } catch (error) {
+    logger.error("❌ Error starting server:", error)
+    process.exit(1)
+  }
+}
+
+startServer()

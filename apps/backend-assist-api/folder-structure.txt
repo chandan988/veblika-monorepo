@@ -1,0 +1,25 @@
+src/
+├── config/         # App configuration (env, db, logger…)
+├── loaders/        # Startup steps (express loader, database loader…)
+├── api/
+│   ├── routes/     # Route definitions
+│   ├── controllers/# Validate & return responses
+│   ├── services/   # Business logic (NO req/res here)
+│   ├── models/     # Mongoose schemas
+│   └── validators/ # Zod validation schemas
+│
+├── middleware/     # Custom middlewares
+├── utils/          # Helpers, shared functions
+├── jobs/           # Cron jobs, workers
+├── modules/        # Feature modules if project grows (recommended)
+│   └── user/       # user/
+│       ├── user-model.ts
+│       ├── user-service.ts
+│       ├── user-controller.ts
+│       ├── user-routes.ts
+│       └── user-validator.ts
+│
+├── interfaces/     # TypeScript interfaces, DTOs
+├── core/           # Core system libs (error handler, API responses)
+├── app.ts          # Express initialization
+└── server.ts       # Server entry
