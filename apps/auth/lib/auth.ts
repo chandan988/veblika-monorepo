@@ -71,7 +71,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
     enabled: true,
     minPasswordLength: 4,
     maxPasswordLength: 20,
-    requireEmailVerification: false,
+    requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
       await email.sendEmail({
         from,
