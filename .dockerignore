@@ -1,0 +1,25 @@
+# General
+.git
+.turbo
+.next
+node_modules
+bun.lockb
+Dockerfile*
+docker-compose*.yml
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.env
+.env.*
+*.local
+
+# App specific caches
+apps/*/node_modules
+apps/*/.next
+apps/*/.turbo
+packages/*/node_modules
+
+# Editor
+.vscode
+.DS_Store

@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+  backend-assist-api:
+    build:
+      context: .
+      dockerfile: apps/backend-assist-api/Dockerfile
+    env_file:
+      - apps/backend-assist-api/.env
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      MONGODB_URI: ${BACKEND_ASSIST_API_MONGODB_URI:-mongodb+srv://user:password@cluster.mongodb.net/backend-assist}
+      API_PREFIX: ${API_PREFIX:-/api/v1}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - "4000:4000"
+    networks:
+      - app-network
+
+  auth:
+    build:
+      context: .
+      dockerfile: apps/auth/Dockerfile
+    depends_on:
+      backend-assist-api:
+        condition: service_started
+    env_file:
+      - apps/auth/.env
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_AUTH_URL: ${AUTH_PUBLIC_URL:-http://localhost:3000}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://auth:3000}
+      DATABASE_URL: ${AUTH_DATABASE_URL:-mongodb+srv://user:password@cluster.mongodb.net/auth}
+      BACKEND_API_URL: http://backend-assist-api:4000
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+
+  backend-assist-web:
+    build:
+      context: .
+      dockerfile: apps/backend-assist-web/Dockerfile
+    depends_on:
+      auth:
+        condition: service_started
+    env_file:
+      - apps/backend-assist-web/.env
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_AUTH_URL: http://auth:3000
+      NEXT_PUBLIC_API_URL: http://backend-assist-api:4000
+    ports:
+      - "3001:3001"
+    networks:
+      - app-network
+
+  social-media:
+    build:
+      context: .
+      dockerfile: apps/social-media/Dockerfile
+    depends_on:
+      auth:
+        condition: service_started
+    env_file:
+      - apps/social-media/.env
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_AUTH_URL: http://auth:3000
+      NEXT_PUBLIC_API_URL: http://backend-assist-api:4000
+    ports:
+      - "3002:3002"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
