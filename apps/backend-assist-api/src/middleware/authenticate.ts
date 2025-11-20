@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express"
+import { config } from "../config/index"
 
 // Example session response:
 // {
@@ -28,6 +29,7 @@ declare global {
     interface Request {
       user?: {
         id: string
+        sub?: string
         name: string
         email: string
         emailVerified: boolean
@@ -87,16 +89,13 @@ const isAuth = async (
       return
     }
 
-    const sessionResponse = await fetch(
-      `${process.env.AUTH_SERVICE_URL || "http://localhost:3000"}/api/auth/session`,
-      {
-        method: "GET",
-        headers: {
-          Cookie: `better-auth.session_token=${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    )
+    const sessionResponse = await fetch(`${config.auth.serviceUrl}/api/auth/session`, {
+      method: "GET",
+      headers: {
+        Cookie: `better-auth.session_token=${token}`,
+        "Content-Type": "application/json",
+      },
+    })
 
     if (!sessionResponse.ok) {
       res
@@ -107,7 +106,10 @@ const isAuth = async (
 
     const sessionData: SessionResponse = await sessionResponse.json()
 
-    req.user = sessionData.user
+    req.user = {
+      ...sessionData.user,
+      sub: sessionData.user.id,
+    }
     req.session = sessionData.session
 
     next()

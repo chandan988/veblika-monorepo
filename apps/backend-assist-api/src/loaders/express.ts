@@ -2,6 +2,7 @@ import express, { Express, Request, Response } from "express"
 import cors from "cors"
 import helmet from "helmet"
 import compression from "compression"
+import cookieParser from "cookie-parser"
 import { config } from "../config/index"
 import { httpLogger } from "../config/logger"
 
@@ -17,6 +18,7 @@ export const expressLoader = (app: Express): void => {
     })
   )
 
+  app.use(cookieParser())
   // Body parser
   app.use(express.json())
   app.use(express.urlencoded({ extended: true }))

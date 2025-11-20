@@ -39,6 +39,7 @@ import {
   FolderKanban,
   UserCircle,
   UsersRound,
+  PlugZap,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -67,6 +68,16 @@ const navigationItems = [
     title: "Team",
     icon: Users,
     href: "/team",
+  },
+  {
+    title: "Integrations",
+    icon: PlugZap,
+    href: "/integrations",
+  },
+  {
+    title: "Tickets",
+    icon: Ticket,
+    href: "/tickets",
   },
 ]
 

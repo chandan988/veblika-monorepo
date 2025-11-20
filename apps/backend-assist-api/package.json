@@ -22,7 +22,10 @@
     "pino-http": "^7.0.0",
     "zod": "^3.22.4",
     "compression": "^1.7.4",
-    "http-errors": "^2.0.0"
+    "http-errors": "^2.0.0",
+    "googleapis": "^131.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "cookie-parser": "^1.4.6"
   },
   "devDependencies": {
     "@workspace/eslint-config": "workspace:^",
@@ -33,6 +36,7 @@
     "@types/morgan": "^1.9.9",
     "@types/compression": "^1.7.5",
     "@types/http-errors": "^2.0.4",
+    "@types/jsonwebtoken": "^9.0.6",
     "pino-pretty": "^10.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"

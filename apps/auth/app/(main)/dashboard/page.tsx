@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { authClient } from "@/lib/auth-client"
+import { apiFetch } from "@/lib/api-client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
 import { Building2, Users, Ticket, FolderKanban } from "lucide-react"
@@ -24,6 +25,7 @@ export default function DashboardPage() {
     try {
       const { data: orgs } = await authClient.organization.list()
       const { data: org } = await authClient.organization.getFullOrganization()
+      const ticketsResponse = await fetchTicketsCount()
       
       if (orgs) {
         setStats((prev) => ({ ...prev, organizations: orgs.length }))
@@ -36,8 +38,22 @@ export default function DashboardPage() {
           members: org.members?.length || 0,
         }))
       }
+      setStats((prev) => ({
+        ...prev,
+        tickets: ticketsResponse,
+      }))
     } catch (error) {
       console.error("Failed to load dashboard data:", error)
+    }
+  }
+
+  const fetchTicketsCount = async () => {
+    try {
+      const payload = await apiFetch<{ data?: { pagination?: { total?: number } } }>("/tickets")
+      return payload?.data?.pagination?.total || 0
+    } catch (error) {
+      console.warn("Failed to fetch ticket count", error)
+      return 0
     }
   }
 

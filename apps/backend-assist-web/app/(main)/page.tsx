@@ -2,6 +2,7 @@
 
 import { authClient } from "@/lib/auth-client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
+import { GmailConnectButton } from "@/components/gmail/gmail-connect-button"
 
 export default function Page() {
   const { data: session, isPending } = authClient.useSession()
@@ -72,6 +73,8 @@ export default function Page() {
           </pre>
         </CardContent>
       </Card>
+
+      <GmailConnectButton />
     </div>
   )
 }
