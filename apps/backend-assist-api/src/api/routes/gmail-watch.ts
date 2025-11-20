@@ -8,12 +8,15 @@ const router = Router()
 
 router.post("/gmail/watch", isAuth, async (req, res) => {
   try {
+    console.log("[gmail-watch] Watch request for user", req.user?.sub)
     const user = await User.findOne({ authUserId: req.user?.sub })
     if (!user || !user.gmailAccessToken) {
+      console.warn("[gmail-watch] User not linked to Gmail", req.user?.sub)
       return res.status(401).json({ message: "User not authorized for Gmail watch" })
     }
 
     if (!config.google.gmailPubsubTopic) {
+      console.error("[gmail-watch] Missing Pub/Sub topic")
       return res.status(500).json({ message: "Gmail Pub/Sub topic not configured" })
     }
 
@@ -35,6 +38,7 @@ router.post("/gmail/watch", isAuth, async (req, res) => {
     })
 
     const data = watchRes.data || {}
+    console.log("[gmail-watch] Google watch response", data)
     if (data.expiration) {
       const ms = Number(data.expiration)
       if (!Number.isNaN(ms)) {

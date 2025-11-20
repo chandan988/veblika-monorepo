@@ -30,11 +30,13 @@ const createClient = async (authUserId?: string) => {
 
 router.get("/gmail/messages", isAuth, async (req, res) => {
   try {
+    console.log("[gmail-messages] List request for user", req.user?.sub)
     const { gmail } = await createClient(req.user?.sub)
     const { data } = await gmail.users.messages.list({
       userId: "me",
       maxResults: 10,
     })
+    console.log("[gmail-messages] List response count", data.messages?.length || 0)
     return res.json(data)
   } catch (err: any) {
     console.error("Gmail read error:", err)
@@ -44,6 +46,7 @@ router.get("/gmail/messages", isAuth, async (req, res) => {
 
 router.get("/gmail/messages/:id", isAuth, async (req, res) => {
   try {
+    console.log("[gmail-messages] Fetch request", { user: req.user?.sub, id: req.params.id })
     const { gmail } = await createClient(req.user?.sub)
     const { id } = req.params
     const { data } = await gmail.users.messages.get({
@@ -88,6 +91,12 @@ router.get("/gmail/messages/:id", isAuth, async (req, res) => {
       }
     }
 
+    console.log("[gmail-messages] Fetch success", {
+      id,
+      hasHtml: Boolean(parsed.html),
+      hasText: Boolean(parsed.text),
+      attachments: parsed.attachments?.length || 0,
+    })
     res.json(parsed)
   } catch (err: any) {
     console.error("Gmail message fetch error:", err)
@@ -97,6 +106,11 @@ router.get("/gmail/messages/:id", isAuth, async (req, res) => {
 
 router.get("/gmail/messages/:id/attachments/:attachmentId", isAuth, async (req, res) => {
   try {
+    console.log("[gmail-messages] Attachment request", {
+      user: req.user?.sub,
+      id: req.params.id,
+      attachmentId: req.params.attachmentId,
+    })
     const { gmail } = await createClient(req.user?.sub)
     const { id, attachmentId } = req.params
     const att = await gmail.users.messages.attachments.get({

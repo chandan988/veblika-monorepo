@@ -11,12 +11,25 @@ export const expressLoader = (app: Express): void => {
   app.use(helmet())
 
   // CORS
-  app.use(
-    cors({
-      origin: config.cors.origin,
-      credentials: true,
-    })
-  )
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, devtools)
+      if (!origin) return callback(null, true);
+
+      if (config.cors.origin.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.warn("❌ Blocked by CORS:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
+
+app.options("*", cors());
+
 
   app.use(cookieParser())
   // Body parser

@@ -79,8 +79,13 @@ const isAuth = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const token = req.cookies["better-auth.session_token"]
-    console.log("Authenticating request, token:", token)
+    const cookieToken = req.cookies["better-auth.session_token"]
+    const authHeader = req.headers.authorization
+    const bearerToken = authHeader?.toLowerCase().startsWith("bearer ")
+      ? authHeader.slice(7).trim()
+      : undefined
+    const token = cookieToken || bearerToken
+    console.log("Authenticating request, token:", token ? "[redacted]" : "missing")
 
     if (!token) {
       res
@@ -89,13 +94,37 @@ const isAuth = async (
       return
     }
 
-    const sessionResponse = await fetch(`${config.auth.serviceUrl}/api/auth/session`, {
+    const headers: Record<string, string> = {
+      Cookie: `better-auth.session_token=${token}`,
+      "Content-Type": "application/json",
+    }
+
+    if (bearerToken) {
+      headers.Authorization = `Bearer ${bearerToken}`
+    }
+
+    const sessionUrlPrimary = `${config.auth.serviceUrl}/api/auth/session`
+    const sessionUrlFallback = `${config.auth.serviceUrl}/api/auth/get-session`
+
+    console.log(
+      `[auth] Validating session via ${sessionUrlPrimary} with ${bearerToken ? "bearer" : "cookie"} token`
+    )
+
+    let sessionResponse = await fetch(sessionUrlPrimary, {
       method: "GET",
-      headers: {
-        Cookie: `better-auth.session_token=${token}`,
-        "Content-Type": "application/json",
-      },
+      headers,
     })
+
+    // If the Better Auth route is mounted as /api/auth/get-session, fall back
+    if (sessionResponse.status === 404) {
+      console.warn("[auth] /api/auth/session returned 404, trying /api/auth/get-session")
+      sessionResponse = await fetch(sessionUrlFallback, {
+        method: "GET",
+        headers,
+      })
+    }
+
+    console.log("[auth] Session validate response status:", sessionResponse.status)
 
     if (!sessionResponse.ok) {
       res
@@ -111,6 +140,11 @@ const isAuth = async (
       sub: sessionData.user.id,
     }
     req.session = sessionData.session
+    console.log("[auth] Authenticated user", {
+      id: req.user.id,
+      email: req.user.email,
+      sessionId: req.session.id,
+    })
 
     next()
   } catch (error) {

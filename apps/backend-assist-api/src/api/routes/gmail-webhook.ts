@@ -9,21 +9,22 @@ import { notifications } from "../../utils/notifications"
 const router = Router()
 
 const getSafeStartHistoryId = (userHistoryId?: string, fallbackHistoryId?: string) => {
-  if (userHistoryId) return userHistoryId
-  if (!fallbackHistoryId) return undefined
-  try {
-    const numeric = BigInt(fallbackHistoryId)
-    if (numeric > 1n) {
-      return (numeric - 1n).toString()
-    }
-  } catch {
-    //
+if (userHistoryId) return userHistoryId
+if (!fallbackHistoryId) return undefined
+try {
+  const numeric = BigInt(fallbackHistoryId)
+  if (numeric > 1n) {
+    return (numeric - 1n).toString()
   }
-  return fallbackHistoryId
+} catch {
+  //
+}
+return fallbackHistoryId
 }
 
 router.post("/gmail/push", async (req, res) => {
   try {
+    console.log("[gmail-webhook] Push received")
     const { message } = req.body || {}
     if (!message || !message.data) {
       console.warn("[gmail-webhook] Invalid message payload")
@@ -35,8 +36,11 @@ router.post("/gmail/push", async (req, res) => {
 
     const { emailAddress, historyId } = parsed || {}
     if (!emailAddress || !historyId) {
+      console.warn("[gmail-webhook] Missing emailAddress or historyId, skipping")
       return res.status(200).send("No-op")
     }
+
+    console.log("[gmail-webhook] Parsed message", { emailAddress, historyId })
 
     const user = await User.findOne({ email: emailAddress.toLowerCase() })
     if (!user || !user.gmailAccessToken) {
@@ -76,6 +80,8 @@ router.post("/gmail/push", async (req, res) => {
       ;(h.messagesAdded || []).forEach((item) => pushMessageId(item.message))
       ;(h.labelsAdded || []).forEach((item) => pushMessageId(item.message))
     }
+
+    console.log("[gmail-webhook] Message IDs to fetch", messageIds.length)
 
     for (const id of messageIds) {
       try {
@@ -169,6 +175,10 @@ router.post("/gmail/push", async (req, res) => {
         })
 
         notifications.emit("notification", payload)
+        console.log("[gmail-webhook] Notification emitted", {
+          userId: user.authUserId,
+          messageId: payload.messageId,
+        })
       } catch (innerErr) {
         console.error("[gmail-webhook] Message fetch error", innerErr)
       }
@@ -178,6 +188,7 @@ router.post("/gmail/push", async (req, res) => {
     if (newHistoryId && newHistoryId !== user.gmailHistoryId) {
       user.gmailHistoryId = String(newHistoryId)
       await user.save()
+      console.log("[gmail-webhook] Updated historyId", newHistoryId)
     }
 
     return res.status(200).send("ACK")
