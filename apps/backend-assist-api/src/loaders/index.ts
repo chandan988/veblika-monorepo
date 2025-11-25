@@ -1,26 +1,29 @@
-import { Express } from 'express';
-import { connectDatabase } from '../config/database';
-import { expressLoader } from './express';
-import { routesLoader } from './routes';
-import { logger } from '../config/logger';
+import { Express } from "express"
+import { connectDatabase } from "../config/database"
+import { expressLoader } from "./express"
+import { routesLoader } from "./routes"
+import { logger } from "../config/logger"
 
 export const initializeLoaders = async (app: Express): Promise<void> => {
   try {
     // Connect to database
-    await connectDatabase();
-    logger.info('✅ Database loader initialized');
+    await connectDatabase()
+    logger.info("✅ Database loader initialized")
+
+    logger.info("✅ Auth initialized")
 
     // Load Express middleware
-    expressLoader(app);
-    logger.info('✅ Express loader initialized');
+    await expressLoader(app)
+    logger.info("✅ Express loader initialized")
 
     // Load routes
-    routesLoader(app);
-    logger.info('✅ Routes loader initialized');
+    routesLoader(app)
+    logger.info("✅ Routes loader initialized")
 
-    logger.info('🚀 All loaders initialized successfully');
+    logger.info("🚀 All loaders initialized successfully")
   } catch (error) {
-    logger.error('❌ Error initializing loaders:', error);
-    throw error;
+    console.log(error)
+    logger.error("❌ Error initializing loaders:", error)
+    throw error
   }
-};
+}
