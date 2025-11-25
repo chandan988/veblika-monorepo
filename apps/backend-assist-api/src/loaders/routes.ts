@@ -5,12 +5,22 @@ import { errorHandler } from "../middleware/error-handler"
 
 // Import routes here
 import ticketRoutes from "../api/routes/ticket-routes"
+import googleGmailAuthRoutes from "../api/routes/google-gmail-auth"
+import gmailWatchRoutes from "../api/routes/gmail-watch"
+import gmailWebhookRoutes from "../api/routes/gmail-webhook"
+import gmailMessagesRoutes from "../api/routes/gmail-messages"
+import notificationsRoutes from "../api/routes/notifications"
 
 export const routesLoader = (app: Express): void => {
   const router = Router()
 
   // API routes
   router.use("/tickets", ticketRoutes)
+  router.use("/auth", googleGmailAuthRoutes)
+  router.use("/", gmailWatchRoutes)
+  router.use("/", gmailWebhookRoutes)
+  router.use("/", gmailMessagesRoutes)
+  router.use("/notifications", notificationsRoutes)
 
   // Example route
   router.get("/", (req, res) => {

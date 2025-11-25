@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!session) {
       const currentUrl = encodeURIComponent(fullUrl)
       //  todo : keep the url in env file
-      router.push(`http://localhost:3000/login?callback=${currentUrl}`)
+      router.push("/login")
     }
   }, [session, isPending, router, fullUrl])
 
@@ -35,11 +35,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     )
-  }
-
-  // Don't render children if no session
-  if (!session) {
-    return null
   }
 
   // User is authenticated, render children
