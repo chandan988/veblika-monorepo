@@ -5,31 +5,36 @@ import compression from "compression"
 import cookieParser from "cookie-parser"
 import { config } from "../config/index"
 import { httpLogger } from "../config/logger"
+import { toNodeHandler } from "better-auth/node"
+import isAuth from "../middleware/authenticate"
 
-export const expressLoader = (app: Express): void => {
+export const expressLoader = async (app: Express): Promise<void> => {
   // Security middleware
   app.use(helmet())
 
-  // CORS
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, devtools)
-      if (!origin) return callback(null, true);
+  // CORS - MUST be before auth routes
+  app.use(
+    cors({
+      origin: ["http://localhost:3000", "http://localhost:8000"],
+      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      credentials: true,
+      allowedHeaders: ["Content-Type", "Authorization"],
+    })
+  )
 
-      if (config.cors.origin.includes(origin)) {
-        return callback(null, true);
-      }
+  console.log("✅ CORS middleware initialized")
 
-      console.warn("❌ Blocked by CORS:", origin);
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-  })
-);
+  // Handle preflight requests
+  // app.options("*", cors())
 
-app.options("*", cors());
+  // Auth routes - MUST be after CORS
+  const { auth } = await import("../auth")
+  // app.all("/api/auth/*splat", toNodeHandler(auth))
+  app.all('/api/auth/{*any}', toNodeHandler(auth));
 
+  console.log("✅ Auth middleware initialized")
+
+  // app.options("*", cors())
 
   app.use(cookieParser())
   // Body parser
@@ -42,8 +47,10 @@ app.options("*", cors());
   // HTTP request logging (pino)
   app.use(httpLogger)
 
+  console.log("✅ Express middleware initialized")
+
   // Health check
-  app.get("/health", (req: Request, res: Response) => {
+  app.get("/health",isAuth, (req: Request, res: Response) => {
     res.status(200).json({
       status: "ok",
       timestamp: new Date().toISOString(),

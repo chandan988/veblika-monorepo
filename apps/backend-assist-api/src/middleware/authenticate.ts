@@ -1,75 +1,15 @@
 import { Request, Response, NextFunction } from "express"
+import { Session, User } from "better-auth"
+import { fromNodeHeaders } from "better-auth/node"
 import { config } from "../config/index"
-
-// Example session response:
-// {
-//     "session": {
-//         "expiresAt": "2025-11-25T06:26:25.510Z",
-//         "token": "pXWdhOVLvDfx8Vyz4xlBMrjIjYbFiwZT",
-//         "createdAt": "2025-11-18T06:26:25.511Z",
-//         "updatedAt": "2025-11-18T06:26:25.511Z",
-//         "ipAddress": "127.0.0.1",
-//         "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-//         "userId": "6914a6e4a16c4359e60108bd",
-//         "id": "691c11911930d07608350b77"
-//     },
-//     "user": {
-//         "name": "Rahul",
-//         "email": "rkrahul8181@gmail.com",
-//         "emailVerified": true,
-//         "image": "https://lh3.googleusercontent.com/a/ACg8ocI3zc0Tpt9PksSn3pJbZFf69wZ7216GnJEUZLTSF3C95wWTXlA=s96-c",
-//         "createdAt": "2025-11-12T15:25:24.890Z",
-//         "updatedAt": "2025-11-14T09:52:25.025Z",
-//         "id": "6914a6e4a16c4359e60108bd"
-//     }
-// }
+// import { auth } from "../auth"
 
 declare global {
   namespace Express {
     interface Request {
-      user?: {
-        id: string
-        sub?: string
-        name: string
-        email: string
-        emailVerified: boolean
-        image: string
-        createdAt: string
-        updatedAt: string
-      }
-      session?: {
-        id: string
-        token: string
-        expiresAt: string
-        createdAt: string
-        updatedAt: string
-        ipAddress: string
-        userAgent: string
-        userId: string
-      }
+      user?: User
+      session?: Session
     }
-  }
-}
-
-interface SessionResponse {
-  session: {
-    id: string
-    token: string
-    expiresAt: string
-    createdAt: string
-    updatedAt: string
-    ipAddress: string
-    userAgent: string
-    userId: string
-  }
-  user: {
-    id: string
-    name: string
-    email: string
-    emailVerified: boolean
-    image: string
-    createdAt: string
-    updatedAt: string
   }
 }
 
@@ -79,73 +19,17 @@ const isAuth = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const cookieToken = req.cookies["better-auth.session_token"]
-    const authHeader = req.headers.authorization
-    const bearerToken = authHeader?.toLowerCase().startsWith("bearer ")
-      ? authHeader.slice(7).trim()
-      : undefined
-    const token = cookieToken || bearerToken
-    console.log("Authenticating request, token:", token ? "[redacted]" : "missing")
-
-    if (!token) {
-      res
-        .status(401)
-        .json({ success: false, error: "Authentication token not found" })
+    const { auth } = await import("../auth")
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    })
+    if (!session) {
+      res.status(401).json({ success: false, error: "Unauthorized" })
       return
     }
 
-    const headers: Record<string, string> = {
-      Cookie: `better-auth.session_token=${token}`,
-      "Content-Type": "application/json",
-    }
-
-    if (bearerToken) {
-      headers.Authorization = `Bearer ${bearerToken}`
-    }
-
-    const sessionUrlPrimary = `${config.auth.serviceUrl}/api/auth/session`
-    const sessionUrlFallback = `${config.auth.serviceUrl}/api/auth/get-session`
-
-    console.log(
-      `[auth] Validating session via ${sessionUrlPrimary} with ${bearerToken ? "bearer" : "cookie"} token`
-    )
-
-    let sessionResponse = await fetch(sessionUrlPrimary, {
-      method: "GET",
-      headers,
-    })
-
-    // If the Better Auth route is mounted as /api/auth/get-session, fall back
-    if (sessionResponse.status === 404) {
-      console.warn("[auth] /api/auth/session returned 404, trying /api/auth/get-session")
-      sessionResponse = await fetch(sessionUrlFallback, {
-        method: "GET",
-        headers,
-      })
-    }
-
-    console.log("[auth] Session validate response status:", sessionResponse.status)
-
-    if (!sessionResponse.ok) {
-      res
-        .status(401)
-        .json({ success: false, error: "Invalid or expired session" })
-      return
-    }
-
-    const sessionData: SessionResponse = await sessionResponse.json()
-
-    req.user = {
-      ...sessionData.user,
-      sub: sessionData.user.id,
-    }
-    req.session = sessionData.session
-    console.log("[auth] Authenticated user", {
-      id: req.user.id,
-      email: req.user.email,
-      sessionId: req.session.id,
-    })
-
+    req.session = session.session
+    req.user = session.user
     next()
   } catch (error) {
     console.error("Authentication error:", error)

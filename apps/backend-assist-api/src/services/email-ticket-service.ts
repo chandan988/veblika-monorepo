@@ -1,5 +1,5 @@
-import { Ticket } from "../api/models/ticket-model"
-import { IUser } from "../api/models/user-model"
+import { Ticket } from "../api/models/previous-ticket-model"
+import { IUser } from "../api/models/previous-user-model"
 
 const MAX_DESCRIPTION_LENGTH = 2000
 

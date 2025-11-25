@@ -2,7 +2,7 @@ import { Router } from "express"
 import { google } from "googleapis"
 import isAuth from "../../middleware/authenticate"
 import { config } from "../../config/index"
-import { User } from "../models/user-model"
+import { User } from "../models/previous-user-model"
 
 const router = Router()
 

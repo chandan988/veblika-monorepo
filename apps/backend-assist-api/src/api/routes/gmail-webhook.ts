@@ -1,7 +1,7 @@
 import { Router } from "express"
 import { google } from "googleapis"
 import { config } from "../../config/index"
-import { User } from "../models/user-model"
+import { User } from "../models/previous-user-model"
 import { parseGmailMessage } from "../../utils/gmail-parser"
 import { createTicketFromEmail } from "../../services/email-ticket-service"
 import { notifications } from "../../utils/notifications"
