@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!session) {
       const currentUrl = encodeURIComponent(fullUrl)
       //  todo : keep the url in env file
-      router.push("/login")
+      // router.push("/login")
     }
   }, [session, isPending, router, fullUrl])
 

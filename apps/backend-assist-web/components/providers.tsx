@@ -22,7 +22,10 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient())
-  const googleClientId = useMemo(() => process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "", [])
+  const googleClientId = useMemo(
+    () => process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "missing-google-client-id",
+    []
+  )
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -40,6 +40,7 @@ import {
   CheckSquare,
   FileText,
   LifeBuoy,
+  Plug,
 } from "lucide-react"
 
 const navigationItems = [
@@ -77,6 +78,11 @@ const navigationItems = [
     title: "Users",
     icon: Users,
     href: "/users",
+  },
+  {
+    title: "Integrations",
+    icon: Plug,
+    href: "/projects",
   },
 ]
 
@@ -158,7 +164,8 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navigationItems.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href)
+                const isActive =
+                  pathname === item.href || pathname.startsWith(item.href)
                 const hasSubItems = item.items && item.items.length > 0
                 const isOpen = openSections.includes(item.title)
 
