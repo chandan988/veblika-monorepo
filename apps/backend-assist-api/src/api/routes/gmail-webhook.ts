@@ -3,10 +3,31 @@ import { google } from "googleapis"
 import { config } from "../../config/index"
 import { User } from "../models/previous-user-model"
 import { parseGmailMessage } from "../../utils/gmail-parser"
-import { createTicketFromEmail } from "../../services/email-ticket-service"
 import { notifications } from "../../utils/notifications"
+import { Integration } from "../models/integration-model"
+import { Contact } from "../models/contact-model"
+import { Conversation } from "../models/conversation-model"
+import { Ticket } from "../models/previous-ticket-model"
+import { Message } from "../models/message-model"
 
 const router = Router()
+
+const extractEmailAddress = (value?: string) => {
+  if (!value) return undefined
+  const match = value.match(/<(.*?)>/)
+  if (match && match[1]) return match[1].toLowerCase()
+  if (value.includes("@")) return value.trim().toLowerCase()
+  return undefined
+}
+
+const extractDisplayName = (value?: string) => {
+  if (!value) return undefined
+  const match = value.match(/^(.*?)\s*<.*?>$/)
+  if (match && match[1]) {
+    return match[1].replace(/["']/g, "").trim()
+  }
+  return value
+}
 
 const getSafeStartHistoryId = (userHistoryId?: string, fallbackHistoryId?: string) => {
 if (userHistoryId) return userHistoryId
@@ -156,23 +177,189 @@ router.post("/gmail/push", async (req, res) => {
           bodyTruncated: bodyWasTruncated,
         }
 
-        await createTicketFromEmail({
-          user,
-          payload: {
-            subject: payload.subject,
-            body: payload.body,
-            bodyFormat: payload.bodyFormat as "text" | "html",
-            from: payload.from,
-            snippet: payload.snippet,
-            attachments: payload.attachments,
-            messageId: payload.messageId!,
-            threadId: payload.threadId,
-            receivedAt: payload.receivedAt,
-            internetMessageId: payload.internetMessageId,
-            references: payload.references,
-            inReplyTo: payload.inReplyTo,
+        const toAddress =
+          extractEmailAddress(parsedMsg.to) || emailAddress?.toLowerCase()
+
+        if (!toAddress) {
+          console.warn("[gmail-webhook] Unable to determine channel email")
+          continue
+        }
+
+        const integration = await Integration.findOne({
+          channel: "gmail",
+          channelEmail: toAddress,
+          status: { $ne: "disconnected" },
+        })
+
+        if (!integration) {
+          console.warn(
+            "[gmail-webhook] No integration found for channel email",
+            toAddress
+          )
+          continue
+        }
+
+        const orgId = integration.orgId
+        const fromAddress = extractEmailAddress(parsedMsg.from)
+        const fromName = extractDisplayName(parsedMsg.from)
+
+        if (!fromAddress) {
+          console.warn("[gmail-webhook] Missing sender email")
+          continue
+        }
+
+        const contact = await Contact.findOneAndUpdate(
+          { orgId, email: fromAddress },
+          {
+            orgId,
+            email: fromAddress,
+            name: fromName,
+            source: "gmail",
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        )
+
+        let conversation = await Conversation.findOne({
+          orgId,
+          channel: "gmail",
+          threadId: parsedMsg.threadId,
+        })
+
+        let ticket =
+          conversation?.ticketId &&
+          (await Ticket.findById(conversation.ticketId))
+
+        if (!conversation) {
+          ticket = await Ticket.create({
+            orgId: orgId.toString(),
+            contactId: contact._id.toString(),
+            conversationId: parsedMsg.threadId || undefined,
+            channel: "gmail",
+            title: payload.subject || "(no subject)",
+            description: payload.snippet || payload.body || "",
+            status: "open",
+            priority: "medium",
+            createdBy: user.authUserId,
+            requesterName: contact.name || fromAddress,
+            requesterEmail: fromAddress,
+            tags: ["gmail"],
+            source: "gmail",
+            sourceMetadata: {
+              gmail: {
+                messageId: payload.messageId,
+                threadId: payload.threadId,
+              },
+              integrationId: integration._id,
+            },
+            externalBody: payload.body,
+            externalBodyFormat: payload.bodyFormat as "text" | "html",
+            lastMessageAt: new Date(payload.receivedAt),
+          })
+
+          conversation = await Conversation.create({
+            orgId,
+            integrationId: integration._id,
+            contactId: contact._id,
+            ticketId: ticket._id,
+            channel: "gmail",
+            status: "open",
+            priority: "normal",
+            assignedMemberId: undefined,
+            tags: ["gmail"],
+            threadId: parsedMsg.threadId,
+            lastMessageAt: new Date(payload.receivedAt),
+            lastMessagePreview: payload.snippet || payload.body,
+            sourceMetadata: {
+              gmail: {
+                messageId: payload.messageId,
+                threadId: payload.threadId,
+              },
+            },
+          })
+        }
+
+        if (!ticket) {
+          ticket = await Ticket.create({
+            orgId: orgId.toString(),
+            contactId: contact._id.toString(),
+            conversationId: parsedMsg.threadId || undefined,
+            channel: "gmail",
+            title: payload.subject || "(no subject)",
+            description: payload.snippet || payload.body || "",
+            status: "open",
+            priority: "medium",
+            createdBy: user.authUserId,
+            requesterName: contact.name || fromAddress,
+            requesterEmail: fromAddress,
+            tags: ["gmail"],
+            source: "gmail",
+            sourceMetadata: {
+              gmail: {
+                messageId: payload.messageId,
+                threadId: payload.threadId,
+              },
+              integrationId: integration._id,
+            },
+            externalBody: payload.body,
+            externalBodyFormat: payload.bodyFormat as "text" | "html",
+            lastMessageAt: new Date(payload.receivedAt),
+          })
+          conversation.ticketId = ticket._id
+        }
+
+        const normalizedAttachments = attachmentsMeta.map((att: any) => ({
+          name: att.filename,
+          type: att.mimeType,
+          size: att.size,
+          attachmentId: att.attachmentId,
+        }))
+
+        await Message.create({
+          orgId,
+          conversationId: conversation._id,
+          ticketId: ticket._id,
+          contactId: contact._id,
+          senderType: "contact",
+          senderId: contact._id,
+          direction: "inbound",
+          channel: "gmail",
+          body: {
+            text: parsedMsg.text || (payload.bodyFormat === "text" ? payload.body : undefined) || payload.snippet,
+            html: parsedMsg.html || (payload.bodyFormat === "html" ? payload.body : undefined),
+          },
+          attachments: normalizedAttachments,
+          status: "sent",
+          metadata: {
+            gmail: {
+              messageId: payload.messageId,
+              threadId: payload.threadId,
+              internetMessageId: payload.internetMessageId,
+            },
           },
         })
+
+        conversation.lastMessageAt = new Date(payload.receivedAt)
+        conversation.lastMessagePreview =
+          payload.snippet || payload.body || conversation.lastMessagePreview
+        conversation.status = "open"
+        await conversation.save()
+
+        ticket.lastMessageAt = new Date(payload.receivedAt)
+        ticket.status = "open"
+        const existingMetadata =
+          (ticket.sourceMetadata as Record<string, any>) || {}
+        const existingGmailMetadata =
+          (existingMetadata.gmail as Record<string, any>) || {}
+
+        ticket.sourceMetadata = {
+          ...existingMetadata,
+          gmail: {
+            ...existingGmailMetadata,
+            lastMessageId: payload.messageId,
+            threadId: payload.threadId,
+          },
+        }
+        await ticket.save()
 
         notifications.emit("notification", payload)
         console.log("[gmail-webhook] Notification emitted", {

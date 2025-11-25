@@ -7,8 +7,11 @@ import { parseGmailMessage } from "../../utils/gmail-parser"
 
 const router = Router()
 
-const createClient = async (authUserId?: string) => {
-  const user = await User.findOne({ authUserId })
+const createClient = async (authUserId?: string, email?: string) => {
+  let user: any = authUserId ? await User.findOne({ authUserId }) : null
+  if (!user && email) {
+    user = await User.findOne({ email: email.toLowerCase() })
+  }
   if (!user) {
     throw new Error("User not found")
   }
@@ -30,8 +33,8 @@ const createClient = async (authUserId?: string) => {
 
 router.get("/gmail/messages", isAuth, async (req, res) => {
   try {
-    console.log("[gmail-messages] List request for user", req.user?.sub)
-    const { gmail } = await createClient(req.user?.sub)
+    console.log("[gmail-messages] List request for user", req.user?.id)
+    const { gmail } = await createClient(req.user?.id, req.user?.email)
     const { data } = await gmail.users.messages.list({
       userId: "me",
       maxResults: 10,
@@ -46,8 +49,8 @@ router.get("/gmail/messages", isAuth, async (req, res) => {
 
 router.get("/gmail/messages/:id", isAuth, async (req, res) => {
   try {
-    console.log("[gmail-messages] Fetch request", { user: req.user?.sub, id: req.params.id })
-    const { gmail } = await createClient(req.user?.sub)
+    console.log("[gmail-messages] Fetch request", { user: req.user?.id, id: req.params.id })
+    const { gmail } = await createClient(req.user?.id, req.user?.email)
     const { id } = req.params
     const { data } = await gmail.users.messages.get({
       userId: "me",
@@ -107,11 +110,11 @@ router.get("/gmail/messages/:id", isAuth, async (req, res) => {
 router.get("/gmail/messages/:id/attachments/:attachmentId", isAuth, async (req, res) => {
   try {
     console.log("[gmail-messages] Attachment request", {
-      user: req.user?.sub,
+      user: req.user?.id,
       id: req.params.id,
       attachmentId: req.params.attachmentId,
     })
-    const { gmail } = await createClient(req.user?.sub)
+    const { gmail } = await createClient(req.user?.id, req.user?.email)
     const { id, attachmentId } = req.params
     const att = await gmail.users.messages.attachments.get({
       userId: "me",

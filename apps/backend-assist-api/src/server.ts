@@ -6,7 +6,7 @@ const startServer = async () => {
   try {
     const app = await createApp()
 
-    const server = app.listen(config.port, () => {
+  const server = app.listen(config.port, () => {
       logger.info(`
 ╔════════════════════════════════════════════════════════╗
 ║                                                        ║

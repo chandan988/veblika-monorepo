@@ -9,28 +9,36 @@ export type Channel =
   | "slack"
   | "whatsapp"
   | "webchat"
+  | "email"
+  | "chat"
 export type MessageContentType = "text" | "html" | "markdown"
 export type MessageStatus = "sent" | "delivered" | "read" | "failed" | "pending"
 
 export interface IAttachment {
-  url: string
-  name: string
-  type: string
-  size: number
+  url?: string
+  name?: string
+  type?: string
+  size?: number
+  attachmentId?: string
 }
 
 export interface IMessage extends Document {
   orgId: mongoose.Types.ObjectId
   conversationId: mongoose.Types.ObjectId
+  ticketId?: mongoose.Types.ObjectId
+  contactId?: mongoose.Types.ObjectId
 
   // Sender info
   senderType: MessageSenderType
   senderId?: mongoose.Types.ObjectId | string // Member Id or contact Id
 
   direction: MessageDirection
-  channel: MessageChannel
+  channel: Channel
 
-  body?: Record<any, any>
+  body?: {
+    text?: string
+    html?: string
+  }
   attachments: IAttachment[]
 
   // Status tracking
@@ -46,19 +54,18 @@ const attachmentSchema = new Schema<IAttachment>(
   {
     url: {
       type: String,
-      required: true,
     },
     name: {
       type: String,
-      required: true,
     },
     type: {
       type: String,
-      required: true,
     },
     size: {
       type: Number,
-      required: true,
+    },
+    attachmentId: {
+      type: String,
     },
   },
   { _id: false }
@@ -78,6 +85,15 @@ const messageSchema = new Schema<IMessage>(
       required: true,
       index: true,
     },
+    ticketId: {
+      type: Schema.Types.ObjectId,
+      ref: "Ticket",
+      index: true,
+    },
+    contactId: {
+      type: Schema.Types.ObjectId,
+      ref: "contact",
+    },
     senderType: {
       type: String,
       enum: ["contact", "agent", "bot", "system"],
@@ -93,7 +109,7 @@ const messageSchema = new Schema<IMessage>(
     },
     channel: {
       type: String,
-      enum: ["gmail", "imap", "smtp", "slack", "whatsapp", "webchat"],
+      enum: ["gmail", "imap", "smtp", "slack", "whatsapp", "webchat", "email", "chat"],
       required: true,
     },
     body: {
