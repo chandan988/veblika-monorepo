@@ -1,53 +1,44 @@
 import mongoose, { Document, Schema } from "mongoose"
 
 export interface IUser extends Document {
-  authUserId: string
-  email: string
   name?: string
+  email: string
+  emailVerified: boolean
+  image?: string
   role?: string
-  gmailAccessToken?: string
-  gmailRefreshToken?: string
-  gmailTokenExpiry?: Date
-  gmailHistoryId?: string
-  gmailWatchExpiration?: Date
-  hasGmailConnected: boolean
+  lang?: string
+  createdAt: Date
+  updatedAt: Date
 }
 
 const userSchema = new Schema<IUser>(
   {
-    authUserId: {
-      type: String,
-      required: true,
-      unique: true,
-      index: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      lowercase: true,
-      trim: true,
-    },
     name: {
       type: String,
       trim: true,
     },
-    role: {
+    email: {
       type: String,
-      default: "customer",
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      index: true,
     },
-    gmailAccessToken: String,
-    gmailRefreshToken: String,
-    gmailTokenExpiry: Date,
-    gmailHistoryId: String,
-    gmailWatchExpiration: Date,
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    image: {
+      type: String,
+    },
   },
   {
     timestamps: true,
+    collection: "user",
   }
 )
 
-userSchema.virtual("hasGmailConnected").get(function hasGmailConnected(this: IUser) {
-  return Boolean(this.gmailAccessToken && this.gmailRefreshToken)
-})
+userSchema.index({ email: 1 })
 
-export const User = mongoose.model<IUser>("User", userSchema)
+export const User = mongoose.model<IUser>("user", userSchema)

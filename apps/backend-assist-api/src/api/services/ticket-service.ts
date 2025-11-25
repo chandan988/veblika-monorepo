@@ -1,4 +1,4 @@
-import { Ticket, ITicket } from '../models/ticket-model';
+import { Ticket, ITicket } from '../models/previous-ticket-model';
 import createHttpError from 'http-errors';
 import { CreateTicketInput, UpdateTicketInput } from '../validators/ticket-validator';
 import { getPaginationParams, buildPaginationResult, PaginationQuery } from '../../utils/pagination';

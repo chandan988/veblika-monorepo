@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-     "dev": "next dev --port 3001"    ,
+    "dev": "next dev --port 3000 --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -12,20 +12,22 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@better-auth/sso": "^1.3.34",
-    "@workspace/ui": "workspace:*",
     "@headlessui/react": "^2.2.0",
+    "@hookform/resolvers": "^5.2.2",
     "@react-oauth/google": "^0.12.2",
     "@tanstack/react-query": "^5.59.16",
+    "@workspace/ui": "workspace:*",
     "axios": "^1.7.9",
+    "better-auth": "^1.4.1",
     "clsx": "^2.1.1",
-    "better-auth": "^1.3.34",
     "lucide-react": "^0.475.0",
     "next": "^16.0.1",
     "next-themes": "^0.4.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "sonner": "^2.0.7"
+    "react-hook-form": "^7.66.1",
+    "sonner": "^2.0.7",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@workspace/eslint-config": "workspace:^",

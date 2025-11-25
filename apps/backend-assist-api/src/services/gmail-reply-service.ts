@@ -1,6 +1,6 @@
 import { google } from "googleapis"
 import { config } from "../config/index"
-import { User } from "../api/models/user-model"
+import { User } from "../api/models/previous-user-model"
 
 const encodeMessage = (lines: string[]) =>
   Buffer.from(lines.join("\r\n"), "utf8")
