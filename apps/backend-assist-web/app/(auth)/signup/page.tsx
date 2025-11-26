@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -42,6 +42,8 @@ type SignupFormValues = z.infer<typeof signupSchema>
 
 export default function SignupPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect')
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<SignupFormValues>({
@@ -63,14 +65,19 @@ export default function SignupPage() {
         name: data.name,
         email: data.email,
         password: data.password,
-        callbackURL: process.env.NEXT_PUBLIC_CLIENT_URL,
+        callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
       })
 
       if (result.error) {
         toast.error(result.error.message || "Failed to create account")
       } else {
         toast.success("Account created successfully!")
-        router.push("/")
+        // Redirect after successful signup
+        if (redirectTo) {
+          router.push(redirectTo)
+        } else {
+          router.push("/")
+        }
       }
     } catch (error) {
       toast.error("An error occurred during signup")
@@ -84,7 +91,7 @@ export default function SignupPage() {
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: process.env.NEXT_PUBLIC_CLIENT_URL,
+        callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
       })
     } catch (error) {
       toast.error("Failed to signup with Google")

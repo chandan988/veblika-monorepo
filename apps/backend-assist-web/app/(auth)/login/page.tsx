@@ -41,6 +41,8 @@ type LoginFormValues = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect')
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<LoginFormValues>({
@@ -58,13 +60,17 @@ export default function LoginPage() {
       const result = await authClient.signIn.email({
         email: data.email,
         password: data.password,
-        callbackURL: process.env.NEXT_PUBLIC_CLIENT_URL,
+        callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
       })
 
       if (result.error) {
         toast.error(result.error.message || "Failed to login")
       } else {
         toast.success("Login successful!")
+        // Redirect after successful login
+        if (redirectTo) {
+          router.push(redirectTo)
+        }
       }
     } catch (error) {
       toast.error("An error occurred during login")
@@ -78,7 +84,7 @@ export default function LoginPage() {
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: process.env.NEXT_PUBLIC_CLIENT_URL,
+        callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
       })
     } catch (error) {
       toast.error("Failed to login with Google")

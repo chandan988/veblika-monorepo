@@ -1,11 +1,29 @@
 import express, { Express } from "express"
+import { Server as HTTPServer } from "http"
+import { Server as SocketIOServer } from "socket.io"
 import { initializeLoaders } from "./loaders/index"
+import { config } from "./config/index"
 
-export const createApp = async (): Promise<Express> => {
+export const createApp = async (): Promise<{
+  app: Express
+  httpServer: HTTPServer
+  io: SocketIOServer
+}> => {
   const app = express()
+  const httpServer = new HTTPServer(app)
 
-  // Initialize all loaders
-  await initializeLoaders(app)
+  // Initialize Socket.IO with CORS
+  const io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: config.cors?.origin || "*",
+      methods: ["GET", "POST"],
+      credentials: true,
+    },
+    transports: ["websocket", "polling"],
+  })
 
-  return app
+  // Initialize all loaders (including Socket.IO)
+  await initializeLoaders(app, io)
+
+  return { app, httpServer, io }
 }
