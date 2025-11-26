@@ -17,6 +17,23 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
+import { useState } from "react"
+
+// Add form schema definition
+const formSchema = z.object({
+  name: z.string().min(2, "Organization name must be at least 2 characters").max(100, "Organization name is too long"),
+  slug: z.string()
+    .min(2, "Slug must be at least 2 characters")
+    .max(50, "Slug is too long")
+    .regex(/^[a-z0-9-]+$/, "Slug can only contain lowercase letters, numbers, and hyphens")
+    .refine((slug) => !slug.startsWith("-") && !slug.endsWith("-"), "Slug cannot start or end with a hyphen"),
+  description: z.string().max(500, "Description is too long").optional(),
+})
+
+// Add type for organization metadata
+type OrganizationMetadata = {
+  description?: string
+}
 
 export default function Page() {
   const router = useRouter()
@@ -63,6 +80,8 @@ export default function Page() {
   // Show existing organization if user already has one
   if (organizations && organizations.length > 0) {
     const org = organizations[0]
+    const metadata = org.metadata as OrganizationMetadata | undefined
+    
     return (
       <div className="flex items-center justify-center min-h-screen p-4">
         <Card className="w-full max-w-md">
@@ -79,10 +98,10 @@ export default function Page() {
               <p className="text-sm font-medium">Slug</p>
               <p className="text-lg">{org.slug}</p>
             </div>
-            {org.metadata?.description && (
+            {metadata?.description && (
               <div>
                 <p className="text-sm font-medium">Description</p>
-                <p className="text-lg">{org.metadata.description}</p>
+                <p className="text-lg">{metadata.description}</p>
               </div>
             )}
             <Button 
@@ -103,7 +122,9 @@ export default function Page() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Create Organization</CardTitle>
-          <CardDescription>Welcome, {session?.user?.name || session?.user?.email}</CardDescription>
+          <CardDescription>
+            Welcome, {session?.user?.name || session?.user?.email || "User"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -129,7 +150,15 @@ export default function Page() {
                   <FormItem>
                     <FormLabel>Organization Slug</FormLabel>
                     <FormControl>
-                      <Input placeholder="acme-inc" {...field} />
+                      <Input 
+                        placeholder="acme-inc" 
+                        {...field}
+                        onChange={(e) => {
+                          // Auto-convert to lowercase and replace spaces with hyphens
+                          const value = e.target.value.toLowerCase().replace(/\s+/g, '-')
+                          field.onChange(value)
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -146,6 +175,7 @@ export default function Page() {
                       <Textarea 
                         placeholder="Tell us about your organization..." 
                         {...field} 
+                        rows={3}
                       />
                     </FormControl>
                     <FormMessage />
@@ -164,7 +194,6 @@ export default function Page() {
           </Form>
         </CardContent>
       </Card>
-
     </div>
   )
 }
