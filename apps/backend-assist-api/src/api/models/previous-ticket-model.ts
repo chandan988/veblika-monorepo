@@ -9,6 +9,10 @@ export interface ITicketAttachment {
 }
 
 export interface ITicket extends Document {
+  orgId?: string
+  contactId?: string
+  conversationId?: string
+  channel?: string
   title: string
   description: string
   status: "open" | "in-progress" | "resolved" | "closed"
@@ -26,6 +30,7 @@ export interface ITicket extends Document {
   sourceMetadata?: Record<string, unknown>
   externalBody?: string
   externalBodyFormat?: "text" | "html"
+  lastMessageAt?: Date
   createdAt: Date
   updatedAt: Date
 }
@@ -43,6 +48,19 @@ const attachmentSchema = new Schema<ITicketAttachment>(
 
 const ticketSchema = new Schema<ITicket>(
   {
+    orgId: {
+      type: String,
+      index: true,
+    },
+    contactId: {
+      type: String,
+    },
+    conversationId: {
+      type: String,
+    },
+    channel: {
+      type: String,
+    },
     title: {
       type: String,
       required: [true, "Title is required"],
@@ -112,6 +130,9 @@ const ticketSchema = new Schema<ITicket>(
       type: String,
       enum: ["text", "html"],
       default: "text",
+    },
+    lastMessageAt: {
+      type: Date,
     },
   },
   {

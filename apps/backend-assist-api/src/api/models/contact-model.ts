@@ -7,6 +7,7 @@ export interface IContact extends Document {
   phone: string
   slackId: string
   whatsappId?: string
+  source?: string
 }
 
 const contactSchema = new Schema<IContact>(
@@ -35,6 +36,10 @@ const contactSchema = new Schema<IContact>(
     },
     whatsappId: {
       type: String,
+    },
+    source: {
+      type: String,
+      trim: true,
     },
   },
   {
