@@ -95,6 +95,9 @@ export const auth = betterAuth({
         try {
           const inviteLink = `${baseUrl}/accept-invitation/${data.id}`
 
+          // console.log(data,"Invitation Data")
+          // throw new Error("Intentional Error for Testing")
+
           await emailService.sendEmail({
             from,
             to: data.email,
