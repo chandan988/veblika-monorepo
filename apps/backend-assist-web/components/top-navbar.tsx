@@ -15,11 +15,12 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { authClient } from "@/lib/auth-client"
 
 const menuItems = [
-    { name: "Dashboard", href: "/dashboard" },
+    { name: "Dashboard", href: "/" },
     { name: "Ticket", href: "/ticket" },
     { name: "Chat", href: "/chat" },
     { name: "Analytics", href: "/analytics" },
     { name: "Contacts", href: "/contacts" },
+    { name: "Organisation", href: "/organisation" },
     { name: "Integrations", href: "/integrations" },
     { name: "Knowledge Base", href: "/knowledge-base" },
 ]
