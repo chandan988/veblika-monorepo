@@ -3,12 +3,23 @@ import { google } from "googleapis"
 import isAuth from "../../middleware/authenticate"
 import { config } from "../../config/index"
 import { User } from "../models/previous-user-model"
+import { Integration } from "../models/integration-model"
 
 const router = Router()
 
+const resolveOrgId = (req: any) =>
+  req.user?.organizationId ||
+  req.user?.orgId ||
+  req.user?.organization?.id ||
+  req.user?.organization?.organizationId ||
+  req.user?.org?.id
+
 router.get("/google-gmail/status", isAuth, async (req, res) => {
-  console.log("[google-gmail] Status check for user", req.user?.sub)
-  const user = await User.findOne({ authUserId: req.user?.sub })
+  console.log("[google-gmail] Status check for user", req.user?.id)
+  const sessionEmail = req.user?.email?.toLowerCase()
+  const user =
+    (await User.findOne({ authUserId: req.user?.id })) ||
+    (sessionEmail ? await User.findOne({ email: sessionEmail }) : null)
   console.log("[google-gmail] Status result", {
     hasAccess: Boolean(user?.gmailAccessToken),
     hasRefresh: Boolean(user?.gmailRefreshToken),
@@ -24,7 +35,7 @@ router.get("/google-gmail/status", isAuth, async (req, res) => {
 
 router.post("/google-gmail", isAuth, async (req, res) => {
   try {
-    console.log("[google-gmail] Connect attempt for user", req.user?.sub)
+    console.log("[google-gmail] Connect attempt for user", req.user?.id)
     const { code } = req.body
     if (!code) {
       console.warn("[google-gmail] Missing auth code")
@@ -40,10 +51,18 @@ router.post("/google-gmail", isAuth, async (req, res) => {
     const { tokens } = await oauth2Client.getToken({ code, redirect_uri: "postmessage" })
     const { access_token, refresh_token, expiry_date } = tokens
 
+    const sessionEmail = req.user?.email?.toLowerCase()
+    const updateFilter =
+      req.user?.id && sessionEmail
+        ? { $or: [{ authUserId: req.user.id }, { email: sessionEmail }] }
+        : req.user?.id
+          ? { authUserId: req.user.id }
+          : { email: sessionEmail }
+
     const user = await User.findOneAndUpdate(
-      { authUserId: req.user?.sub },
+      updateFilter,
       {
-        authUserId: req.user?.sub,
+        authUserId: req.user?.id,
         email: req.user?.email,
         name: req.user?.name,
         $setOnInsert: { role: "admin" },
@@ -55,6 +74,29 @@ router.post("/google-gmail", isAuth, async (req, res) => {
     )
 
     await user.save()
+
+    const orgId = resolveOrgId(req)
+    const channelEmail = req.user?.email?.toLowerCase()
+
+    if (orgId && channelEmail) {
+      await Integration.findOneAndUpdate(
+        { orgId, channel: "gmail", channelEmail },
+        {
+          orgId,
+          channel: "gmail",
+          provider: "gmail",
+          name: `Gmail - ${channelEmail}`,
+          channelEmail,
+          credentials: {
+            accessToken: access_token,
+            refreshToken: refresh_token,
+            expiryDate: expiry_date ? new Date(expiry_date) : undefined,
+          },
+          status: "connected",
+        },
+        { upsert: true, new: true }
+      )
+    }
 
     console.log("[google-gmail] Connect success", {
       userId: user.authUserId,
@@ -71,8 +113,11 @@ router.post("/google-gmail", isAuth, async (req, res) => {
 
 router.delete("/google-gmail", isAuth, async (req, res) => {
   try {
-    console.log("[google-gmail] Disconnect attempt for user", req.user?.sub)
-    const user = await User.findOne({ authUserId: req.user?.sub })
+    console.log("[google-gmail] Disconnect attempt for user", req.user?.id)
+    const sessionEmail = req.user?.email?.toLowerCase()
+    const user =
+      (await User.findOne({ authUserId: req.user?.id })) ||
+      (sessionEmail ? await User.findOne({ email: sessionEmail }) : null)
     if (!user) {
       console.warn("[google-gmail] User not found, treating as already disconnected")
       return res.status(200).json({ message: "Gmail already disconnected" })
@@ -107,6 +152,19 @@ router.delete("/google-gmail", isAuth, async (req, res) => {
     user.gmailHistoryId = undefined
     user.gmailWatchExpiration = undefined
     await user.save()
+
+    const orgId = resolveOrgId(req)
+    const channelEmail = req.user?.email?.toLowerCase()
+
+    if (orgId && channelEmail) {
+      await Integration.findOneAndUpdate(
+        { orgId, channel: "gmail", channelEmail },
+        {
+          status: "disconnected",
+          credentials: {},
+        }
+      )
+    }
 
     console.log("[google-gmail] Disconnect success", { userId: user.authUserId })
     return res.json({ message: "Gmail disconnected successfully" })

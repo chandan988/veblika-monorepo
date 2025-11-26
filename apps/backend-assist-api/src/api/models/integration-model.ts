@@ -11,9 +11,16 @@ export type Channel =
 export interface IIntegration extends Document {
   orgId: mongoose.Types.ObjectId
   channel: Channel
+  provider?: string
   name: string
-  status?: "active" | "error" | "expired" | "disconnected"
-  credentials?: Record<string, any>
+  status?: "connected" | "disconnected" | "error" | "expired" | "active"
+  credentials?: {
+    accessToken?: string
+    refreshToken?: string
+    expiryDate?: Date
+    [key: string]: any
+  }
+  channelEmail?: string
 }
 
 const integrationSchema = new Schema<IIntegration>(
@@ -29,6 +36,10 @@ const integrationSchema = new Schema<IIntegration>(
       enum: ["gmail", "imap", "smtp", "slack", "whatsapp", "webchat"],
       required: true,
     },
+    provider: {
+      type: String,
+      trim: true,
+    },
     name: {
       type: String,
       required: true,
@@ -39,8 +50,14 @@ const integrationSchema = new Schema<IIntegration>(
     },
     status: {
       type: String,
-      enum: ["active", "error", "expired", "disconnected"],
-      default: "active",
+      enum: ["connected", "disconnected", "error", "expired", "active"],
+      default: "connected",
+    },
+    channelEmail: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      index: true,
     },
   },
   {
@@ -49,7 +66,7 @@ const integrationSchema = new Schema<IIntegration>(
   }
 )
 
-integrationSchema.index({ orgId: 1, type: 1 })
+integrationSchema.index({ orgId: 1, channel: 1, channelEmail: 1 }, { unique: false })
 
 export const Integration = mongoose.model<IIntegration>(
   "integration",

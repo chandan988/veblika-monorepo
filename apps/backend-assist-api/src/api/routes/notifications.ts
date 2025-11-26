@@ -10,7 +10,7 @@ router.get("/stream", isAuth, async (req, res) => {
   res.setHeader("Connection", "keep-alive")
   res.setHeader("X-Accel-Buffering", "no")
 
-  const userId = req.user?.sub
+  const userId = req.user?.id
 
   const onNotification = (payload: NotificationPayload) => {
     if (!payload.userId || payload.userId === userId) {

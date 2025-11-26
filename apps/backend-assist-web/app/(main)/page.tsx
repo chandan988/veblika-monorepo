@@ -17,13 +17,6 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
-import { useState } from "react"
-
-const formSchema = z.object({
-  name: z.string().min(2, "Organization name must be at least 2 characters"),
-  slug: z.string().min(2, "Organization slug must be at least 2 characters"),
-  description: z.string().optional(),
-})
 
 export default function Page() {
   const router = useRouter()
@@ -171,6 +164,7 @@ export default function Page() {
           </Form>
         </CardContent>
       </Card>
+
     </div>
   )
 }
