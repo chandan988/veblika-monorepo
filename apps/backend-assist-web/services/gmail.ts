@@ -1,5 +1,13 @@
 import { api } from "./api"
 
+export type GmailStatus = {
+  connected: boolean
+  historyId?: string
+  watchExpiration?: string
+  connectedEmail?: string
+  watchActive?: boolean
+}
+
 export const gmailService = {
   connect: async (code: string) => {
     console.log("[gmailService.connect] Attempting to connect Gmail with auth code", code ? `${code.slice(0, 6)}...` : "undefined")
@@ -15,9 +23,9 @@ export const gmailService = {
   },
   getStatus: async () => {
     console.log("[gmailService.status] Fetching Gmail status")
-    const { data } = await api.get("/auth/google-gmail/status")
+    const { data } = await api.get<GmailStatus>("/auth/google-gmail/status")
     console.log("[gmailService.status] Response", data)
-    return data as { connected: boolean; historyId?: string; watchExpiration?: string }
+    return data
   },
   startWatch: async () => {
     console.log("[gmailService.watch] Requesting Gmail watch start")

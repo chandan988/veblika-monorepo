@@ -20,16 +20,25 @@ router.get("/google-gmail/status", isAuth, async (req, res) => {
   const user =
     (await User.findOne({ authUserId: req.user?.id })) ||
     (sessionEmail ? await User.findOne({ email: sessionEmail }) : null)
+  const watchExpiration = user?.gmailWatchExpiration
+  const connectedEmail = user?.gmailConnectedEmail || user?.email
+  const watchActive = Boolean(
+    watchExpiration && watchExpiration.getTime() > Date.now()
+  )
   console.log("[google-gmail] Status result", {
     hasAccess: Boolean(user?.gmailAccessToken),
     hasRefresh: Boolean(user?.gmailRefreshToken),
     historyId: user?.gmailHistoryId,
-    watchExpiration: user?.gmailWatchExpiration,
+    watchExpiration,
+    connectedEmail,
+    watchActive,
   })
   return res.json({
     connected: Boolean(user?.gmailAccessToken && user?.gmailRefreshToken),
     historyId: user?.gmailHistoryId,
-    watchExpiration: user?.gmailWatchExpiration,
+    watchExpiration,
+    connectedEmail,
+    watchActive,
   })
 })
 
@@ -51,6 +60,26 @@ router.post("/google-gmail", isAuth, async (req, res) => {
     const { tokens } = await oauth2Client.getToken({ code, redirect_uri: "postmessage" })
     const { access_token, refresh_token, expiry_date } = tokens
 
+    oauth2Client.setCredentials({
+      access_token: access_token || undefined,
+      refresh_token: refresh_token || undefined,
+    })
+
+    let gmailAddress = req.user?.email?.toLowerCase()
+    try {
+      const gmail = google.gmail({ version: "v1", auth: oauth2Client })
+      const profile = await gmail.users.getProfile({ userId: "me" })
+      if (profile.data?.emailAddress) {
+        gmailAddress = profile.data.emailAddress.toLowerCase()
+      }
+      console.log("[google-gmail] Gmail profile fetched", {
+        gmailAddress,
+        hasRefresh: Boolean(refresh_token),
+      })
+    } catch (profileError) {
+      console.warn("[google-gmail] Failed to fetch Gmail profile", profileError)
+    }
+
     const sessionEmail = req.user?.email?.toLowerCase()
     const updateFilter =
       req.user?.id && sessionEmail
@@ -64,6 +93,7 @@ router.post("/google-gmail", isAuth, async (req, res) => {
       {
         authUserId: req.user?.id,
         email: req.user?.email,
+        gmailConnectedEmail: gmailAddress,
         name: req.user?.name,
         $setOnInsert: { role: "admin" },
         gmailAccessToken: access_token,
@@ -76,7 +106,7 @@ router.post("/google-gmail", isAuth, async (req, res) => {
     await user.save()
 
     const orgId = resolveOrgId(req)
-    const channelEmail = req.user?.email?.toLowerCase()
+    const channelEmail = gmailAddress || sessionEmail
 
     if (orgId && channelEmail) {
       await Integration.findOneAndUpdate(
@@ -100,11 +130,15 @@ router.post("/google-gmail", isAuth, async (req, res) => {
 
     console.log("[google-gmail] Connect success", {
       userId: user.authUserId,
+      gmailAddress,
       expiresAt: expiry_date ? new Date(expiry_date).toISOString() : null,
       hasRefresh: Boolean(refresh_token),
     })
 
-    return res.json({ message: "Gmail linked successfully" })
+    return res.json({
+      message: "Gmail linked successfully",
+      gmailAddress,
+    })
   } catch (err) {
     console.error("Gmail OAuth error:", err)
     return res.status(500).json({ message: "Gmail connect failed" })
@@ -146,15 +180,16 @@ router.delete("/google-gmail", isAuth, async (req, res) => {
       }
     }
 
+    const orgId = resolveOrgId(req)
+    const channelEmail = user.gmailConnectedEmail || req.user?.email?.toLowerCase()
+
     user.gmailAccessToken = undefined
     user.gmailRefreshToken = undefined
     user.gmailTokenExpiry = undefined
     user.gmailHistoryId = undefined
     user.gmailWatchExpiration = undefined
+    user.gmailConnectedEmail = undefined
     await user.save()
-
-    const orgId = resolveOrgId(req)
-    const channelEmail = req.user?.email?.toLowerCase()
 
     if (orgId && channelEmail) {
       await Integration.findOneAndUpdate(

@@ -74,6 +74,31 @@ export const GmailIntegrationCard = () => {
     return isConnected ? "Connected" : "Not connected"
   }, [connecting, isConnected])
 
+  const watchActive = useMemo(() => {
+    if (typeof data?.watchActive === "boolean") return data.watchActive
+    if (!data?.watchExpiration) return false
+    const expiresAt = new Date(data.watchExpiration).getTime()
+    return Number.isNaN(expiresAt) ? false : expiresAt > Date.now()
+  }, [data?.watchActive, data?.watchExpiration])
+
+  const watchExpirationLabel = data?.watchExpiration
+    ? new Date(data.watchExpiration).toLocaleString()
+    : undefined
+
+  const connectionPillClass = clsx(
+    "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
+    isConnected
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border-rose-200 bg-rose-50 text-rose-700"
+  )
+
+  const watchPillClass = clsx(
+    "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
+    watchActive
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border-amber-200 bg-amber-50 text-amber-700"
+  )
+
   return (
     <Card id="integrations" className="max-w-4xl">
       <CardHeader>
@@ -82,56 +107,89 @@ export const GmailIntegrationCard = () => {
           Connect a Gmail inbox to ingest conversations into tickets.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Status</p>
-              <p className="text-lg font-semibold">
-                {statusLabel}
-              {data?.historyId ? (
-                <span className="ml-2 text-sm text-muted-foreground">
-                  History: {data.historyId}
+      <CardContent className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Connection</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={connectionPillClass}>{statusLabel}</span>
+              {data?.connectedEmail ? (
+                <span className="truncate text-sm font-medium text-muted-foreground">
+                  {data.connectedEmail}
                 </span>
               ) : null}
-            </p>
-            {data?.watchExpiration ? (
+            </div>
+            {data?.historyId ? (
               <p className="text-xs text-muted-foreground">
-                Watch expires {new Date(data.watchExpiration).toLocaleString()}
+                History ID: <span className="font-mono">{data.historyId}</span>
               </p>
-            ) : null}
-            {!hasGoogleClientId ? (
-              <p className="text-xs text-yellow-500">
-                Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to your .env to connect Gmail.
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Connect Gmail to start syncing conversations.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Watch status</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={watchPillClass}>
+                {watchActive ? "Watch started" : "Awaiting watch"}
+              </span>
+              {watchExpirationLabel ? (
+                <span className="text-xs text-muted-foreground">
+                  Expires {watchExpirationLabel}
+                </span>
+              ) : null}
+            </div>
+            {!isConnected ? (
+              <p className="text-xs text-muted-foreground">
+                Connect Gmail first to enable watch notifications.
               </p>
             ) : null}
           </div>
+        </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
+        {!hasGoogleClientId ? (
+          <p className="text-xs text-yellow-500">
+            Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to your .env to connect Gmail.
+          </p>
+        ) : null}
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            type="button"
+            onClick={handlePrimaryClick}
+            disabled={working || !hasGoogleClientId}
+            className={clsx(
+              "min-w-[160px]",
+              isConnected
+                ? "bg-green-600 hover:bg-green-700"
+                : "bg-red-600 hover:bg-red-700"
+            )}
+          >
+            {isConnected ? "Connected" : "Connect Gmail"}
+          </Button>
+
+          {isConnected ? (
             <Button
               type="button"
-              onClick={handlePrimaryClick}
-              disabled={working || !hasGoogleClientId}
+              disabled={watchMutation.isPending || !hasGoogleClientId}
+              onClick={handleWatchClick}
               className={clsx(
                 "min-w-[160px]",
-                isConnected
-                  ? "bg-green-600 hover:bg-green-700"
-                  : "bg-red-600 hover:bg-red-700"
+                watchActive
+                  ? "bg-green-600 hover:bg-green-600 text-white"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
               )}
             >
-              {isConnected ? "Connected" : "Connect Gmail"}
+              {watchMutation.isPending
+                ? "Starting..."
+                : watchActive
+                  ? "Watch Started"
+                  : "Start Watch"}
             </Button>
-
-            {isConnected ? (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={watchMutation.isPending || !hasGoogleClientId}
-                onClick={handleWatchClick}
-              >
-                {watchMutation.isPending ? "Starting..." : "Start Watch"}
-              </Button>
-            ) : null}
-          </div>
+          ) : null}
         </div>
       </CardContent>
     </Card>

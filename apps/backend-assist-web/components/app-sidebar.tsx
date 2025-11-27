@@ -10,7 +10,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
+  SidebarHeader,  
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -41,6 +41,7 @@ import {
   FileText,
   LifeBuoy,
   Plug,
+  Ticket,
 } from "lucide-react"
 
 const navigationItems = [
@@ -83,6 +84,11 @@ const navigationItems = [
     title: "Integrations",
     icon: Plug,
     href: "/projects",
+  },
+  {
+    title: "Tickets",
+    icon: Ticket,
+    href: "/tickets",
   },
 ]
 

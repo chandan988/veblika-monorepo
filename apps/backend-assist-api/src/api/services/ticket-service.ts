@@ -10,7 +10,7 @@ export class TicketService {
     return ticket;
   }
 
-  async getAllTickets(query: PaginationQuery & { status?: string; priority?: string }) {
+  async getAllTickets(query: PaginationQuery & { status?: string; priority?: string; source?: string; channel?: string }) {
     const { page, limit, skip, sortBy, sortOrder } = getPaginationParams(query);
 
     // Build filter
@@ -20,6 +20,12 @@ export class TicketService {
     }
     if (query.priority) {
       filter.priority = query.priority;
+    }
+    if (query.source) {
+      filter.source = query.source;
+    }
+    if (query.channel) {
+      filter.channel = query.channel;
     }
 
     const [tickets, total] = await Promise.all([

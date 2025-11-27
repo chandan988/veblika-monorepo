@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { gmailService } from "@/services/gmail"
+import { gmailService, GmailStatus } from "@/services/gmail"
 
 export const useGmailStatus = () =>
-  useQuery({
+  useQuery<GmailStatus>({
     queryKey: ["gmail-status"],
     queryFn: async () => {
       const status = await gmailService.getStatus()

@@ -63,7 +63,13 @@ router.post("/gmail/push", async (req, res) => {
 
     console.log("[gmail-webhook] Parsed message", { emailAddress, historyId })
 
-    const user = await User.findOne({ email: emailAddress.toLowerCase() })
+    const normalizedEmail = emailAddress.toLowerCase()
+    const user = await User.findOne({
+      $or: [
+        { gmailConnectedEmail: normalizedEmail },
+        { email: normalizedEmail },
+      ],
+    })
     if (!user || !user.gmailAccessToken) {
       console.warn("[gmail-webhook] Gmail push for unknown/unlinked user", emailAddress)
       return res.status(200).send("ACK")

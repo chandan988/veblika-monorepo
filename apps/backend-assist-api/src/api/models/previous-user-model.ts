@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from "mongoose"
 export interface IUser extends Document {
   authUserId: string
   email: string
+  gmailConnectedEmail?: string
   name?: string
   role?: string
   gmailAccessToken?: string
@@ -26,6 +27,12 @@ const userSchema = new Schema<IUser>(
       required: true,
       lowercase: true,
       trim: true,
+    },
+    gmailConnectedEmail: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      index: true,
     },
     name: {
       type: String,
