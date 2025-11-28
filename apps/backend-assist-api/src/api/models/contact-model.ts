@@ -48,4 +48,7 @@ const contactSchema = new Schema<IContact>(
   }
 )
 
+// Compound unique index: one contact per email per organization
+contactSchema.index({ orgId: 1, email: 1 }, { unique: true, sparse: true })
+
 export const Contact = mongoose.model<IContact>("contact", contactSchema)
