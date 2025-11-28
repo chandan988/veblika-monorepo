@@ -1,0 +1,112 @@
+import { Request, Response } from 'express';
+import { conversationService } from '../services/conversation-service';
+import { asyncHandler } from '../../utils/async-handler';
+import { GetConversationsQuery, UpdateConversationInput, SendMessageInput, GetMessagesQuery } from '../validators/conversation-validator';
+
+export class ConversationController {
+  /**
+   * Get all conversations with filters
+   */
+  getConversations = asyncHandler(async (req: Request, res: Response) => {
+    const query: GetConversationsQuery = req.query;
+    const result = await conversationService.getConversations(query);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Conversations retrieved successfully',
+      data: result.conversations,
+      pagination: {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: Math.ceil(result.total / result.limit),
+      },
+    });
+  });
+
+  /**
+   * Get conversation by ID
+   */
+  getConversationById = asyncHandler(async (req: Request, res: Response) => {
+    const conversation = await conversationService.getConversationById(req.params.id!);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Conversation retrieved successfully',
+      data: conversation,
+    });
+  });
+
+  /**
+   * Update conversation
+   */
+  updateConversation = asyncHandler(async (req: Request, res: Response) => {
+    const data: UpdateConversationInput = req.body;
+    const conversation = await conversationService.updateConversation(req.params.id!, data);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Conversation updated successfully',
+      data: conversation,
+    });
+  });
+
+  /**
+   * Get messages for a conversation
+   */
+  getConversationMessages = asyncHandler(async (req: Request, res: Response) => {
+    const { limit, before } = req.query as GetMessagesQuery;
+    const messages = await conversationService.getConversationMessages(
+      req.params.id!,
+      limit ? parseInt(limit) : 50,
+      before
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Messages retrieved successfully',
+      data: messages,
+    });
+  });
+
+  /**
+   * Send message to conversation
+   */
+  sendMessage = asyncHandler(async (req: Request, res: Response) => {
+    const data: SendMessageInput = req.body;
+    
+    // Get orgId from authenticated user's session
+    // For now, we'll need to pass it from the request
+    const orgId = req.query.orgId as string || '';
+    const agentId = req.user?.id || '';
+
+    const message = await conversationService.sendMessage(
+      req.params.id!,
+      agentId,
+      data.text,
+      orgId
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: 'Message sent successfully',
+      data: message,
+    });
+  });
+
+  /**
+   * Get conversation statistics
+   */
+  getConversationStats = asyncHandler(async (req: Request, res: Response) => {
+    const orgId = req.query.orgId as string;
+    const stats = await conversationService.getConversationStats(orgId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Statistics retrieved successfully',
+      data: stats,
+    });
+  });
+}
+
+export const conversationController = new ConversationController();

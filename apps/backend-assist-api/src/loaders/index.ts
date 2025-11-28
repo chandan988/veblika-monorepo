@@ -5,6 +5,7 @@ import { expressLoader } from "./express"
 import { routesLoader } from "./routes"
 import { initializeSocketIO } from "./socket"
 import { logger } from "../config/logger"
+import { setSocketIO } from "../utils/socket-io"
 
 export const initializeLoaders = async (app: Express, io?: SocketIOServer): Promise<void> => {
   try {
@@ -24,6 +25,7 @@ export const initializeLoaders = async (app: Express, io?: SocketIOServer): Prom
 
     // Initialize Socket.IO
     if (io) {
+      setSocketIO(io) // Store instance globally
       initializeSocketIO(io)
       logger.info("✅ Socket.IO loader initialized")
     }

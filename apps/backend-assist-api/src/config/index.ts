@@ -2,22 +2,24 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
-// const allowedOrigins = (() => {
-//   const fromEnv =
-//     process.env.CORS_ORIGIN
-//       ?.split(",")
-//       .map((o) => o.trim())
-//       .filter(Boolean) || []
+const allowedOrigins = (() => {
+  const fromEnv =
+    process.env.CORS_ORIGIN
+      ?.split(",")
+      .map((o) => o.trim())
+      .filter(Boolean) || []
 
-//   const fromClient = process.env.CLIENT_URL ? [process.env.CLIENT_URL] : []
+  const fromClient = process.env.CLIENT_URL ? [process.env.CLIENT_URL] : []
 
-//   const fallbacks = ["http://localhost:3000", "http://localhost:3001"]
+  const fallbacks = [
+    "http://localhost:3000",  // Next.js app
+    "http://localhost:5173",  // Widget UI (Vite)
+    "*" // Allow all origins for widget embedding
+  ]
 
-//   // Deduplicate while preserving order
-//   return Array.from(new Set([...fromEnv, ...fromClient, ...fallbacks]))
-// })()
-
-const allowedOrigins = ["http://localhost:3000"]
+  // Deduplicate while preserving order
+  return Array.from(new Set([...fromEnv, ...fromClient, ...fallbacks]))
+})()
 
 export const config = {
   port: process.env.PORT || 8000,
@@ -33,9 +35,7 @@ export const config = {
   },
 
   auth: {
-    serviceUrl: process.env.AUTH_SERVICE_URL || "http://localhost:3000",
-    jwtSecret: process.env.JWT_SECRET || "change-me",
-    secret: process.env.BETTER_AUTH_SECRET || "change-me-secret-32-chars-min",
+    serviceUrl: process.env.BETTER_AUTH_URL || "http://localhost:8000",
   },
   client: {
     url: process.env.CLIENT_URL || "http://localhost:3000",
@@ -44,6 +44,7 @@ export const config = {
     clientId: process.env.GOOGLE_CLIENT_ID || "",
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     gmailPubsubTopic: process.env.GMAIL_PUBSUB_TOPIC || "",
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || "",
   },
   email: {
     from: process.env.DEFAULT_FROM_EMAIL || "noreply@veblika.com",
