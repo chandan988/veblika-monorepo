@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { redirect, useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
@@ -42,16 +42,25 @@ type LoginFormValues = z.infer<typeof loginSchema>
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirect')
+  const redirectTo = searchParams.get("redirect")
+  const emailParam = searchParams.get("email")
+  const invitationId = searchParams.get("invitationId")
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      email: emailParam || "",
       password: "",
     },
   })
+
+  // Update email field when emailParam changes
+  useEffect(() => {
+    if (emailParam) {
+      form.setValue("email", emailParam)
+    }
+  }, [emailParam, form])
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true)
@@ -68,7 +77,10 @@ export default function LoginPage() {
       } else {
         toast.success("Login successful!")
         // Redirect after successful login
-        if (redirectTo) {
+        if (invitationId) {
+          // If coming from invitation flow, redirect to accept-invitation page
+          router.push(`/accept-invitation/${invitationId}`)
+        } else if (redirectTo) {
           router.push(redirectTo)
         }
       }
@@ -84,7 +96,10 @@ export default function LoginPage() {
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
+        callbackURL: invitationId
+          ? process.env.NEXT_PUBLIC_CLIENT_URL +
+            `/accept-invitation/${invitationId}`
+          : redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
       })
     } catch (error) {
       toast.error("Failed to login with Google")
@@ -93,7 +108,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+    <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-background to-muted p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-2 text-center">
           <CardTitle className="text-3xl font-bold tracking-tight">
@@ -150,11 +165,16 @@ export default function LoginPage() {
                       <Input
                         type="email"
                         placeholder="name@example.com"
-                        disabled={isLoading}
+                        disabled={isLoading || !!emailParam}
                         className="h-11"
                         {...field}
                       />
                     </FormControl>
+                    {emailParam && (
+                      <p className="text-xs text-muted-foreground">
+                        Email locked for invitation
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
