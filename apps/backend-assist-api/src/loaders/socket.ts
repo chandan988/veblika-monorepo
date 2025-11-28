@@ -1,9 +1,16 @@
 import { Server as SocketIOServer, Socket } from "socket.io"
 import { logger } from "../config/logger"
+import { widgetService } from "../api/services/widget-service"
+import { notifications } from "../utils/notifications"
 
 interface AuthenticatedSocket extends Socket {
   userId?: string
   userEmail?: string
+  orgId?: string
+  websiteId?: string
+  tenantId?: string
+  sessionId?: string
+  isWidget?: boolean
 }
 
 export const initializeSocketIO = (io: SocketIOServer): void => {
@@ -69,6 +76,219 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
 
     socket.on("typing:stop", (data: { roomId: string }) => {
       socket.to(data.roomId).emit("user:stopped-typing", { userId: socket.userId })
+    })
+
+    // ========== WIDGET EVENTS ==========
+    
+    /**
+     * Widget connects and joins room
+     * Visitor connects from widget UI
+     */
+    socket.on("widget:join", async (data: { websiteId: string; tenantId: string; sessionId: string }) => {
+      try {
+        logger.info(`Widget joining: ${data.websiteId}, ${data.tenantId}, ${data.sessionId}`)
+        
+        // Verify integration exists and is active
+        const integration = await widgetService.getIntegrationByTenantId(data.tenantId)
+        
+        if (!integration) {
+          socket.emit("widget:error", { message: "Integration not found or inactive" })
+          return
+        }
+
+        // Mark socket as widget socket
+        socket.isWidget = true
+        socket.websiteId = data.websiteId
+        socket.tenantId = data.tenantId
+        socket.sessionId = data.sessionId
+        socket.orgId = integration.orgId.toString()
+
+        // Join widget-specific room for this integration
+        const widgetRoom = `widget:${integration._id}`
+        socket.join(widgetRoom)
+        
+        logger.info(`Widget socket ${socket.id} joined room ${widgetRoom}`)
+        
+        // Send confirmation to widget
+        socket.emit("widget:connected", {
+          success: true,
+          integrationId: integration._id,
+        })
+      } catch (error) {
+        logger.error("Error in widget:join:", error)
+        socket.emit("widget:error", { message: "Failed to join widget room" })
+      }
+    })
+
+    /**
+     * Visitor sends a message from widget
+     */
+    socket.on("visitor:message", async (data: {
+      tenantId: string;
+      websiteId: string;
+      sessionId: string;
+      message: { text: string };
+      visitorInfo?: {
+        name?: string;
+        email?: string;
+        userAgent?: string;
+        referrer?: string;
+      };
+    }) => {
+      try {
+        logger.info(`Visitor message from session ${data.sessionId}`)
+        
+        // Save message using widget service
+        const result = await widgetService.saveVisitorMessage(data)
+        
+        // Send confirmation back to widget
+        socket.emit("message:confirmed", {
+          messageId: result.message._id,
+          conversationId: result.conversation._id,
+          timestamp: new Date(),
+        })
+
+        // Get integration to find orgId
+        const integration = await widgetService.getIntegrationByTenantId(data.tenantId)
+        if (!integration) return
+
+        // Notify agents in the organization
+        const agentRoom = `org:${integration.orgId}:agents`
+        io.to(agentRoom).emit("new:message", {
+          message: result.message,
+          conversation: result.conversation,
+          isNewConversation: result.isNewConversation,
+        })
+
+        // Also emit SSE notification for agents not on socket
+        notifications.emit("notification", {
+          type: "new_message",
+          orgId: integration.orgId.toString(),
+          conversationId: result.conversation._id,
+          messageId: result.message._id,
+          preview: data.message.text.substring(0, 100),
+        })
+
+        logger.info(`Message saved and notified to agents in ${agentRoom}`)
+      } catch (error) {
+        logger.error("Error in visitor:message:", error)
+        socket.emit("message:error", { message: "Failed to send message" })
+      }
+    })
+
+    /**
+     * Agent joins their organization's room to receive messages
+     */
+    socket.on("agent:join", async (data: { orgId: string; userId: string }) => {
+      try {
+        logger.info(`Agent ${data.userId} joining org ${data.orgId}`)
+        
+        // Store agent info in socket
+        socket.userId = data.userId
+        socket.orgId = data.orgId
+
+        // Join organization's agent room
+        const agentRoom = `org:${data.orgId}:agents`
+        socket.join(agentRoom)
+        
+        logger.info(`Agent socket ${socket.id} joined room ${agentRoom}`)
+        
+        socket.emit("agent:connected", {
+          success: true,
+          room: agentRoom,
+        })
+      } catch (error) {
+        logger.error("Error in agent:join:", error)
+        socket.emit("agent:error", { message: "Failed to join agent room" })
+      }
+    })
+
+    /**
+     * Agent sends a message to visitor
+     */
+    socket.on("agent:message", async (data: {
+      conversationId: string;
+      message: { text: string };
+      agentId: string;
+    }) => {
+      try {
+        logger.info(`Agent message to conversation ${data.conversationId}`)
+        
+        // Save agent message
+        const message = await widgetService.saveAgentMessage(
+          data.conversationId,
+          data.agentId,
+          data.message.text
+        )
+
+        // Send confirmation to agent
+        socket.emit("message:confirmed", {
+          messageId: message._id,
+          conversationId: message.conversationId,
+          timestamp: new Date(),
+        })
+
+        // Get integration to find the widget room
+        const integration = await widgetService.getIntegrationByTenantId(socket.tenantId || "")
+        
+        // Find the conversation to get integrationId
+        const { Conversation } = await import("../api/models/conversation-model")
+        const conversation = await Conversation.findById(data.conversationId)
+        
+        if (conversation) {
+          // Send message to widget room
+          const widgetRoom = `widget:${conversation.integrationId}`
+          io.to(widgetRoom).emit("agent:message", {
+            message: message,
+            conversationId: conversation._id,
+          })
+          
+          logger.info(`Agent message sent to widget room ${widgetRoom}`)
+        }
+      } catch (error) {
+        logger.error("Error in agent:message:", error)
+        socket.emit("message:error", { message: "Failed to send message" })
+      }
+    })
+
+    /**
+     * Agent joins a specific conversation room
+     */
+    socket.on("conversation:join", (data: { conversationId: string }) => {
+      const conversationRoom = `conversation:${data.conversationId}`
+      socket.join(conversationRoom)
+      logger.info(`Socket ${socket.id} joined conversation ${data.conversationId}`)
+      socket.emit("conversation:joined", { conversationId: data.conversationId })
+    })
+
+    /**
+     * Agent leaves a conversation room
+     */
+    socket.on("conversation:leave", (data: { conversationId: string }) => {
+      const conversationRoom = `conversation:${data.conversationId}`
+      socket.leave(conversationRoom)
+      logger.info(`Socket ${socket.id} left conversation ${data.conversationId}`)
+    })
+
+    /**
+     * Typing indicators for conversations
+     */
+    socket.on("typing:start", (data: { conversationId: string; isAgent?: boolean }) => {
+      const conversationRoom = `conversation:${data.conversationId}`
+      socket.to(conversationRoom).emit("user:typing", {
+        conversationId: data.conversationId,
+        userId: socket.userId,
+        isAgent: data.isAgent,
+      })
+    })
+
+    socket.on("typing:stop", (data: { conversationId: string; isAgent?: boolean }) => {
+      const conversationRoom = `conversation:${data.conversationId}`
+      socket.to(conversationRoom).emit("user:stopped-typing", {
+        conversationId: data.conversationId,
+        userId: socket.userId,
+        isAgent: data.isAgent,
+      })
     })
 
     // Handle disconnection

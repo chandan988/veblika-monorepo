@@ -12,6 +12,7 @@ import { Input } from "@workspace/ui/components/input"
 import { Badge } from "@workspace/ui/components/badge"
 import { ScrollArea } from "@workspace/ui/components/scroll-area"
 import { Card } from "@workspace/ui/components/card"
+import { Label } from "@workspace/ui/components/label"
 import { socket } from "./lib/socket-client"
 
 type Message = {
@@ -21,12 +22,24 @@ type Message = {
   socketId?: string
 }
 
+type VisitorInfo = {
+  name: string
+  email: string
+  phone: string
+}
+
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isOpen, setIsOpen] = useState(false)
   const [isConnected, setIsConnected] = useState(socket.connected)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [showForm, setShowForm] = useState(true)
+  const [visitorInfo, setVisitorInfo] = useState<VisitorInfo>({
+    name: "",
+    email: "",
+    phone: "",
+  })
   const searchParams = useMemo(
     () => new URLSearchParams(window.location.search),
     []
@@ -77,21 +90,33 @@ export default function App() {
   useEffect(() => {
     function onConnect() {
       setIsConnected(true)
-      // Join tenant room
-      socket.emit("join:tenant", { sessionId, tenantId, userType: "visitor" })
+      // Join widget room only if visitor info is submitted
+      if (!showForm) {
+        socket.emit("widget:join", { 
+          websiteId: sessionId, 
+          tenantId, 
+          sessionId: sessionId || `session-${Date.now()}`,
+          visitorInfo
+        })
+      }
     }
 
     function onDisconnect() {
       setIsConnected(false)
     }
 
-    function onAdminMessage(data: any) {
-      console.log("Admin Message received:", data)
+    function onWidgetConnected(data: any) {
+      console.log("Widget connected:", data)
+    }
+
+    function onAgentMessage(data: any) {
+      console.log("Agent message received:", data)
+      const message = data.message || data
       const newMessage: Message = {
-        text: data.message,
+        text: message.body?.text || message.text || "",
         sender: "admin",
-        timestamp: new Date(data.timestamp),
-        socketId: data.socketId,
+        timestamp: new Date(message.createdAt || Date.now()),
+        socketId: message._id,
       }
       setMessages((prev) => [...prev, newMessage])
 
@@ -101,16 +126,42 @@ export default function App() {
       }
     }
 
+    function onMessageConfirmed(data: any) {
+      console.log("Message confirmed:", data)
+    }
+
     socket.on("connect", onConnect)
     socket.on("disconnect", onDisconnect)
-    socket.on("admin:message", onAdminMessage)
+    socket.on("widget:connected", onWidgetConnected)
+    socket.on("agent:message", onAgentMessage)
+    socket.on("message:confirmed", onMessageConfirmed)
 
     return () => {
       socket.off("connect", onConnect)
       socket.off("disconnect", onDisconnect)
-      socket.off("admin:message", onAdminMessage)
+      socket.off("widget:connected", onWidgetConnected)
+      socket.off("agent:message", onAgentMessage)
+      socket.off("message:confirmed", onMessageConfirmed)
     }
-  }, [isOpen, sessionId, tenantId])
+  }, [isOpen, sessionId, tenantId, showForm, visitorInfo])
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (visitorInfo.name && visitorInfo.email && visitorInfo.phone) {
+      setShowForm(false)
+      // Join widget room after form submission
+      socket.emit("widget:join", { 
+        websiteId: sessionId, 
+        tenantId, 
+        sessionId: sessionId || `session-${Date.now()}`,
+        visitorInfo: {
+          ...visitorInfo,
+          userAgent: navigator.userAgent,
+          referrer: document.referrer,
+        }
+      })
+    }
+  }
 
   const sendMessage = () => {
     if (input.trim()) {
@@ -122,8 +173,14 @@ export default function App() {
       setMessages((prev) => [...prev, newMessage])
       socket.emit("visitor:message", {
         tenantId,
-        message: input,
-        sessionId,
+        websiteId: sessionId,
+        sessionId: sessionId || `session-${Date.now()}`,
+        message: { text: input },
+        visitorInfo: {
+          ...visitorInfo,
+          userAgent: navigator.userAgent,
+          referrer: document.referrer,
+        },
       })
       setInput("")
     }
@@ -143,7 +200,7 @@ export default function App() {
       <Button
         onClick={() => setIsOpen(true)}
         size="lg"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg hover:scale-110 transition-transform relative"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg hover:scale-110 transition-transform"
         aria-label="Open chat"
       >
         <MessageCircle className="w-7 h-7" />
@@ -161,7 +218,7 @@ export default function App() {
           onPointerDownOutside={(e) => e.preventDefault()}
         >
           {/* Header */}
-          <DialogHeader className="bg-primary text-primary-foreground p-4 rounded-t-lg flex-shrink-0">
+          <DialogHeader className="bg-primary text-primary-foreground p-4 rounded-t-lg shrink-0">
             <DialogTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2">
@@ -191,8 +248,67 @@ export default function App() {
             </p>
           </DialogHeader>
 
-          {/* Messages */}
-          <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+          {/* Contact Form or Messages */}
+          {showForm ? (
+            <div className="flex-1 p-6 flex flex-col justify-center">
+              <div className="text-center mb-6">
+                <MessageCircle className="w-12 h-12 mx-auto mb-3 text-primary" />
+                <h3 className="text-lg font-semibold mb-2">Welcome! 👋</h3>
+                <p className="text-sm text-muted-foreground">
+                  Please provide your details to start chatting
+                </p>
+              </div>
+              
+              <form onSubmit={handleFormSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name *</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="John Doe"
+                    value={visitorInfo.name}
+                    onChange={(e) => setVisitorInfo(prev => ({ ...prev, name: e.target.value }))}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="john@example.com"
+                    value={visitorInfo.email}
+                    onChange={(e) => setVisitorInfo(prev => ({ ...prev, email: e.target.value }))}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone *</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="+1 234 567 8900"
+                    value={visitorInfo.phone}
+                    onChange={(e) => setVisitorInfo(prev => ({ ...prev, phone: e.target.value }))}
+                    required
+                  />
+                </div>
+                
+                <Button 
+                  type="submit" 
+                  className="w-full"
+                  disabled={!visitorInfo.name || !visitorInfo.email || !visitorInfo.phone}
+                >
+                  Start Chat
+                </Button>
+              </form>
+            </div>
+          ) : (
+            <>
+              {/* Messages */}
+              <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
             <div className="space-y-4">
               {messages.length === 0 && (
                 <div className="text-center text-muted-foreground mt-8">
@@ -210,7 +326,7 @@ export default function App() {
                 >
                   <div className="flex items-end gap-2 max-w-[85%]">
                     {msg.sender === "admin" && (
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
                         A
                       </div>
                     )}
@@ -222,14 +338,14 @@ export default function App() {
                             : "bg-muted border-muted"
                         }`}
                       >
-                        <p className="text-sm break-words">{msg.text}</p>
+                        <p className="text-sm break-all">{msg.text}</p>
                       </Card>
                       <p className="text-xs text-muted-foreground mt-1 px-1">
                         {formatTime(msg.timestamp)}
                       </p>
                     </div>
                     {msg.sender === "visitor" && (
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground text-xs font-bold flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground text-xs font-bold shrink-0">
                         You
                       </div>
                     )}
@@ -240,7 +356,7 @@ export default function App() {
           </ScrollArea>
 
           {/* Input */}
-          <div className="p-4 border-t flex-shrink-0 bg-background">
+          <div className="p-4 border-t shrink-0 bg-background">
             <div className="flex gap-2">
               <Input
                 type="text"
@@ -257,12 +373,14 @@ export default function App() {
                 disabled={!input.trim() || !isConnected}
                 size="icon"
                 aria-label="Send message"
-                className="flex-shrink-0"
+                className="shrink-0"
               >
                 <Send className="w-4 h-4" />
               </Button>
             </div>
           </div>
+          </>
+          )}
         </DialogContent>
       </Dialog>
     </>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
@@ -8,54 +8,82 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@workspace/ui/components/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
 import { Separator } from "@workspace/ui/components/separator"
 import { Checkbox } from "@workspace/ui/components/checkbox"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@workspace/ui/components/form"
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@workspace/ui/components/form"
 import { authClient } from "@/lib/auth-client"
 import { toast } from "sonner"
 
-const signupSchema = z.object({
-  name: z.string().min(2, {
-    message: "Name must be at least 2 characters long",
-  }),
-  email: z.string().email({
-    message: "Please enter a valid email address",
-  }),
-  password: z.string().min(8, {
-    message: "Password must be at least 8 characters long",
-  }).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message: "Password must contain at least one uppercase letter, one lowercase letter, and one number",
-  }),
-  confirmPassword: z.string(),
-  acceptedTerms: z.boolean().refine((val) => val === true, {
-    message: "You must accept the terms and conditions",
-  }),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
-})
-
-
+const signupSchema = z
+  .object({
+    name: z.string().min(2, {
+      message: "Name must be at least 2 characters long",
+    }),
+    email: z.string().email({
+      message: "Please enter a valid email address",
+    }),
+    password: z
+      .string()
+      .min(8, {
+        message: "Password must be at least 8 characters long",
+      })
+      .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
+        message:
+          "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+      }),
+    confirmPassword: z.string(),
+    acceptedTerms: z.boolean().refine((val) => val === true, {
+      message: "You must accept the terms and conditions",
+    }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  })
 
 type SignupFormValues = z.infer<typeof signupSchema>
 
 export default function SignupPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirect')
+  const redirectTo = searchParams.get("redirect")
+  const emailParam = searchParams.get("email")
+  const invitationId = searchParams.get("invitationId")
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
-      name: "Test",
-      email: "",
-      password: "Rahul@12345",
-      confirmPassword: "Rahul@12345",
-      acceptedTerms: true,
+      name: "",
+      email: emailParam || "",
+      password: "",
+      confirmPassword: "",
+      acceptedTerms: false,
     },
   })
+
+  // Update email field when emailParam changes
+  useEffect(() => {
+    if (emailParam) {
+      form.setValue("email", emailParam)
+    }
+  }, [emailParam, form])
 
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true)
@@ -73,7 +101,10 @@ export default function SignupPage() {
       } else {
         toast.success("Account created successfully!")
         // Redirect after successful signup
-        if (redirectTo) {
+        if (invitationId) {
+          // If coming from invitation flow, redirect to accept-invitation page
+          router.push(`/accept-invitation/${invitationId}`)
+        } else if (redirectTo) {
           router.push(redirectTo)
         } else {
           router.push("/")
@@ -91,7 +122,10 @@ export default function SignupPage() {
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
+        callbackURL: invitationId
+          ? process.env.NEXT_PUBLIC_CLIENT_URL +
+            `/accept-invitation/${invitationId}`
+          : redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
       })
     } catch (error) {
       toast.error("Failed to signup with Google")
@@ -103,7 +137,9 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-2 text-center">
-          <CardTitle className="text-3xl font-bold tracking-tight">Create an account</CardTitle>
+          <CardTitle className="text-3xl font-bold tracking-tight">
+            Create an account
+          </CardTitle>
           <CardDescription className="text-base">
             Get started with your free account
           </CardDescription>
@@ -174,11 +210,16 @@ export default function SignupPage() {
                       <Input
                         type="email"
                         placeholder="name@example.com"
-                        disabled={isLoading}
+                        disabled={isLoading || !!emailParam}
                         className="h-11"
                         {...field}
                       />
                     </FormControl>
+                    {emailParam && (
+                      <p className="text-xs text-muted-foreground">
+                        Email locked for invitation
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -200,7 +241,8 @@ export default function SignupPage() {
                       />
                     </FormControl>
                     <FormDescription className="text-xs">
-                      Must be at least 8 characters with uppercase, lowercase, and a number
+                      Must be at least 8 characters with uppercase, lowercase,
+                      and a number
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -242,7 +284,11 @@ export default function SignupPage() {
                     <div className="space-y-1 leading-none">
                       <FormLabel className="text-sm font-normal">
                         I agree to the{" "}
-                        <Link href="/terms" className="text-primary hover:underline" tabIndex={-1}>
+                        <Link
+                          href="/terms"
+                          className="text-primary hover:underline"
+                          tabIndex={-1}
+                        >
                           terms and conditions
                         </Link>
                       </FormLabel>
@@ -252,12 +298,32 @@ export default function SignupPage() {
                 )}
               />
 
-              <Button type="submit" className="w-full h-11 text-base font-medium" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full h-11 text-base font-medium"
+                disabled={isLoading}
+              >
                 {isLoading ? (
                   <>
-                    <svg className="mr-2 h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <svg
+                      className="mr-2 h-4 w-4 animate-spin"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
                     </svg>
                     Creating account...
                   </>
@@ -271,7 +337,10 @@ export default function SignupPage() {
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login" className="font-medium text-primary hover:underline">
+            <Link
+              href="/login"
+              className="font-medium text-primary hover:underline"
+            >
               Sign in
             </Link>
           </p>
