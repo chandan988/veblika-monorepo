@@ -64,6 +64,7 @@ export const auth = betterAuth({
 
   // Email verification
   emailVerification: {
+    autoSignInAfterVerification: true,
     async sendVerificationEmail({ user, url }) {
       try {
         await emailService.sendEmail({
@@ -93,7 +94,7 @@ export const auth = betterAuth({
       // Send invitation email
       async sendInvitationEmail(data) {
         try {
-          const inviteLink = `${baseUrl}/accept-invitation/${data.id}`
+          const inviteLink = `${baseUrl}/accept-invitation/?id=${data.id}&email=${data.email}`
 
           // console.log(data,"Invitation Data")
           // throw new Error("Intentional Error for Testing")
