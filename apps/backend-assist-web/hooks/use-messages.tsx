@@ -28,8 +28,12 @@ interface Message {
 // Helper function to convert store message to component message format
 const convertToComponentMessage = (storeMsg: StoreMessage): Message => ({
   _id: storeMsg._id,
+  orgId: "",
+  conversationId: storeMsg.conversationId,
   senderType: storeMsg.sender.type === "visitor" ? "contact" : "agent",
   senderId: storeMsg.sender.id,
+  direction: storeMsg.sender.type === "visitor" ? "inbound" : "outbound",
+  channel: "webchat",
   body: {
     text: storeMsg.content,
   },
