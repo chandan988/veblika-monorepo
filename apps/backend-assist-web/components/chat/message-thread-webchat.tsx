@@ -18,7 +18,6 @@ interface MessageThreadWebchatProps {
     onUpdateConversation?: (updates: Partial<Conversation>) => void;
     isLoading?: boolean;
     isSending?: boolean;
-    typingUsers?: string[];
 }
 
 export function MessageThreadWebchat({
@@ -28,12 +27,9 @@ export function MessageThreadWebchat({
     onUpdateConversation,
     isLoading,
     isSending,
-    typingUsers = [],
 }: MessageThreadWebchatProps) {
     const [messageText, setMessageText] = useState("");
-    const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Auto-scroll to bottom when messages change
     useEffect(() => {
@@ -42,35 +38,12 @@ export function MessageThreadWebchat({
 
     const handleInputChange = (text: string) => {
         setMessageText(text);
-
-        // Start typing indicator
-        if (!isTyping && text.length > 0) {
-            setIsTyping(true);
-            startTyping(conversation._id);
-        }
-
-        // Clear existing timeout
-        if (typingTimeoutRef.current) {
-            clearTimeout(typingTimeoutRef.current);
-        }
-
-        // Stop typing after 2 seconds of inactivity
-        typingTimeoutRef.current = setTimeout(() => {
-            setIsTyping(false);
-            stopTyping(conversation._id);
-        }, 2000);
     };
 
     const handleSend = () => {
         if (messageText.trim() && !isSending) {
             onSendMessage(messageText.trim());
             setMessageText("");
-            setIsTyping(false);
-            stopTyping(conversation._id);
-
-            if (typingTimeoutRef.current) {
-                clearTimeout(typingTimeoutRef.current);
-            }
         }
     };
 
@@ -165,8 +138,8 @@ export function MessageThreadWebchat({
                                     <Avatar className="h-8 w-8 flex-shrink-0">
                                         <div
                                             className={`flex items-center justify-center h-full w-full ${isAgent
-                                                    ? "bg-primary text-primary-foreground"
-                                                    : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                                ? "bg-primary text-primary-foreground"
+                                                : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                                                 } font-semibold text-sm`}
                                         >
                                             {isAgent ? "A" : conversation.contactId?.name?.[0]?.toUpperCase() || "?"}
@@ -176,8 +149,8 @@ export function MessageThreadWebchat({
                                     <div>
                                         <div
                                             className={`rounded-lg px-4 py-2 ${isAgent
-                                                    ? "bg-primary text-primary-foreground"
-                                                    : "bg-muted"
+                                                ? "bg-primary text-primary-foreground"
+                                                : "bg-muted"
                                                 }`}
                                         >
                                             <p className="text-sm whitespace-pre-wrap break-words">
@@ -194,26 +167,6 @@ export function MessageThreadWebchat({
                             </div>
                         );
                     })}
-
-                    {/* Typing indicator */}
-                    {typingUsers.length > 0 && (
-                        <div className="flex justify-start">
-                            <div className="flex gap-2 items-center">
-                                <Avatar className="h-8 w-8">
-                                    <div className="flex items-center justify-center h-full w-full bg-muted font-semibold text-sm">
-                                        {conversation.contactId?.name?.[0]?.toUpperCase() || "?"}
-                                    </div>
-                                </Avatar>
-                                <div className="bg-muted rounded-lg px-4 py-2">
-                                    <div className="flex gap-1">
-                                        <span className="animate-bounce" style={{ animationDelay: "0ms" }}>●</span>
-                                        <span className="animate-bounce" style={{ animationDelay: "150ms" }}>●</span>
-                                        <span className="animate-bounce" style={{ animationDelay: "300ms" }}>●</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     <div ref={messagesEndRef} />
                 </div>

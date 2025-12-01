@@ -14,7 +14,7 @@ const router: Router = Router();
  * @route   GET /api/v1/widget/verify
  * @desc    Verify integration exists and is active
  * @access  Public
- * @query   ?websiteId=xxx&tenantId=yyy
+ * @query   ?integrationId=xxx&orgId=yyy
  */
 router.get(
   '/verify',
@@ -23,12 +23,12 @@ router.get(
 );
 
 /**
- * @route   GET /api/v1/widget/config/:tenantId
+ * @route   GET /api/v1/widget/config/:integrationId
  * @desc    Get widget configuration
  * @access  Public
  */
 router.get(
-  '/config/:tenantId',
+  '/config/:integrationId',
   validate(getWidgetConfigSchema),
   widgetController.getWidgetConfig
 );

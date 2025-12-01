@@ -8,5 +8,9 @@ export const useSession = () => {
       const session = await authClient.getSession()
       return session
     },
+    staleTime: 60 * 10 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
   })
 }

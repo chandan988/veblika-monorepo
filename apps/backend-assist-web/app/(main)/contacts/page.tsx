@@ -16,14 +16,14 @@ import { Card } from "@workspace/ui/components/card";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { Search, User, Mail, Phone, Globe, Calendar } from "lucide-react";
 import { Badge } from "@workspace/ui/components/badge";
+import { useSession } from "@/hooks/useSession";
 
-// TODO: Get from auth context
-const MOCK_ORG_ID = "673eccb20c9f6b5ea8dac49f";
 
 export default function ContactsPage() {
     const [search, setSearch] = useState("");
+    const { data } = useSession();
     const { data: contactsData, isLoading } = useContacts({
-        orgId: MOCK_ORG_ID,
+        orgId: data?.data?.session.activeOrganizationId || "",
         search: search,
         limit: 50,
     });

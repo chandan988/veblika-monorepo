@@ -8,8 +8,8 @@ export class WidgetController {
    * Verify integration exists (public endpoint)
    */
   verifyIntegration = asyncHandler(async (req: Request, res: Response) => {
-    const { websiteId, tenantId } = req.query as VerifyIntegrationQuery;
-    const isValid = await widgetService.verifyIntegration(websiteId, tenantId);
+    const { integrationId, orgId } = req.query as VerifyIntegrationQuery;
+    const isValid = await widgetService.verifyIntegration(integrationId, orgId);
 
     return res.status(200).json({
       success: true,
@@ -23,8 +23,8 @@ export class WidgetController {
    * Get widget configuration (public endpoint)
    */
   getWidgetConfig = asyncHandler(async (req: Request, res: Response) => {
-    const { tenantId } = req.params;
-    const config = await widgetService.getWidgetConfig(tenantId);
+    const { integrationId } = req.params;
+    const config = await widgetService.getWidgetConfig(integrationId);
 
     return res.status(200).json({
       success: true,

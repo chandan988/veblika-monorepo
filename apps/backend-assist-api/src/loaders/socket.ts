@@ -7,8 +7,7 @@ interface AuthenticatedSocket extends Socket {
   userId?: string
   userEmail?: string
   orgId?: string
-  websiteId?: string
-  tenantId?: string
+  integrationId?: string
   sessionId?: string
   isWidget?: boolean
 }
@@ -17,7 +16,7 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
   // Middleware for authentication
   io.use((socket: AuthenticatedSocket, next) => {
     const token = socket.handshake.auth.token
-    
+
     // TODO: Implement your JWT token verification here
     // For now, we'll allow all connections
     if (token) {
@@ -32,7 +31,7 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
         return next(new Error("Authentication error"))
       }
     }
-    
+
     next()
   })
 
@@ -69,50 +68,57 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
       })
     })
 
-    // Handle typing indicators
-    socket.on("typing:start", (data: { roomId: string }) => {
-      socket.to(data.roomId).emit("user:typing", { userId: socket.userId })
-    })
-
-    socket.on("typing:stop", (data: { roomId: string }) => {
-      socket.to(data.roomId).emit("user:stopped-typing", { userId: socket.userId })
-    })
-
     // ========== WIDGET EVENTS ==========
-    
+
     /**
      * Widget connects and joins room
      * Visitor connects from widget UI
      */
-    socket.on("widget:join", async (data: { websiteId: string; tenantId: string; sessionId: string }) => {
+    socket.on("widget:join", async (data: { 
+      integrationId: string; 
+      orgId: string; 
+      sessionId: string;
+      visitorInfo?: any;
+    }) => {
       try {
-        logger.info(`Widget joining: ${data.websiteId}, ${data.tenantId}, ${data.sessionId}`)
-        
+        logger.info(`Widget joining: integration=${data.integrationId}, session=${data.sessionId}`)
+
         // Verify integration exists and is active
-        const integration = await widgetService.getIntegrationByTenantId(data.tenantId)
-        
+        const { Integration } = await import("../api/models/integration-model")
+        const mongoose = await import("mongoose")
+        const integration = await Integration.findOne({
+          _id: new mongoose.Types.ObjectId(data.integrationId),
+          orgId: new mongoose.Types.ObjectId(data.orgId),
+          channel: 'webchat',
+          status: 'active',
+        })
+
         if (!integration) {
           socket.emit("widget:error", { message: "Integration not found or inactive" })
           return
         }
 
-        // Mark socket as widget socket
+        // Mark socket with visitor session info
         socket.isWidget = true
-        socket.websiteId = data.websiteId
-        socket.tenantId = data.tenantId
+        socket.integrationId = data.integrationId
+        socket.orgId = data.orgId
         socket.sessionId = data.sessionId
-        socket.orgId = integration.orgId.toString()
 
-        // Join widget-specific room for this integration
-        const widgetRoom = `widget:${integration._id}`
-        socket.join(widgetRoom)
+        // Join session-specific room (unique per visitor)
+        const sessionRoom = `session:${data.sessionId}`
+        socket.join(sessionRoom)
         
-        logger.info(`Widget socket ${socket.id} joined room ${widgetRoom}`)
-        
+        // Also join integration room (for broadcasts)
+        const integrationRoom = `integration:${integration._id}`
+        socket.join(integrationRoom)
+
+        logger.info(`Widget socket ${socket.id} joined rooms: ${sessionRoom}, ${integrationRoom}`)
+
         // Send confirmation to widget
         socket.emit("widget:connected", {
           success: true,
           integrationId: integration._id,
+          sessionId: data.sessionId,
         })
       } catch (error) {
         logger.error("Error in widget:join:", error)
@@ -124,23 +130,24 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
      * Visitor sends a message from widget
      */
     socket.on("visitor:message", async (data: {
-      tenantId: string;
-      websiteId: string;
+      integrationId: string;
+      orgId: string;
       sessionId: string;
       message: { text: string };
       visitorInfo?: {
         name?: string;
         email?: string;
+        phone?: string;
         userAgent?: string;
         referrer?: string;
       };
     }) => {
       try {
         logger.info(`Visitor message from session ${data.sessionId}`)
-        
+
         // Save message using widget service
         const result = await widgetService.saveVisitorMessage(data)
-        
+
         // Send confirmation back to widget
         socket.emit("message:confirmed", {
           messageId: result.message._id,
@@ -148,12 +155,8 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
           timestamp: new Date(),
         })
 
-        // Get integration to find orgId
-        const integration = await widgetService.getIntegrationByTenantId(data.tenantId)
-        if (!integration) return
-
         // Notify agents in the organization
-        const agentRoom = `org:${integration.orgId}:agents`
+        const agentRoom = `org:${data.orgId}:agents`
         io.to(agentRoom).emit("new:message", {
           message: result.message,
           conversation: result.conversation,
@@ -163,13 +166,13 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
         // Also emit SSE notification for agents not on socket
         notifications.emit("notification", {
           type: "new_message",
-          orgId: integration.orgId.toString(),
+          orgId: data.orgId,
           conversationId: result.conversation._id,
           messageId: result.message._id,
           preview: data.message.text.substring(0, 100),
         })
 
-        logger.info(`Message saved and notified to agents in ${agentRoom}`)
+        logger.info(`Message saved and agents notified in ${agentRoom}`)
       } catch (error) {
         logger.error("Error in visitor:message:", error)
         socket.emit("message:error", { message: "Failed to send message" })
@@ -182,7 +185,7 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
     socket.on("agent:join", async (data: { orgId: string; userId: string }) => {
       try {
         logger.info(`Agent ${data.userId} joining org ${data.orgId}`)
-        
+
         // Store agent info in socket
         socket.userId = data.userId
         socket.orgId = data.orgId
@@ -190,9 +193,9 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
         // Join organization's agent room
         const agentRoom = `org:${data.orgId}:agents`
         socket.join(agentRoom)
-        
+
         logger.info(`Agent socket ${socket.id} joined room ${agentRoom}`)
-        
+
         socket.emit("agent:connected", {
           success: true,
           room: agentRoom,
@@ -213,7 +216,7 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
     }) => {
       try {
         logger.info(`Agent message to conversation ${data.conversationId}`)
-        
+
         // Save agent message
         const message = await widgetService.saveAgentMessage(
           data.conversationId,
@@ -228,22 +231,26 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
           timestamp: new Date(),
         })
 
-        // Get integration to find the widget room
-        const integration = await widgetService.getIntegrationByTenantId(socket.tenantId || "")
-        
-        // Find the conversation to get integrationId
+        // Find the conversation to get sessionId from threadId
         const { Conversation } = await import("../api/models/conversation-model")
         const conversation = await Conversation.findById(data.conversationId)
-        
+
         if (conversation) {
-          // Send message to widget room
-          const widgetRoom = `widget:${conversation.integrationId}`
-          io.to(widgetRoom).emit("agent:message", {
+          // Extract sessionId from threadId (format: "session:xxx")
+          const sessionId = conversation.threadId?.replace('session:', '')
+          if (!sessionId) {
+            logger.warn(`No sessionId found in conversation ${data.conversationId}`)
+            return
+          }
+
+          // Send message ONLY to this specific visitor's session room
+          const sessionRoom = `session:${sessionId}`
+          io.to(sessionRoom).emit("agent:message", {
             message: message,
             conversationId: conversation._id,
           })
-          
-          logger.info(`Agent message sent to widget room ${widgetRoom}`)
+
+          logger.info(`Agent message sent to session room: ${sessionRoom}`)
         }
       } catch (error) {
         logger.error("Error in agent:message:", error)
