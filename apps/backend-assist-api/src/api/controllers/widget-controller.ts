@@ -68,6 +68,30 @@ export class WidgetController {
       data: messages,
     });
   });
+
+  /**
+   * Get conversation history by sessionId (public endpoint)
+   */
+  getConversationHistoryBySession = asyncHandler(async (req: Request, res: Response) => {
+    const { sessionId, integrationId } = req.query;
+    
+    if (!sessionId || !integrationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'sessionId and integrationId are required',
+      });
+    }
+
+    const messages = await widgetService.getConversationHistoryBySession(
+      sessionId as string,
+      integrationId as string
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: messages,
+    });
+  });
 }
 
 export const widgetController = new WidgetController();

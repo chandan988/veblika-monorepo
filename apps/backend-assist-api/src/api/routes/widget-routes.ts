@@ -55,4 +55,15 @@ router.get(
   widgetController.getConversationHistory
 );
 
+/**
+ * @route   GET /api/v1/widget/conversation-history
+ * @desc    Get conversation history by sessionId
+ * @access  Public
+ * @query   ?sessionId=xxx&integrationId=yyy
+ */
+router.get(
+  '/conversation-history',
+  widgetController.getConversationHistoryBySession
+);
+
 export default router;
