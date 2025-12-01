@@ -24,7 +24,7 @@ export class WidgetController {
    */
   getWidgetConfig = asyncHandler(async (req: Request, res: Response) => {
     const { integrationId } = req.params;
-    const config = await widgetService.getWidgetConfig(integrationId);
+    const config = await widgetService.getWidgetConfig(integrationId!);
 
     return res.status(200).json({
       success: true,
@@ -54,11 +54,11 @@ export class WidgetController {
    * Get conversation history (public endpoint)
    */
   getConversationHistory = asyncHandler(async (req: Request, res: Response) => {
-    const { conversationId } = req.params;
+    const { conversationId } = req.params
     const { limit, before } = req.query;
 
     const messages = await widgetService.getConversationHistory(
-      conversationId,
+      conversationId!,
       limit ? parseInt(limit as string) : 50,
       before as string
     );

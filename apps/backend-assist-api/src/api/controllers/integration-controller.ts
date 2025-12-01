@@ -40,7 +40,7 @@ export class IntegrationController {
    * Get integration by ID
    */
   getIntegrationById = asyncHandler(async (req: Request, res: Response) => {
-    const integration = await integrationService.getIntegrationById(req.params.id);
+    const integration = await integrationService.getIntegrationById(req.params.id!);
 
     return res.status(200).json({
       success: true,
@@ -54,7 +54,7 @@ export class IntegrationController {
    */
   updateIntegration = asyncHandler(async (req: Request, res: Response) => {
     const data: UpdateIntegrationInput = req.body;
-    const integration = await integrationService.updateIntegration(req.params.id, data);
+    const integration = await integrationService.updateIntegration(req.params.id!, data);
 
     return res.status(200).json({
       success: true,
@@ -67,7 +67,7 @@ export class IntegrationController {
    * Delete integration
    */
   deleteIntegration = asyncHandler(async (req: Request, res: Response) => {
-    await integrationService.deleteIntegration(req.params.id);
+    await integrationService.deleteIntegration(req.params.id!);
 
     return res.status(200).json({
       success: true,
@@ -80,7 +80,7 @@ export class IntegrationController {
    * Generate embed script for integration
    */
   getEmbedScript = asyncHandler(async (req: Request, res: Response) => {
-    const integration = await integrationService.getIntegrationById(req.params.id);
+    const integration = await integrationService.getIntegrationById(req.params.id!);
     if (!integration) {
       return res.status(404).json({
         success: false,
