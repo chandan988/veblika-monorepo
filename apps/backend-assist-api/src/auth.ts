@@ -36,7 +36,7 @@ export const auth = betterAuth({
   baseURL: "http://localhost:8000",
   trustedOrigins: ["http://localhost:3000", "http://localhost:8000"],
 
-  database: mongodbAdapter(mongoose.connection.db, {
+  database: mongodbAdapter(mongoose.connection.db!, {
     client: mongoClient,
   }),
 
