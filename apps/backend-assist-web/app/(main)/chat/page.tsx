@@ -1,55 +1,64 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { ConversationList } from "@/components/chat/conversation-list";
-import { MessageThreadWebchat } from "@/components/chat/message-thread-webchat";
-import { MessageThreadGmail } from "@/components/chat/message-thread-gmail";
-import { useConversations, useUpdateConversation } from "@/hooks/use-conversations";
-import { useMessages, useSendMessage } from "@/hooks/use-messages";
-import { MessageSquare } from "lucide-react";
-import type { Conversation } from "@/types/chat";
-
-// TODO: Get these from auth context
-const MOCK_ORG_ID = "673eccb20c9f6b5ea8dac49f";
-const MOCK_USER_ID = "user123";
+import { useState } from "react"
+import { ConversationList } from "@/components/chat/conversation-list"
+import { MessageThreadWebchat } from "@/components/chat/message-thread-webchat"
+import { MessageThreadGmail } from "@/components/chat/message-thread-gmail"
+import {
+  useConversations,
+  useUpdateConversation,
+} from "@/hooks/use-conversations"
+import { useMessages, useSendMessage } from "@/hooks/use-messages"
+import { MessageSquare } from "lucide-react"
+import type { Conversation } from "@/types/chat"
+import { useSession } from "@/hooks/useSession"
 
 export default function ChatPage() {
-  const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>();
+  const [selectedConversationId, setSelectedConversationId] = useState<
+    string | undefined
+  >()
+  const { data } = useSession()
 
   // Fetch conversations
-  const { data: conversationsData, isLoading: isLoadingConversations } = useConversations({
-    orgId: MOCK_ORG_ID,
-    status: "open",
-  });
+  const { data: conversationsData, isLoading: isLoadingConversations } =
+    useConversations({
+      orgId: data?.data?.session.activeOrganizationId,
+      status: "open",
+    })
 
   // Fetch messages for selected conversation
-  const { data: messages = [], isLoading: isLoadingMessages, typingUsers } = useMessages(
+  const { messages = [], isLoading: isLoadingMessages } = useMessages(
     selectedConversationId || ""
-  );
+  )
 
   // Mutations
-  const updateConversation = useUpdateConversation();
-  const sendMessage = useSendMessage(selectedConversationId || "", MOCK_ORG_ID, MOCK_USER_ID);
+  const updateConversation = useUpdateConversation()
+  const sendMessage = useSendMessage(
+    selectedConversationId || "",
+    data?.data?.session.activeOrganizationId || "",
+    data?.data?.session.userId || ""
+  )
 
-  const conversations = (conversationsData?.data || []) as Conversation[];
-  const selectedConversation = conversations.find((c) => c._id === selectedConversationId);
+  const conversations = (conversationsData?.data || []) as Conversation[]
+  const selectedConversation = conversations.find(
+    (c) => c._id === selectedConversationId
+  )
 
   const handleSendMessage = (text: string) => {
-    sendMessage.mutate({ text });
-  };
+    sendMessage.mutate({ text })
+  }
 
   const handleUpdateConversation = (updates: Partial<Conversation>) => {
     if (selectedConversationId) {
       updateConversation.mutate({
         conversationId: selectedConversationId,
         updates,
-      });
+      })
     }
-  };
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-190px)]">
-
       {/* Main Content - Takes remaining height */}
       <div className="flex-1 grid grid-cols-12 gap-4 min-h-0 overflow-hidden">
         {/* Conversation List */}
@@ -81,7 +90,6 @@ export default function ChatPage() {
                 onUpdateConversation={handleUpdateConversation}
                 isLoading={isLoadingMessages}
                 isSending={sendMessage.isPending}
-                typingUsers={typingUsers}
               />
             )
           ) : (
@@ -89,12 +97,14 @@ export default function ChatPage() {
               <div className="text-center text-muted-foreground">
                 <MessageSquare className="h-16 w-16 mx-auto mb-4 opacity-20" />
                 <p className="text-lg font-medium">No conversation selected</p>
-                <p className="text-sm">Select a conversation from the list to start chatting</p>
+                <p className="text-sm">
+                  Select a conversation from the list to start chatting
+                </p>
               </div>
             </div>
           )}
         </div>
       </div>
     </div>
-  );
+  )
 }

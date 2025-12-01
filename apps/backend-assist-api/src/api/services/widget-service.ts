@@ -9,10 +9,10 @@ export class WidgetService {
   /**
    * Verify that integration exists and is active
    */
-  async verifyIntegration(websiteId: string, tenantId: string): Promise<boolean> {
+  async verifyIntegration(integrationId: string, orgId: string): Promise<boolean> {
     const integration = await Integration.findOne({
-      'credentials.websiteId': websiteId,
-      'credentials.tenantId': tenantId,
+      _id: new mongoose.Types.ObjectId(integrationId),
+      orgId: new mongoose.Types.ObjectId(orgId),
       channel: 'webchat',
       status: 'active',
     });
@@ -21,11 +21,11 @@ export class WidgetService {
   }
 
   /**
-   * Get widget configuration for a tenant
+   * Get widget configuration for an integration
    */
-  async getWidgetConfig(tenantId: string) {
+  async getWidgetConfig(integrationId: string) {
     const integration = await Integration.findOne({
-      'credentials.tenantId': tenantId,
+      _id: new mongoose.Types.ObjectId(integrationId),
       channel: 'webchat',
       status: 'active',
     }).populate('orgId');
@@ -35,8 +35,8 @@ export class WidgetService {
     }
 
     return {
-      tenantId: integration.credentials?.tenantId,
-      websiteId: integration.credentials?.websiteId,
+      integrationId: integration._id.toString(),
+      orgId: integration.orgId.toString(),
       organizationName: (integration.orgId as any)?.name || 'Support Team',
       theme: {
         primaryColor: '#3B82F6',
@@ -47,6 +47,7 @@ export class WidgetService {
 
   /**
    * Find or create a contact from visitor information
+   * Priority: email -> phone -> session
    */
   async findOrCreateContact(
     orgId: mongoose.Types.ObjectId,
@@ -59,41 +60,71 @@ export class WidgetService {
       referrer?: string;
     }
   ): Promise<IContact> {
-    // Try to find existing contact by session ID (stored in source field)
+    // PRIORITY 1: Find by email (if provided)
+    if (visitorInfo?.email) {
+      let contact = await Contact.findOne({
+        orgId,
+        email: visitorInfo.email,
+      });
+
+      if (contact) {
+        // Update other fields if needed
+        if (visitorInfo.name && !contact.name) contact.name = visitorInfo.name;
+        if (visitorInfo.phone && !contact.phone) contact.phone = visitorInfo.phone;
+        // Update session reference
+        if (contact.source !== `session:${sessionId}`) {
+          contact.source = `session:${sessionId}`;
+        }
+        await contact.save();
+        return contact;
+      }
+    }
+
+    // PRIORITY 2: Find by phone (if provided and email not found)
+    if (visitorInfo?.phone) {
+      let contact = await Contact.findOne({
+        orgId,
+        phone: visitorInfo.phone,
+      });
+
+      if (contact) {
+        if (visitorInfo.name && !contact.name) contact.name = visitorInfo.name;
+        if (visitorInfo.email && !contact.email) contact.email = visitorInfo.email;
+        contact.source = `session:${sessionId}`;
+        await contact.save();
+        return contact;
+      }
+    }
+
+    // PRIORITY 3: Find by session (for anonymous visitors or returning sessions)
     let contact = await Contact.findOne({
       orgId,
-      source: `widget:${sessionId}`,
+      source: `session:${sessionId}`,
     });
 
     if (contact) {
-      // Update contact info if new data provided
-      if (visitorInfo?.name && !contact.name) {
-        contact.name = visitorInfo.name;
-      }
-      if (visitorInfo?.email && !contact.email) {
-        contact.email = visitorInfo.email;
-      }
-      if (visitorInfo?.phone && !contact.phone) {
-        contact.phone = visitorInfo.phone;
-      }
+      // Visitor submitted form later, update contact
+      if (visitorInfo?.name && !contact.name) contact.name = visitorInfo.name;
+      if (visitorInfo?.email && !contact.email) contact.email = visitorInfo.email;
+      if (visitorInfo?.phone && !contact.phone) contact.phone = visitorInfo.phone;
       await contact.save();
       return contact;
     }
 
-    // Create new contact
+    // PRIORITY 4: Create new contact
     contact = await Contact.create({
       orgId,
       name: visitorInfo?.name || 'Anonymous Visitor',
       email: visitorInfo?.email || '',
       phone: visitorInfo?.phone || '',
-      source: `widget:${sessionId}`,
+      source: `session:${sessionId}`,
     });
 
     return contact;
   }
 
   /**
-   * Find or create a conversation
+   * Find or create a conversation with 24hr timeout
    */
   async findOrCreateConversation(
     orgId: mongoose.Types.ObjectId,
@@ -101,17 +132,40 @@ export class WidgetService {
     contactId: mongoose.Types.ObjectId,
     sessionId: string
   ): Promise<IConversation> {
-    // Try to find an open conversation for this contact
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // Find open conversation for this contact with this session
+    // AND last activity within 24 hours
     let conversation = await Conversation.findOne({
       orgId,
       integrationId,
       contactId,
+      threadId: `session:${sessionId}`,
       status: { $in: ['open', 'pending'] },
+      lastMessageAt: { $gte: twentyFourHoursAgo },
     });
 
     if (conversation) {
       return conversation;
     }
+
+    // Close old conversations for this session (older than 24hrs)
+    await Conversation.updateMany(
+      {
+        orgId,
+        integrationId,
+        contactId,
+        threadId: `session:${sessionId}`,
+        status: { $in: ['open', 'pending'] },
+        lastMessageAt: { $lt: twentyFourHoursAgo },
+      },
+      {
+        $set: {
+          status: 'closed',
+          closedAt: new Date(),
+        },
+      }
+    );
 
     // Create new conversation
     conversation = await Conversation.create({
@@ -119,7 +173,7 @@ export class WidgetService {
       integrationId,
       contactId,
       channel: 'webchat',
-      threadId: `widget:${sessionId}`,
+      threadId: `session:${sessionId}`,
       status: 'open',
       priority: 'normal',
       tags: ['widget'],
@@ -139,8 +193,8 @@ export class WidgetService {
   }> {
     // 1. Verify integration exists
     const integration = await Integration.findOne({
-      'credentials.websiteId': data.websiteId,
-      'credentials.tenantId': data.tenantId,
+      _id: new mongoose.Types.ObjectId(data.integrationId),
+      orgId: new mongoose.Types.ObjectId(data.orgId),
       channel: 'webchat',
       status: 'active',
     });
@@ -277,19 +331,6 @@ export class WidgetService {
     await conversation.save();
 
     return message;
-  }
-
-  /**
-   * Get integration by tenant ID
-   */
-  async getIntegrationByTenantId(tenantId: string) {
-    const integration = await Integration.findOne({
-      'credentials.tenantId': tenantId,
-      channel: 'webchat',
-      status: 'active',
-    });
-
-    return integration;
   }
 }
 

@@ -148,10 +148,10 @@ export function WebchatIntegrations({ orgId }: WebchatIntegrationsProps) {
                   {/* Credentials */}
                   <div className="space-y-3">
                     <div>
-                      <Label className="text-xs text-muted-foreground">Website ID</Label>
+                      <Label className="text-xs text-muted-foreground">Integration ID</Label>
                       <div className="flex gap-2 mt-1">
                         <Input
-                          value={integration.credentials?.websiteId || ""}
+                          value={integration._id || ""}
                           readOnly
                           className="font-mono text-sm"
                         />
@@ -159,10 +159,10 @@ export function WebchatIntegrations({ orgId }: WebchatIntegrationsProps) {
                           variant="outline"
                           size="sm"
                           onClick={() =>
-                            handleCopy(integration.credentials?.websiteId || "", "websiteId")
+                            handleCopy(integration._id || "", "integrationId")
                           }
                         >
-                          {copiedField === "websiteId" ? (
+                          {copiedField === "integrationId" ? (
                             <Check className="h-4 w-4" />
                           ) : (
                             <Copy className="h-4 w-4" />
@@ -172,10 +172,10 @@ export function WebchatIntegrations({ orgId }: WebchatIntegrationsProps) {
                     </div>
 
                     <div>
-                      <Label className="text-xs text-muted-foreground">Tenant ID</Label>
+                      <Label className="text-xs text-muted-foreground">Organization ID</Label>
                       <div className="flex gap-2 mt-1">
                         <Input
-                          value={integration.credentials?.tenantId || ""}
+                          value={integration.orgId || ""}
                           readOnly
                           className="font-mono text-sm"
                         />
@@ -183,10 +183,10 @@ export function WebchatIntegrations({ orgId }: WebchatIntegrationsProps) {
                           variant="outline"
                           size="sm"
                           onClick={() =>
-                            handleCopy(integration.credentials?.tenantId || "", "tenantId")
+                            handleCopy(integration.orgId || "", "orgId")
                           }
                         >
-                          {copiedField === "tenantId" ? (
+                          {copiedField === "orgId" ? (
                             <Check className="h-4 w-4" />
                           ) : (
                             <Copy className="h-4 w-4" />

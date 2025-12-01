@@ -17,7 +17,7 @@ import { socket } from "./lib/socket-client"
 
 type Message = {
   text: string
-  sender: "visitor" | "admin"
+  sender: "visitor" | "agent"
   timestamp: Date
   socketId?: string
 }
@@ -44,8 +44,9 @@ export default function App() {
     () => new URLSearchParams(window.location.search),
     []
   )
-  const sessionId = searchParams.get("websiteId")
-  const tenantId = searchParams.get("tenantId")
+  const integrationId = searchParams.get("integrationId")
+  const orgId = searchParams.get("orgId")
+  const sessionId = searchParams.get("sessionId")
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom when new messages arrive
@@ -92,10 +93,10 @@ export default function App() {
       setIsConnected(true)
       // Join widget room only if visitor info is submitted
       if (!showForm) {
-        socket.emit("widget:join", { 
-          websiteId: sessionId, 
-          tenantId, 
-          sessionId: sessionId || `session-${Date.now()}`,
+        socket.emit("widget:join", {
+          integrationId,
+          orgId,
+          sessionId,
           visitorInfo
         })
       }
@@ -114,7 +115,7 @@ export default function App() {
       const message = data.message || data
       const newMessage: Message = {
         text: message.body?.text || message.text || "",
-        sender: "admin",
+        sender: "agent",
         timestamp: new Date(message.createdAt || Date.now()),
         socketId: message._id,
       }
@@ -143,17 +144,17 @@ export default function App() {
       socket.off("agent:message", onAgentMessage)
       socket.off("message:confirmed", onMessageConfirmed)
     }
-  }, [isOpen, sessionId, tenantId, showForm, visitorInfo])
+  }, [isOpen, integrationId, orgId, sessionId, showForm, visitorInfo])
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (visitorInfo.name && visitorInfo.email && visitorInfo.phone) {
       setShowForm(false)
       // Join widget room after form submission
-      socket.emit("widget:join", { 
-        websiteId: sessionId, 
-        tenantId, 
-        sessionId: sessionId || `session-${Date.now()}`,
+      socket.emit("widget:join", {
+        integrationId,
+        orgId,
+        sessionId,
         visitorInfo: {
           ...visitorInfo,
           userAgent: navigator.userAgent,
@@ -172,9 +173,9 @@ export default function App() {
       }
       setMessages((prev) => [...prev, newMessage])
       socket.emit("visitor:message", {
-        tenantId,
-        websiteId: sessionId,
-        sessionId: sessionId || `session-${Date.now()}`,
+        integrationId,
+        orgId,
+        sessionId,
         message: { text: input },
         visitorInfo: {
           ...visitorInfo,
@@ -223,9 +224,8 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2">
                   <div
-                    className={`w-3 h-3 rounded-full ${
-                      isConnected ? "bg-green-400 animate-pulse" : "bg-red-400"
-                    }`}
+                    className={`w-3 h-3 rounded-full ${isConnected ? "bg-green-400 animate-pulse" : "bg-red-400"
+                      }`}
                   />
                   <span>Chat with us</span>
                 </div>
@@ -258,7 +258,7 @@ export default function App() {
                   Please provide your details to start chatting
                 </p>
               </div>
-              
+
               <form onSubmit={handleFormSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Name *</Label>
@@ -271,7 +271,7 @@ export default function App() {
                     required
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="email">Email *</Label>
                   <Input
@@ -283,7 +283,7 @@ export default function App() {
                     required
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone *</Label>
                   <Input
@@ -295,9 +295,9 @@ export default function App() {
                     required
                   />
                 </div>
-                
-                <Button 
-                  type="submit" 
+
+                <Button
+                  type="submit"
                   className="w-full"
                   disabled={!visitorInfo.name || !visitorInfo.email || !visitorInfo.phone}
                 >
@@ -309,77 +309,75 @@ export default function App() {
             <>
               {/* Messages */}
               <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-            <div className="space-y-4">
-              {messages.length === 0 && (
-                <div className="text-center text-muted-foreground mt-8">
-                  <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Start a conversation</p>
-                  <p className="text-xs mt-1 opacity-70">We're here to help!</p>
-                </div>
-              )}
-              {messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex flex-col ${
-                    msg.sender === "visitor" ? "items-end" : "items-start"
-                  } animate-in slide-in-from-bottom-2 duration-300`}
-                >
-                  <div className="flex items-end gap-2 max-w-[85%]">
-                    {msg.sender === "admin" && (
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
-                        A
-                      </div>
-                    )}
-                    <div>
-                      <Card
-                        className={`p-3 ${
-                          msg.sender === "visitor"
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-muted border-muted"
-                        }`}
-                      >
-                        <p className="text-sm break-all">{msg.text}</p>
-                      </Card>
-                      <p className="text-xs text-muted-foreground mt-1 px-1">
-                        {formatTime(msg.timestamp)}
-                      </p>
+                <div className="space-y-4">
+                  {messages.length === 0 && (
+                    <div className="text-center text-muted-foreground mt-8">
+                      <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Start a conversation</p>
+                      <p className="text-xs mt-1 opacity-70">We're here to help!</p>
                     </div>
-                    {msg.sender === "visitor" && (
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground text-xs font-bold shrink-0">
-                        You
+                  )}
+                  {messages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex flex-col ${msg.sender === "visitor" ? "items-end" : "items-start"
+                        } animate-in slide-in-from-bottom-2 duration-300`}
+                    >
+                      <div className="flex items-end gap-2 max-w-[85%]">
+                        {msg.sender === "agent" && (
+                          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
+                            A
+                          </div>
+                        )}
+                        <div>
+                          <Card
+                            className={`p-3 ${msg.sender === "visitor"
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted border-muted"
+                              }`}
+                          >
+                            <p className="text-sm break-all">{msg.text}</p>
+                          </Card>
+                          <p className="text-xs text-muted-foreground mt-1 px-1">
+                            {formatTime(msg.timestamp)}
+                          </p>
+                        </div>
+                        {msg.sender === "visitor" && (
+                          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground text-xs font-bold shrink-0">
+                            You
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </ScrollArea>
+              </ScrollArea>
 
-          {/* Input */}
-          <div className="p-4 border-t shrink-0 bg-background">
-            <div className="flex gap-2">
-              <Input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-                placeholder="Type your message..."
-                autoComplete="off"
-                disabled={!isConnected}
-                className="flex-1"
-              />
-              <Button
-                onClick={sendMessage}
-                disabled={!input.trim() || !isConnected}
-                size="icon"
-                aria-label="Send message"
-                className="shrink-0"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-          </>
+              {/* Input */}
+              <div className="p-4 border-t shrink-0 bg-background">
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+                    placeholder="Type your message..."
+                    autoComplete="off"
+                    disabled={!isConnected}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={sendMessage}
+                    disabled={!input.trim() || !isConnected}
+                    size="icon"
+                    aria-label="Send message"
+                    className="shrink-0"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

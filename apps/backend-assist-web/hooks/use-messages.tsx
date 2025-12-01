@@ -3,8 +3,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { useSocket } from "./use-socket";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { joinConversation, leaveConversation, sendAgentMessage as sendSocketMessage } from "@/lib/socket-client";
+import { useChatStore, type Message as StoreMessage } from "@/stores/chat-store";
 
 interface Message {
   _id: string;
@@ -24,22 +25,54 @@ interface Message {
   updatedAt?: string;
 }
 
-export const useMessages = (conversationId: string) => {
-  const queryClient = useQueryClient();
-  const { socket, isConnected } = useSocket({ autoConnect: true });
-  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+// Helper function to convert store message to component message format
+const convertToComponentMessage = (storeMsg: StoreMessage): Message => ({
+  _id: storeMsg._id,
+  senderType: storeMsg.sender.type === "visitor" ? "contact" : "agent",
+  senderId: storeMsg.sender.id,
+  body: {
+    text: storeMsg.content,
+  },
+  createdAt: storeMsg.timestamp.toISOString(),
+  status: storeMsg.status,
+});
 
-  // Fetch messages
+export const useMessages = (conversationId: string) => {
+  const { socket, isConnected } = useSocket({ autoConnect: true });
+  const { addMessage, addMessages, getMessages } = useChatStore();
+  const storeMessages = useChatStore((state) => state.getMessages(conversationId));
+
+  // Fetch messages from server (only runs once on mount)
   const query = useQuery({
     queryKey: ["messages", conversationId],
     queryFn: async () => {
       const { data } = await api.get(`/conversations/${conversationId}/messages`);
-      return data.data as Message[];
+      const fetchedMessages = data.data as Message[];
+      
+      // Transform and add to Zustand store
+      const storeMessages: StoreMessage[] = fetchedMessages.map((msg) => ({
+        _id: msg._id,
+        conversationId,
+        sender: {
+          id: msg.senderId || "",
+          type: msg.senderType === "contact" ? "visitor" : "agent",
+          name: undefined,
+        },
+        content: msg.body.text || "",
+        timestamp: msg.createdAt ? new Date(msg.createdAt) : new Date(),
+        status: msg.status === "pending" ? "sending" : "sent",
+      }));
+      
+      addMessages(conversationId, storeMessages);
+      return fetchedMessages;
     },
     enabled: !!conversationId,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    staleTime: Infinity, // Don't auto-refetch, rely on socket for updates
   });
 
-  // Join conversation room and listen for new messages
+  // Join conversation room and listen for real-time messages
   useEffect(() => {
     if (!socket || !isConnected || !conversationId) return;
 
@@ -49,51 +82,43 @@ export const useMessages = (conversationId: string) => {
     const handleAgentMessage = (data: { message: Message }) => {
       console.log("Agent message received:", data);
 
-      // Add message to cache optimistically
-      queryClient.setQueryData(["messages", conversationId], (old: Message[] | undefined) => {
-        if (!old) return [data.message];
-        return [...old, data.message];
-      });
-    };
-
-    const handleUserTyping = (data: { userId?: string; isAgent?: boolean }) => {
-      if (data.userId && !data.isAgent) {
-        setTypingUsers((prev) => new Set(prev).add(data.userId!));
-      }
-    };
-
-    const handleUserStoppedTyping = (data: { userId?: string; isAgent?: boolean }) => {
-      if (data.userId && !data.isAgent) {
-        setTypingUsers((prev) => {
-          const next = new Set(prev);
-          next.delete(data.userId!);
-          return next;
-        });
-      }
+      // Add to Zustand store (with automatic deduplication)
+      const storeMessage: StoreMessage = {
+        _id: data.message._id,
+        conversationId,
+        sender: {
+          id: data.message.senderId || "",
+          type: data.message.senderType === "contact" ? "visitor" : "agent",
+        },
+        content: data.message.body.text || "",
+        timestamp: data.message.createdAt ? new Date(data.message.createdAt) : new Date(),
+        status: "sent",
+      };
+      
+      addMessage(conversationId, storeMessage);
     };
 
     socket.on("agent:message", handleAgentMessage);
-    socket.on("user:typing", handleUserTyping);
-    socket.on("user:stopped-typing", handleUserStoppedTyping);
 
     return () => {
       socket.off("agent:message", handleAgentMessage);
-      socket.off("user:typing", handleUserTyping);
-      socket.off("user:stopped-typing", handleUserStoppedTyping);
-
-      // Leave conversation room
       leaveConversation(conversationId);
     };
-  }, [socket, isConnected, conversationId, queryClient]);
+  }, [socket, isConnected, conversationId, addMessage]);
+
+  // Convert store messages to component format
+  const messages = storeMessages.map(convertToComponentMessage);
 
   return {
-    ...query,
-    typingUsers: Array.from(typingUsers),
+    messages,
+    isLoading: query.isLoading,
+    error: query.error,
   };
 };
 
 export const useSendMessage = (conversationId: string, orgId: string, agentId: string) => {
   const queryClient = useQueryClient();
+  const { addMessage, updateMessage } = useChatStore();
 
   return useMutation({
     mutationFn: async ({ text }: { text: string }) => {
@@ -106,45 +131,53 @@ export const useSendMessage = (conversationId: string, orgId: string, agentId: s
       // Also emit via socket for real-time delivery
       sendSocketMessage(conversationId, { text }, agentId);
 
-      return data.data;
+      return data.data as Message;
     },
     onMutate: async ({ text }) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["messages", conversationId] });
-
-      // Snapshot previous value
-      const previousMessages = queryClient.getQueryData<Message[]>(["messages", conversationId]);
-
-      // Optimistically update
-      const optimisticMessage: Message = {
-        _id: `temp-${Date.now()}`,
-        orgId,
+      // Optimistically add message to Zustand store
+      const tempId = `temp-${Date.now()}`;
+      const optimisticMessage: StoreMessage = {
+        _id: tempId,
         conversationId,
-        senderType: "agent",
-        senderId: agentId,
-        direction: "outbound",
-        channel: "webchat",
-        body: { text },
-        status: "pending",
-        createdAt: new Date().toISOString(),
+        sender: {
+          id: agentId,
+          type: "agent",
+        },
+        content: text,
+        timestamp: new Date(),
+        status: "sending",
       };
 
-      queryClient.setQueryData<Message[]>(["messages", conversationId], (old = []) => [
-        ...old,
-        optimisticMessage,
-      ]);
+      addMessage(conversationId, optimisticMessage);
 
-      return { previousMessages };
+      return { tempId };
     },
     onError: (err, variables, context) => {
-      // Rollback on error
-      if (context?.previousMessages) {
-        queryClient.setQueryData(["messages", conversationId], context.previousMessages);
+      // Mark message as failed
+      if (context?.tempId) {
+        updateMessage(conversationId, context.tempId, { status: "failed" });
       }
     },
-    onSuccess: () => {
-      // Refetch to get the actual message from server
-      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+    onSuccess: (data, variables, context) => {
+      // Replace temporary message with real one from server
+      if (context?.tempId) {
+        const realMessage: StoreMessage = {
+          _id: data._id,
+          conversationId: data.conversationId,
+          sender: {
+            id: data.senderId || agentId,
+            type: "agent",
+          },
+          content: data.body.text || variables.text,
+          timestamp: data.createdAt ? new Date(data.createdAt) : new Date(),
+          status: "sent",
+        };
+
+        // Add real message (deduplication will handle if it comes via socket)
+        addMessage(conversationId, realMessage);
+      }
+
+      // Invalidate conversations list to update last message
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },
   });

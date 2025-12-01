@@ -1,28 +1,40 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { WebchatIntegrations } from "@/components/integrations/webchat-integrations";
-import { GmailIntegrations } from "@/components/integrations/gmail-integrations";
-import { MessageSquare, Mail, MessageCircle, ExternalLink, Plug, ChevronLeft } from "lucide-react";
-import { Card } from "@workspace/ui/components/card";
-import { Button } from "@workspace/ui/components/button";
-import { Badge } from "@workspace/ui/components/badge";
+import { useState } from "react"
+import { WebchatIntegrations } from "@/components/integrations/webchat-integrations"
+import { GmailIntegrations } from "@/components/integrations/gmail-integrations"
+import {
+  MessageSquare,
+  Mail,
+  MessageCircle,
+  ExternalLink,
+  Plug,
+  ChevronLeft,
+} from "lucide-react"
+import { Card } from "@workspace/ui/components/card"
+import { Button } from "@workspace/ui/components/button"
+import { Badge } from "@workspace/ui/components/badge"
+import { useSession } from "@/hooks/useSession"
 
-// TODO: Get from auth context
-const MOCK_ORG_ID = "673eccb20c9f6b5ea8dac49f";
-
-type IntegrationType = "webchat" | "gmail" | null;
+type IntegrationType = "webchat" | "gmail" | null
 
 export default function IntegrationsPage() {
-  const [activeIntegration, setActiveIntegration] = useState<IntegrationType>(null);
+  const { data } = useSession()
+  const [activeIntegration, setActiveIntegration] =
+    useState<IntegrationType>(null)
 
-  const handleBack = () => setActiveIntegration(null);
+  const handleBack = () => setActiveIntegration(null)
 
   if (activeIntegration === "webchat") {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={handleBack} className="pl-0 hover:pl-2 transition-all">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleBack}
+            className="pl-0 hover:pl-2 transition-all"
+          >
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back to Integrations
           </Button>
@@ -39,17 +51,22 @@ export default function IntegrationsPage() {
               Manage your website chat widgets and settings
             </p>
           </div>
-          <WebchatIntegrations orgId={MOCK_ORG_ID} />
+          <WebchatIntegrations orgId={data?.data?.session.activeOrganizationId || ""} />
         </div>
       </div>
-    );
+    )
   }
 
   if (activeIntegration === "gmail") {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={handleBack} className="pl-0 hover:pl-2 transition-all">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleBack}
+            className="pl-0 hover:pl-2 transition-all"
+          >
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back to Integrations
           </Button>
@@ -66,10 +83,10 @@ export default function IntegrationsPage() {
               Manage your Gmail connections and email synchronization
             </p>
           </div>
-          <GmailIntegrations orgId={MOCK_ORG_ID} />
+          <GmailIntegrations orgId={data?.data?.session.activeOrganizationId || ""} />
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -92,7 +109,8 @@ export default function IntegrationsPage() {
             </div>
             <h3 className="text-xl font-bold mb-2">Webchat</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Add a live chat widget to your website to engage with visitors in real-time.
+              Add a live chat widget to your website to engage with visitors in
+              real-time.
             </p>
           </div>
 
@@ -123,7 +141,8 @@ export default function IntegrationsPage() {
             </div>
             <h3 className="text-xl font-bold mb-2">Gmail</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Connect your Gmail account to sync emails and reply directly from the dashboard.
+              Connect your Gmail account to sync emails and reply directly from
+              the dashboard.
             </p>
           </div>
 
@@ -153,11 +172,17 @@ export default function IntegrationsPage() {
               <div className="w-12 h-12 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center border border-green-100 dark:border-green-800">
                 <MessageCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
-              <Badge variant="secondary" className="bg-muted text-muted-foreground">Coming Soon</Badge>
+              <Badge
+                variant="secondary"
+                className="bg-muted text-muted-foreground"
+              >
+                Coming Soon
+              </Badge>
             </div>
             <h3 className="text-xl font-bold mb-2">WhatsApp</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Connect WhatsApp Business API to chat with customers on their favorite app.
+              Connect WhatsApp Business API to chat with customers on their
+              favorite app.
             </p>
           </div>
 
@@ -174,5 +199,5 @@ export default function IntegrationsPage() {
         </Card>
       </div>
     </div>
-  );
+  )
 }

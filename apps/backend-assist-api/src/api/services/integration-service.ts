@@ -8,20 +8,14 @@ export class IntegrationService {
    * Create a new webchat integration
    */
   async createWebchatIntegration(data: CreateWebchatIntegrationInput): Promise<IIntegration> {
-    // Generate unique identifiers for the widget
-    const websiteId = new mongoose.Types.ObjectId().toString();
-    const tenantId = new mongoose.Types.ObjectId().toString();
-
+    // No need to generate websiteId/tenantId - we'll use integration._id and orgId directly
     const integration = await Integration.create({
       orgId: new mongoose.Types.ObjectId(data.orgId),
       channel: 'webchat',
       provider: 'veblika',
       name: data.name,
       status: 'active',
-      credentials: {
-        websiteId,
-        tenantId,
-      },
+      credentials: {}, // Empty credentials object
     });
 
     return integration;
@@ -59,32 +53,6 @@ export class IntegrationService {
     if (!integration) {
       throw new Error('Integration not found');
     }
-
-    return integration;
-  }
-
-  /**
-   * Get integration by tenant ID (for widget verification)
-   */
-  async getIntegrationByTenantId(tenantId: string): Promise<IIntegration | null> {
-    const integration = await Integration.findOne({
-      'credentials.tenantId': tenantId,
-      channel: 'webchat',
-      status: 'active',
-    });
-
-    return integration;
-  }
-
-  /**
-   * Get integration by website ID
-   */
-  async getIntegrationByWebsiteId(websiteId: string): Promise<IIntegration | null> {
-    const integration = await Integration.findOne({
-      'credentials.websiteId': websiteId,
-      channel: 'webchat',
-      status: 'active',
-    });
 
     return integration;
   }
@@ -128,15 +96,15 @@ export class IntegrationService {
    * Generate embed script for integration
    */
   generateEmbedScript(integration: IIntegration): string {
-    const websiteId = integration.credentials?.websiteId;
-    const tenantId = integration.credentials?.tenantId;
+    const integrationId = integration._id.toString();
+    const orgId = integration.orgId.toString();
     const apiUrl = process.env.API_URL || 'http://localhost:8000';
 
     return `<!-- Veblika Chat Widget -->
 <script>
   window.MYCHAT = [];
-  window.MYCHAT_WEBSITE_ID = "${websiteId}";
-  window.MYCHAT_TENANT_ID = "${tenantId}";
+  window.MYCHAT_INTEGRATION_ID = "${integrationId}";
+  window.MYCHAT_ORG_ID = "${orgId}";
   (function() {
     var d = document;
     var s = d.createElement("script");
