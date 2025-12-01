@@ -4,9 +4,9 @@ import { logger } from "./config/logger"
 
 const startServer = async () => {
   try {
-    const app = await createApp()
+    const { app, httpServer, io } = await createApp()
 
-  const server = app.listen(config.port, () => {
+    httpServer.listen(config.port, () => {
       logger.info(`
 ╔════════════════════════════════════════════════════════╗
 ║                                                        ║
@@ -24,7 +24,13 @@ const startServer = async () => {
     // Graceful shutdown
     const gracefulShutdown = async (signal: string) => {
       logger.info(`\n${signal} received, closing server gracefully...`)
-      server.close(() => {
+      
+      // Close Socket.IO connections
+      io.close(() => {
+        logger.info("Socket.IO closed")
+      })
+      
+      httpServer.close(() => {
         logger.info("Server closed")
         process.exit(0)
       })
