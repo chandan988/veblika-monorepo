@@ -13,7 +13,6 @@ export interface IConversation extends Document {
   orgId: mongoose.Types.ObjectId
   integrationId: mongoose.Types.ObjectId
   contactId: mongoose.Types.ObjectId
-  ticketId?: mongoose.Types.ObjectId
 
   channel: Channel
   status: ConversationStatus
@@ -43,10 +42,6 @@ const conversationSchema = new Schema<IConversation>(
       ref: "integration",
       required: true,
       index: true,
-    },
-    ticketId: {
-      type: Schema.Types.ObjectId,
-      ref: "Ticket",
     },
     contactId: {
       type: Schema.Types.ObjectId,

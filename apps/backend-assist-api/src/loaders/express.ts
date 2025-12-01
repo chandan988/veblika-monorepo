@@ -45,7 +45,7 @@ export const expressLoader = async (app: Express): Promise<void> => {
   app.use(compression())
 
   // HTTP request logging (pino)
-  app.use(httpLogger)
+  // app.use(httpLogger)
 
   console.log("✅ Express middleware initialized")
 
