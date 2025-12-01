@@ -29,17 +29,6 @@ type VisitorInfo = {
 }
 
 export default function App() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState("")
-  const [isOpen, setIsOpen] = useState(false)
-  const [isConnected, setIsConnected] = useState(socket.connected)
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [showForm, setShowForm] = useState(true)
-  const [visitorInfo, setVisitorInfo] = useState<VisitorInfo>({
-    name: "",
-    email: "",
-    phone: "",
-  })
   const searchParams = useMemo(
     () => new URLSearchParams(window.location.search),
     []
@@ -47,6 +36,33 @@ export default function App() {
   const integrationId = searchParams.get("integrationId")
   const orgId = searchParams.get("orgId")
   const sessionId = searchParams.get("sessionId")
+  
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState("")
+  const [isOpen, setIsOpen] = useState(false)
+  const [isConnected, setIsConnected] = useState(socket.connected)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  
+  // Load visitor info from localStorage if exists
+  const [visitorInfo, setVisitorInfo] = useState<VisitorInfo>(() => {
+    const saved = localStorage.getItem(`mychat_visitor_${sessionId}`)
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch {
+        return { name: "", email: "", phone: "" }
+      }
+    }
+    return { name: "", email: "", phone: "" }
+  })
+  
+  // Show form only if no visitor info saved
+  const [showForm, setShowForm] = useState(() => {
+    const saved = localStorage.getItem(`mychat_visitor_${sessionId}`)
+    return !saved
+  })
+  
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom when new messages arrive
@@ -88,6 +104,33 @@ export default function App() {
     }
   }, [isOpen])
 
+  // Load conversation history from backend
+  const loadConversationHistory = async () => {
+    if (!sessionId || !integrationId) return
+    
+    setIsLoadingHistory(true)
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/widget/conversation-history?sessionId=${sessionId}&integrationId=${integrationId}`
+      )
+      if (response.ok) {
+        const data = await response.json()
+        const history: Message[] = (data.data || []).map((msg: any) => ({
+          text: msg.body?.text || "",
+          sender: msg.senderType === "agent" ? "agent" : "visitor",
+          timestamp: new Date(msg.createdAt || Date.now()),
+          socketId: msg._id,
+        }))
+        setMessages(history)
+        console.log("✅ Loaded conversation history:", history.length, "messages")
+      }
+    } catch (error) {
+      console.error("Failed to load conversation history:", error)
+    } finally {
+      setIsLoadingHistory(false)
+    }
+  }
+
   useEffect(() => {
     function onConnect() {
       setIsConnected(true)
@@ -99,6 +142,8 @@ export default function App() {
           sessionId,
           visitorInfo
         })
+        // Load conversation history on connect
+        loadConversationHistory()
       }
     }
 
@@ -111,7 +156,10 @@ export default function App() {
     }
 
     function onAgentMessage(data: any) {
-      console.log("Agent message received:", data)
+      console.log("🔥 Agent message received:", data)
+      console.log("🔥 Current sessionId:", sessionId)
+      console.log("🔥 Socket connected:", isConnected)
+      
       const message = data.message || data
       const newMessage: Message = {
         text: message.body?.text || message.text || "",
@@ -119,7 +167,17 @@ export default function App() {
         timestamp: new Date(message.createdAt || Date.now()),
         socketId: message._id,
       }
-      setMessages((prev) => [...prev, newMessage])
+      
+      // Check for duplicate messages
+      setMessages((prev) => {
+        const isDuplicate = prev.some(m => m.socketId === newMessage.socketId)
+        if (isDuplicate) {
+          console.log("⚠️ Duplicate message detected, skipping")
+          return prev
+        }
+        console.log("✅ Adding new agent message to widget")
+        return [...prev, newMessage]
+      })
 
       // Increment unread count if chat is closed
       if (!isOpen) {
@@ -149,7 +207,10 @@ export default function App() {
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (visitorInfo.name && visitorInfo.email && visitorInfo.phone) {
+      // Save visitor info to localStorage
+      localStorage.setItem(`mychat_visitor_${sessionId}`, JSON.stringify(visitorInfo))
       setShowForm(false)
+      
       // Join widget room after form submission
       socket.emit("widget:join", {
         integrationId,
@@ -161,6 +222,9 @@ export default function App() {
           referrer: document.referrer,
         }
       })
+      
+      // Load conversation history
+      loadConversationHistory()
     }
   }
 
