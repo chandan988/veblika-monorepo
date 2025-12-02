@@ -10,7 +10,6 @@
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
-    "@types/minimatch": "^6.0.0",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "prettier": "^3.6.2",
@@ -24,5 +23,12 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "date-fns": "^4.1.0",
+    "react-day-picker": "^9.11.1",
+    "react-hook-form": "^7.67.0",
+    "zod": "^4.1.13"
+  }
 }
