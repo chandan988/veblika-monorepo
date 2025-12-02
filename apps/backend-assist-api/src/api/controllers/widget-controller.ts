@@ -24,7 +24,7 @@ export class WidgetController {
    */
   getWidgetConfig = asyncHandler(async (req: Request, res: Response) => {
     const { integrationId } = req.params;
-    const config = await widgetService.getWidgetConfig(integrationId);
+    const config = await widgetService.getWidgetConfig(integrationId!);
 
     return res.status(200).json({
       success: true,
@@ -54,13 +54,37 @@ export class WidgetController {
    * Get conversation history (public endpoint)
    */
   getConversationHistory = asyncHandler(async (req: Request, res: Response) => {
-    const { conversationId } = req.params;
+    const { conversationId } = req.params
     const { limit, before } = req.query;
 
     const messages = await widgetService.getConversationHistory(
-      conversationId,
+      conversationId!,
       limit ? parseInt(limit as string) : 50,
       before as string
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: messages,
+    });
+  });
+
+  /**
+   * Get conversation history by sessionId (public endpoint)
+   */
+  getConversationHistoryBySession = asyncHandler(async (req: Request, res: Response) => {
+    const { sessionId, integrationId } = req.query;
+    
+    if (!sessionId || !integrationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'sessionId and integrationId are required',
+      });
+    }
+
+    const messages = await widgetService.getConversationHistoryBySession(
+      sessionId as string,
+      integrationId as string
     );
 
     return res.status(200).json({

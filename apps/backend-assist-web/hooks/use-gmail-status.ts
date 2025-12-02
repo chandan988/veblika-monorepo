@@ -9,9 +9,6 @@ export const useGmailStatus = () =>
       console.log("[useGmailStatus] Status result", status)
       return status
     },
-    onError: (err) => {
-      console.error("[useGmailStatus] Failed to fetch status", err)
-    },
   })
 
 export const useConnectGmail = () => {

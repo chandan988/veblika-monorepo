@@ -36,7 +36,7 @@ export default function ForgetPasswordPage() {
     setIsLoading(true)
 
     try {
-      const result = await authClient.forgetPassword({
+      const result = await authClient.requestPasswordReset({
         email: data.email,
         redirectTo: "/reset-password",
       })
@@ -76,11 +76,11 @@ export default function ForgetPasswordPage() {
               </div>
               <div className="text-center space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  We've sent a password reset link to{" "}
+                  {`We've sent a password reset link to`}
                   <span className="font-medium text-foreground">{form.getValues("email")}</span>
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Didn't receive the email? Check your spam folder or{" "}
+                  {`Didn't receive the email? Check your spam folder or`}
                   <button
                     onClick={() => setEmailSent(false)}
                     className="text-primary hover:underline font-medium"

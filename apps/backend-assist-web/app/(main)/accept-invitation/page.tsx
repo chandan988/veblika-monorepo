@@ -4,11 +4,11 @@ import { api } from "@/services/api"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter, useSearchParams } from "next/navigation"
 import queryString from "query-string"
-import { useEffect } from "react"
+import { useEffect, Suspense } from "react"
 
 // API Usage: You can now access the API at: GET /api/v1/users/by-email?email=user@example.com
 
-export default function AcceptInvitationPage() {
+function AcceptInvitationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -64,5 +64,13 @@ export default function AcceptInvitationPage() {
         <p className="text-muted-foreground">Processing invitation...</p>
       </div>
     </div>
+  )
+}
+
+export default function AcceptInvitationPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AcceptInvitationContent />
+    </Suspense>
   )
 }

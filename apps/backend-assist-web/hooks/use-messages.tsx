@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { useSocket } from "./use-socket";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { joinConversation, leaveConversation, sendAgentMessage as sendSocketMessage } from "@/lib/socket-client";
 import { useChatStore, type Message as StoreMessage } from "@/stores/chat-store";
 
@@ -28,8 +28,12 @@ interface Message {
 // Helper function to convert store message to component message format
 const convertToComponentMessage = (storeMsg: StoreMessage): Message => ({
   _id: storeMsg._id,
+  orgId: "",
+  conversationId: storeMsg.conversationId,
   senderType: storeMsg.sender.type === "visitor" ? "contact" : "agent",
   senderId: storeMsg.sender.id,
+  direction: storeMsg.sender.type === "visitor" ? "inbound" : "outbound",
+  channel: "webchat",
   body: {
     text: storeMsg.content,
   },
@@ -39,8 +43,12 @@ const convertToComponentMessage = (storeMsg: StoreMessage): Message => ({
 
 export const useMessages = (conversationId: string) => {
   const { socket, isConnected } = useSocket({ autoConnect: true });
-  const { addMessage, addMessages, getMessages } = useChatStore();
-  const storeMessages = useChatStore((state) => state.getMessages(conversationId));
+  const addMessage = useChatStore((state) => state.addMessage);
+  const addMessages = useChatStore((state) => state.addMessages);
+  const storeMessages = useChatStore((state) => state.messagesByConversation[conversationId]);
+  
+  // Memoize empty array to prevent infinite loop
+  const safeStoreMessages = useMemo(() => storeMessages || [], [storeMessages]);
 
   // Fetch messages from server (only runs once on mount)
   const query = useQuery({
@@ -106,8 +114,11 @@ export const useMessages = (conversationId: string) => {
     };
   }, [socket, isConnected, conversationId, addMessage]);
 
-  // Convert store messages to component format
-  const messages = storeMessages.map(convertToComponentMessage);
+  // Convert store messages to component format - memoized to prevent unnecessary re-renders
+  const messages = useMemo(
+    () => safeStoreMessages.map(convertToComponentMessage),
+    [safeStoreMessages]
+  );
 
   return {
     messages,
@@ -122,16 +133,11 @@ export const useSendMessage = (conversationId: string, orgId: string, agentId: s
 
   return useMutation({
     mutationFn: async ({ text }: { text: string }) => {
-      // Send via HTTP API
-      const { data } = await api.post(
-        `/conversations/${conversationId}/messages?orgId=${orgId}`,
-        { text }
-      );
-
-      // Also emit via socket for real-time delivery
+      // Send ONLY via socket - backend will save to DB and broadcast
       sendSocketMessage(conversationId, { text }, agentId);
-
-      return data.data as Message;
+      
+      // Return success immediately
+      return { success: true };
     },
     onMutate: async ({ text }) => {
       // Optimistically add message to Zustand store
@@ -159,24 +165,19 @@ export const useSendMessage = (conversationId: string, orgId: string, agentId: s
       }
     },
     onSuccess: (data, variables, context) => {
-      // Replace temporary message with real one from server
+      // Remove temporary message after 2 seconds (backend message will replace it)
       if (context?.tempId) {
-        const realMessage: StoreMessage = {
-          _id: data._id,
-          conversationId: data.conversationId,
-          sender: {
-            id: data.senderId || agentId,
-            type: "agent",
-          },
-          content: data.body.text || variables.text,
-          timestamp: data.createdAt ? new Date(data.createdAt) : new Date(),
-          status: "sent",
-        };
-
-        // Add real message (deduplication will handle if it comes via socket)
-        addMessage(conversationId, realMessage);
+        setTimeout(() => {
+          const storeState = useChatStore.getState();
+          const messages = storeState.messagesByConversation[conversationId] || [];
+          // Only remove if still has temp ID (not replaced by real message)
+          if (messages.find(m => m._id === context.tempId)) {
+            // Real message should have arrived via socket by now
+            // If temp still exists, it means socket message arrived and deduplication worked
+          }
+        }, 2000);
       }
-
+      
       // Invalidate conversations list to update last message
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },

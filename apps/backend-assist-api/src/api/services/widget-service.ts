@@ -332,6 +332,35 @@ export class WidgetService {
 
     return message;
   }
+
+  /**
+   * Get conversation history by sessionId
+   */
+  async getConversationHistoryBySession(
+    sessionId: string,
+    integrationId: string
+  ): Promise<any[]> {
+    // Find conversation by threadId (format: "session:xxx")
+    const conversation = await Conversation.findOne({
+      integrationId: new mongoose.Types.ObjectId(integrationId),
+      threadId: `session:${sessionId}`,
+      status: { $in: ['open', 'pending'] },
+    });
+
+    if (!conversation) {
+      return [];
+    }
+
+    // Get messages for this conversation
+    const messages = await Message.find({
+      conversationId: conversation._id,
+    })
+      .sort({ createdAt: 1 })
+      .limit(100)
+      .lean();
+
+    return messages;
+  }
 }
 
 export const widgetService = new WidgetService();
