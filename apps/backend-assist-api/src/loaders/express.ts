@@ -15,7 +15,7 @@ export const expressLoader = async (app: Express): Promise<void> => {
   // CORS - MUST be before auth routes
   app.use(
     cors({
-      origin: ["http://localhost:3000", "http://localhost:8000"],
+      origin: [...config.cors.origin],
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       credentials: true,
       allowedHeaders: ["Content-Type", "Authorization"],
@@ -33,8 +33,6 @@ export const expressLoader = async (app: Express): Promise<void> => {
   app.all('/api/auth/{*any}', toNodeHandler(auth));
 
   console.log("✅ Auth middleware initialized")
-
-  // app.options("*", cors())
 
   app.use(cookieParser())
   // Body parser
