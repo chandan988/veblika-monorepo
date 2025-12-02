@@ -137,10 +137,16 @@ export default function OrganisationPage() {
         name: values.name,
         slug: values.slug,
       })
-      setIsCreateDialogOpen(false)
-      createOrgForm.reset()
-      // Select the newly created organization
+      
       if (result.data) {
+        // Set the newly created organization as active in the session
+        await authClient.organization.setActive({
+          organizationId: result.data.id,
+        })
+        
+        setIsCreateDialogOpen(false)
+        createOrgForm.reset()
+        // Select the newly created organization
         setSelectedOrgId(result.data.id)
       }
     } catch (error) {

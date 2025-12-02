@@ -9,15 +9,15 @@ import { parseGmailMessage } from "../../utils/gmail-parser"
 import { getSocketIO } from "../../utils/socket-io"
 
 // Function to create OAuth2 client with dynamic redirect URI
-const createOAuth2Client = (redirectUri?: string) => {
+const createOAuth2Client = (redirectUri: string) => {
   return new google.auth.OAuth2(
     config.google.clientId,
     config.google.clientSecret,
-    redirectUri || `${config.client.url}/oauth/callback`
+    redirectUri
   )
 }
 
-const oauth2Client = createOAuth2Client()
+const oauth2Client = createOAuth2Client(`${config.google.redirectUri}`)
 
 const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
@@ -81,7 +81,7 @@ export const integrationGmailService = {
       }
 
       // Exchange authorization code for tokens with correct redirect_uri
-      const redirectUri = `${config.client.url}/oauth2/callback`
+      const redirectUri = `${config.google.redirectUri}`
       const client = createOAuth2Client(redirectUri)
       const { tokens } = await client.getToken({
         code,
