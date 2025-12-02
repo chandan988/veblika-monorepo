@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState, useRef, useMemo } from "react"
+import { useEffect, useState, useRef, useMemo, useCallback } from "react"
 import {
   Dialog,
   DialogContent,
@@ -43,6 +43,7 @@ export default function App() {
   const [isConnected, setIsConnected] = useState(socket.connected)
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  console.log(isLoadingHistory ? "Loading history..." : "History loaded")
   
   // Load visitor info from localStorage if exists
   const [visitorInfo, setVisitorInfo] = useState<VisitorInfo>(() => {
@@ -105,7 +106,7 @@ export default function App() {
   }, [isOpen])
 
   // Load conversation history from backend
-  const loadConversationHistory = async () => {
+  const loadConversationHistory = useCallback(async () => {
     if (!sessionId || !integrationId) return
     
     setIsLoadingHistory(true)
@@ -115,7 +116,7 @@ export default function App() {
       )
       if (response.ok) {
         const data = await response.json()
-        const history: Message[] = (data.data || []).map((msg: any) => ({
+        const history: Message[] = (data.data || []).map((msg: { body?: { text?: string }; senderType?: string; createdAt?: string; _id?: string }) => ({
           text: msg.body?.text || "",
           sender: msg.senderType === "agent" ? "agent" : "visitor",
           timestamp: new Date(msg.createdAt || Date.now()),
@@ -129,7 +130,7 @@ export default function App() {
     } finally {
       setIsLoadingHistory(false)
     }
-  }
+  }, [sessionId, integrationId])
 
   useEffect(() => {
     function onConnect() {
@@ -151,11 +152,11 @@ export default function App() {
       setIsConnected(false)
     }
 
-    function onWidgetConnected(data: any) {
+    function onWidgetConnected(data: { message?: string }) {
       console.log("Widget connected:", data)
     }
 
-    function onAgentMessage(data: any) {
+    function onAgentMessage(data: { message?: { body?: { text?: string }; text?: string; createdAt?: string; _id?: string }; body?: { text?: string }; text?: string; createdAt?: string; _id?: string }) {
       console.log("🔥 Agent message received:", data)
       console.log("🔥 Current sessionId:", sessionId)
       console.log("🔥 Socket connected:", isConnected)
@@ -185,7 +186,7 @@ export default function App() {
       }
     }
 
-    function onMessageConfirmed(data: any) {
+    function onMessageConfirmed(data: { status?: string; messageId?: string }) {
       console.log("Message confirmed:", data)
     }
 
@@ -202,7 +203,7 @@ export default function App() {
       socket.off("agent:message", onAgentMessage)
       socket.off("message:confirmed", onMessageConfirmed)
     }
-  }, [isOpen, integrationId, orgId, sessionId, showForm, visitorInfo])
+  }, [isOpen, integrationId, orgId, sessionId, showForm, visitorInfo, isConnected, loadConversationHistory])
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()
