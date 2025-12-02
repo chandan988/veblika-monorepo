@@ -8,9 +8,6 @@ import { verificationEmailHtml } from "./services/email/templates/verification-e
 import { resetPasswordHtml } from "./services/email/templates/reset-password"
 import { invitationEmailHtml } from "./services/email/templates/invitation-email"
 
-console.log(process.env)
-console.log(config.google)
-
 // Database connection
 if (!config.mongodb.uri) {
   throw new Error("MONGODB_URI environment variable is not set")
@@ -27,14 +24,14 @@ if (mongoose.connection.readyState !== 1) {
 const mongoClient = mongoose.connection.getClient()
 
 // Default email sender
-const from = process.env.DEFAULT_FROM_EMAIL || "noreply@veblika.com"
+const from = config.email.from
 
 // Base URL for the application
 const baseUrl = config.client.url
 
 export const auth = betterAuth({
-  baseURL: "http://localhost:8000",
-  trustedOrigins: ["http://localhost:3000", "http://localhost:8000"],
+  baseURL: config.auth.serviceUrl,
+  trustedOrigins: config.cors.origin,
 
   database: mongodbAdapter(mongoose.connection.db!, {
     client: mongoClient,
@@ -132,6 +129,7 @@ export const auth = betterAuth({
     organization({
       // Organization creation settings
       allowUserToCreateOrganization: true,
+      organizationLimit: 1,
 
       // Require email verification for invitations
       requireEmailVerificationOnInvitation: false,

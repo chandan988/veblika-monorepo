@@ -4,7 +4,7 @@ import { logger } from "./config/logger"
 
 const startServer = async () => {
   try {
-    const { app, httpServer, io } = await createApp()
+    const {httpServer, io } = await createApp()
 
     httpServer.listen(config.port, () => {
       logger.info(`
@@ -14,8 +14,8 @@ const startServer = async () => {
 ║                                                        ║
 ║   📡 Port: ${config.port}                                    ║
 ║   🌍 Environment: ${config.nodeEnv}                    ║
-║   🔗 API: http://localhost:${config.port}${config.api.prefix}       ║
-║   ❤️  Health: http://localhost:${config.port}/health          ║
+║   🔗 API: ${config.auth.serviceUrl}${config.api.prefix}       ║
+║   ❤️  Health: ${config.auth.serviceUrl}/health          ║
 ║                                                        ║
 ╚════════════════════════════════════════════════════════╝
       `)

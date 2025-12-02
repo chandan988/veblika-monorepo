@@ -3,29 +3,21 @@ import dotenv from "dotenv"
 dotenv.config()
 
 const allowedOrigins = (() => {
-  const fromEnv =
-    process.env.CORS_ORIGIN
-      ?.split(",")
-      .map((o) => o.trim())
-      .filter(Boolean) || []
-
-  const fromClient = process.env.CLIENT_URL ? [process.env.CLIENT_URL] : []
-
   const fallbacks = [
-    "http://localhost:3000",  // Next.js app
-    "http://localhost:5173",  // Widget UI (Vite)
-    "*" // Allow all origins for widget embedding
+    "http://localhost:3000", // Next.js app
+    "http://localhost:5173", // Widget UI (Vite)
+    "*", // Allow all origins for widget embedding
   ]
 
   // Deduplicate while preserving order
-  return Array.from(new Set([...fromEnv, ...fromClient, ...fallbacks]))
+  return Array.from(new Set([...fallbacks]))
 })()
 
 export const config = {
   port: process.env.PORT || 8000,
   nodeEnv: process.env.NODE_ENV || "development",
   mongodb: {
-    uri: process.env.MONGODB_URI || "mongodb://localhost:27017/backend-assist",
+    uri: process.env.MONGODB_URI,
   },
   api: {
     prefix: process.env.API_PREFIX || "/api/v1",
