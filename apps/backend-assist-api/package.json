@@ -1,12 +1,12 @@
 {
   "name": "backend-assist-api",
   "version": "0.0.1",
-  "type": "module",
   "private": true,
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "start:dev": "tsx src/server.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "typecheck": "tsc --noEmit"

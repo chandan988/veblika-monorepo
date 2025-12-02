@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
-export default function OAuthCallbackPage() {
+function OAuthCallbackContent() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -39,5 +39,13 @@ export default function OAuthCallbackPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function OAuthCallbackPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <OAuthCallbackContent />
+    </Suspense>
   );
 }

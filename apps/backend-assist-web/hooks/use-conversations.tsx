@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/services/api"
 import { useSocket } from "./use-socket"
 import { useEffect } from "react"
+import { toast } from "sonner"
 
 interface Conversation {
   _id: string
@@ -56,17 +57,83 @@ export const useConversations = (params: GetConversationsParams) => {
 
       // If it's a new conversation, show notification
       if (data.isNewConversation) {
-        // You can emit a custom event or use a toast notification here
-        console.log("New conversation started!")
+        toast.success("New conversation started!", {
+          description: `From: ${data.conversation?.contactId?.name || data.conversation?.contactId?.email || 'Unknown'}`,
+        })
       }
     }
 
+    const handleGmailNewMessage = (data: any) => {
+      console.log("📧 Gmail message received:", data)
+      
+      // Update conversations list
+      queryClient.setQueryData(["conversations", params], (old: any) => {
+        if (!old) return old
+        
+        const conversations = old.data || []
+        
+        if (data.conversation?.isNew) {
+          // Add new conversation at the top
+          return {
+            ...old,
+            data: [{
+              _id: data.conversation._id,
+              orgId: params.orgId,
+              integrationId: data.integration?._id,
+              contactId: data.contact,
+              channel: "gmail",
+              status: data.conversation.status,
+              priority: "normal",
+              lastMessageAt: new Date().toISOString(),
+              lastMessagePreview: data.message?.snippet || data.message?.body?.text?.substring(0, 100) || "",
+              tags: [],
+              sourceMetadata: {
+                subject: data.conversation.subject,
+                from: data.contact?.email,
+              },
+            }, ...conversations]
+          }
+        } else {
+          // Update existing conversation
+          const updated = conversations.map((conv: any) => {
+            if (conv._id === data.conversation?._id) {
+              return {
+                ...conv,
+                lastMessageAt: new Date().toISOString(),
+                lastMessagePreview: data.message?.snippet || data.message?.body?.text?.substring(0, 100) || conv.lastMessagePreview,
+                status: data.conversation.status || conv.status,
+              }
+            }
+            return conv
+          })
+          
+          // Sort by lastMessageAt (newest first)
+          updated.sort((a: any, b: any) => 
+            new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+          )
+          
+          return { ...old, data: updated }
+        }
+      })
+      
+      // Show notification
+      toast.success(
+        data.conversation?.isNew ? "📧 New Email Received" : "📧 Email Reply Received",
+        {
+          description: `From: ${data.contact?.name || data.contact?.email}\nSubject: ${data.conversation?.subject || 'No subject'}`,
+          duration: 5000,
+        }
+      )
+    }
+
     socket.on("new:message", handleNewMessage)
+    socket.on("gmail:new-message", handleGmailNewMessage)
 
     return () => {
       socket.off("new:message", handleNewMessage)
+      socket.off("gmail:new-message", handleGmailNewMessage)
     }
-  }, [socket, isConnected, queryClient])
+  }, [socket, isConnected, queryClient, params])
 
   return query
 }
