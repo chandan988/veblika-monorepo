@@ -81,6 +81,51 @@ export const auth = betterAuth({
     },
   },
 
+  // Database hooks to auto-set active organization on session creation
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          try {
+            // Get user's organizations
+            console.log(
+              "Setting active organization for session user:",
+              session.userId
+            )
+            const db = mongoose.connection.db!
+            const organizations = await db
+              .collection("member")
+              .findOne({ userId: new mongoose.Types.ObjectId(session.userId) })
+            console.log("User organizations:", organizations)
+
+            // If user has at least one organization, set it as active
+            if (organizations) {
+              return {
+                data: {
+                  ...session,
+                  activeOrganizationId: organizations.organizationId.toString(),
+                },
+              }
+            }
+
+            return {
+              data: session,
+            }
+          } catch (error) {
+            console.error(
+              "Error setting active organization on session:",
+              error
+            )
+            // Return session as-is if there's an error
+            return {
+              data: session,
+            }
+          }
+        },
+      },
+    },
+  },
+
   // Plugins
   plugins: [
     // Organization plugin for multi-tenancy
@@ -115,6 +160,21 @@ export const auth = betterAuth({
           console.error("Failed to send invitation email:", error)
           throw error
         }
+      },
+
+      // Organization hooks to set active organization after creation
+      organizationHooks: {
+        afterCreateOrganization: async ({ organization, user }) => {
+          try {
+            console.log(
+              `🏢 Setting newly created organization as active: ${organization.name}`
+            )
+            // Note: The session will be updated automatically by Better Auth
+            // when we call setActiveOrganization from the client after organization creation
+          } catch (error) {
+            console.error("Error in afterCreateOrganization hook:", error)
+          }
+        },
       },
     }),
   ],
