@@ -176,6 +176,14 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
             isNewConversation: result.isNewConversation,
           })
 
+          // Also emit to specific conversation room for agents viewing this conversation
+          const conversationRoom = `conversation:${result.conversation._id}`
+          io.to(conversationRoom).emit("new:message", {
+            message: result.message,
+            conversation: result.conversation,
+            isNewConversation: result.isNewConversation,
+          })
+
           // Also emit SSE notification for agents not on socket
           notifications.emit("notification", {
             type: "new_message",
@@ -185,7 +193,7 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
             preview: data.message.text.substring(0, 100),
           })
 
-          logger.info(`Message saved and agents notified in ${agentRoom}`)
+          logger.info(`Message saved and agents notified in ${agentRoom} and ${conversationRoom}`)
         } catch (error) {
           logger.error("Error in visitor:message:", error)
           socket.emit("message:error", { message: "Failed to send message" })
