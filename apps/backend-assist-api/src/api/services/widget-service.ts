@@ -343,7 +343,7 @@ export class WidgetService {
     // Find conversation by threadId (format: "session:xxx")
     const conversation = await Conversation.findOne({
       integrationId: new mongoose.Types.ObjectId(integrationId),
-      threadId: `session:${sessionId}`,
+      threadId: `widget:${sessionId}`,
       status: { $in: ['open', 'pending'] },
     });
 

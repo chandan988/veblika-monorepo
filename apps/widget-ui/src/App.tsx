@@ -11,9 +11,9 @@ import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Badge } from "@workspace/ui/components/badge"
 import { ScrollArea } from "@workspace/ui/components/scroll-area"
-import { Card } from "@workspace/ui/components/card"
 import { Label } from "@workspace/ui/components/label"
-import { socket } from "./lib/socket-client"
+import { User } from "lucide-react"
+import { getSocket, connectSocket, disconnectSocket } from "./lib/socket-client"
 
 type Message = {
   text: string
@@ -36,15 +36,14 @@ export default function App() {
   const integrationId = searchParams.get("integrationId")
   const orgId = searchParams.get("orgId")
   const sessionId = searchParams.get("sessionId")
-  
+
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isOpen, setIsOpen] = useState(false)
-  const [isConnected, setIsConnected] = useState(socket.connected)
+  const [isConnected, setIsConnected] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
-  console.log(isLoadingHistory ? "Loading history..." : "History loaded")
-  
+
   // Load visitor info from localStorage if exists
   const [visitorInfo, setVisitorInfo] = useState<VisitorInfo>(() => {
     const saved = localStorage.getItem(`mychat_visitor_${sessionId}`)
@@ -57,7 +56,7 @@ export default function App() {
     }
     return { name: "", email: "", phone: "" }
   })
-  
+
   // Show form only if no visitor info saved
   const [showForm, setShowForm] = useState(() => {
     const saved = localStorage.getItem(`mychat_visitor_${sessionId}`)
@@ -65,6 +64,7 @@ export default function App() {
   })
   
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const hasJoinedRoom = useRef(false)
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -108,22 +108,31 @@ export default function App() {
   // Load conversation history from backend
   const loadConversationHistory = useCallback(async () => {
     if (!sessionId || !integrationId) return
-    
+
     setIsLoadingHistory(true)
     try {
+      const url =
+        import.meta.env.VITE_BACKEND_API_URL || "http://localhost:8000/"
       const response = await fetch(
-        `http://localhost:8000/api/widget/conversation-history?sessionId=${sessionId}&integrationId=${integrationId}`
+        `${url}api/v1/widget/conversation-history?sessionId=${sessionId}&integrationId=${integrationId}`
       )
       if (response.ok) {
         const data = await response.json()
-        const history: Message[] = (data.data || []).map((msg: { body?: { text?: string }; senderType?: string; createdAt?: string; _id?: string }) => ({
-          text: msg.body?.text || "",
-          sender: msg.senderType === "agent" ? "agent" : "visitor",
-          timestamp: new Date(msg.createdAt || Date.now()),
-          socketId: msg._id,
-        }))
+        const history: Message[] = (data.data || []).map(
+          (msg: {
+            body?: { text?: string }
+            senderType?: string
+            createdAt?: string
+            _id?: string
+          }) => ({
+            text: msg.body?.text || "",
+            sender: msg.senderType === "agent" ? "agent" : "visitor",
+            timestamp: new Date(msg.createdAt || Date.now()),
+            socketId: msg._id,
+          })
+        )
+
         setMessages(history)
-        console.log("✅ Loaded conversation history:", history.length, "messages")
       }
     } catch (error) {
       console.error("Failed to load conversation history:", error)
@@ -132,35 +141,58 @@ export default function App() {
     }
   }, [sessionId, integrationId])
 
+  // Socket connection management - only connect when dialog is open
   useEffect(() => {
+    if (!isOpen || !integrationId || !orgId || !sessionId) {
+      return
+    }
+
+    // Connect socket when dialog opens
+    const socket = connectSocket()
+
     function onConnect() {
       setIsConnected(true)
-      // Join widget room only if visitor info is submitted
-      if (!showForm) {
+      
+      // Join widget room after connection
+      if (!showForm && !hasJoinedRoom.current) {
         socket.emit("widget:join", {
           integrationId,
           orgId,
           sessionId,
-          visitorInfo
+          visitorInfo: {
+            ...visitorInfo,
+            userAgent: navigator.userAgent,
+            referrer: document.referrer,
+          },
         })
-        // Load conversation history on connect
+        hasJoinedRoom.current = true
+        
+        // Load conversation history after joining
         loadConversationHistory()
       }
     }
 
     function onDisconnect() {
       setIsConnected(false)
+      hasJoinedRoom.current = false
     }
 
-    function onWidgetConnected(data: { message?: string }) {
-      console.log("Widget connected:", data)
+    function onWidgetConnected() {
+      // Widget successfully connected to room
     }
 
-    function onAgentMessage(data: { message?: { body?: { text?: string }; text?: string; createdAt?: string; _id?: string }; body?: { text?: string }; text?: string; createdAt?: string; _id?: string }) {
-      console.log("🔥 Agent message received:", data)
-      console.log("🔥 Current sessionId:", sessionId)
-      console.log("🔥 Socket connected:", isConnected)
-      
+    function onAgentMessage(data: {
+      message?: {
+        body?: { text?: string }
+        text?: string
+        createdAt?: string
+        _id?: string
+      }
+      body?: { text?: string }
+      text?: string
+      createdAt?: string
+      _id?: string
+    }) {
       const message = data.message || data
       const newMessage: Message = {
         text: message.body?.text || message.text || "",
@@ -168,15 +200,13 @@ export default function App() {
         timestamp: new Date(message.createdAt || Date.now()),
         socketId: message._id,
       }
-      
+
       // Check for duplicate messages
       setMessages((prev) => {
-        const isDuplicate = prev.some(m => m.socketId === newMessage.socketId)
+        const isDuplicate = prev.some((m) => m.socketId === newMessage.socketId)
         if (isDuplicate) {
-          console.log("⚠️ Duplicate message detected, skipping")
           return prev
         }
-        console.log("✅ Adding new agent message to widget")
         return [...prev, newMessage]
       })
 
@@ -186,15 +216,21 @@ export default function App() {
       }
     }
 
-    function onMessageConfirmed(data: { status?: string; messageId?: string }) {
-      console.log("Message confirmed:", data)
+    function onMessageConfirmed() {
+      // Message delivery confirmed
     }
 
+    // Setup event listeners
     socket.on("connect", onConnect)
     socket.on("disconnect", onDisconnect)
     socket.on("widget:connected", onWidgetConnected)
     socket.on("agent:message", onAgentMessage)
     socket.on("message:confirmed", onMessageConfirmed)
+
+    // If already connected, trigger connect handler
+    if (socket.connected) {
+      onConnect()
+    }
 
     return () => {
       socket.off("connect", onConnect)
@@ -202,30 +238,41 @@ export default function App() {
       socket.off("widget:connected", onWidgetConnected)
       socket.off("agent:message", onAgentMessage)
       socket.off("message:confirmed", onMessageConfirmed)
+      
+      // Disconnect socket when dialog closes to save resources
+      disconnectSocket()
+      hasJoinedRoom.current = false
     }
-  }, [isOpen, integrationId, orgId, sessionId, showForm, visitorInfo, isConnected, loadConversationHistory])
+  }, [isOpen, integrationId, orgId, sessionId, showForm, visitorInfo, loadConversationHistory])
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (visitorInfo.name && visitorInfo.email && visitorInfo.phone) {
       // Save visitor info to localStorage
-      localStorage.setItem(`mychat_visitor_${sessionId}`, JSON.stringify(visitorInfo))
+      localStorage.setItem(
+        `mychat_visitor_${sessionId}`,
+        JSON.stringify(visitorInfo)
+      )
       setShowForm(false)
-      
+
       // Join widget room after form submission
-      socket.emit("widget:join", {
-        integrationId,
-        orgId,
-        sessionId,
-        visitorInfo: {
-          ...visitorInfo,
-          userAgent: navigator.userAgent,
-          referrer: document.referrer,
-        }
-      })
-      
-      // Load conversation history
-      loadConversationHistory()
+      const socket = getSocket()
+      if (socket.connected && !hasJoinedRoom.current) {
+        socket.emit("widget:join", {
+          integrationId,
+          orgId,
+          sessionId,
+          visitorInfo: {
+            ...visitorInfo,
+            userAgent: navigator.userAgent,
+            referrer: document.referrer,
+          },
+        })
+        hasJoinedRoom.current = true
+        
+        // Load conversation history after joining
+        loadConversationHistory()
+      }
     }
   }
 
@@ -237,6 +284,8 @@ export default function App() {
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, newMessage])
+      
+      const socket = getSocket()
       socket.emit("visitor:message", {
         integrationId,
         orgId,
@@ -280,37 +329,58 @@ export default function App() {
       {/* Chat Dialog */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent
-          className="w-[420px] h-[650px]"
+          className="w-[420px] h-[650px] p-0 flex flex-col gap-0 overflow-hidden"
           onPointerDownOutside={(e) => e.preventDefault()}
         >
           {/* Header */}
-          <DialogHeader className="bg-primary text-primary-foreground p-4 rounded-t-lg shrink-0">
+          <DialogHeader className="bg-primary text-primary-foreground p-4 shrink-0">
             <DialogTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-3 h-3 rounded-full ${isConnected ? "bg-green-400 animate-pulse" : "bg-red-400"
-                      }`}
-                  />
-                  <span>Chat with us</span>
-                </div>
-                <Badge variant="secondary" className="text-xs">
+                <div
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    isConnected ? "bg-green-400 animate-pulse" : "bg-red-400"
+                  }`}
+                />
+                <span className="text-base font-semibold">Chat with us</span>
+                <Badge variant="secondary" className="text-xs font-normal">
                   {isConnected ? "Online" : "Offline"}
                 </Badge>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsOpen(false)}
-                className="hover:bg-primary-foreground/20"
+                onClick={() => {
+                  setIsOpen(false)
+                  setUnreadCount(0)
+                }}
+                className="hover:bg-primary-foreground/20 -mr-2"
                 aria-label="Close chat"
               >
                 <X className="w-5 h-5" />
               </Button>
             </DialogTitle>
-            <p className="text-sm opacity-90 mt-1">
-              We typically reply in a few minutes
-            </p>
+            
+            {!showForm && visitorInfo.name ? (
+              <div className="mt-3 pt-3 border-t border-primary-foreground/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{visitorInfo.name}</p>
+                    <div className="flex items-center gap-2 text-xs opacity-80 mt-0.5">
+                      {visitorInfo.email && (
+                        <span className="truncate">{visitorInfo.email}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : !showForm ? null : (
+              <p className="text-sm opacity-90 mt-2">
+                We typically reply in a few minutes
+              </p>
+            )}
           </DialogHeader>
 
           {/* Contact Form or Messages */}
@@ -332,7 +402,12 @@ export default function App() {
                     type="text"
                     placeholder="John Doe"
                     value={visitorInfo.name}
-                    onChange={(e) => setVisitorInfo(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) =>
+                      setVisitorInfo((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }))
+                    }
                     required
                   />
                 </div>
@@ -344,7 +419,12 @@ export default function App() {
                     type="email"
                     placeholder="john@example.com"
                     value={visitorInfo.email}
-                    onChange={(e) => setVisitorInfo(prev => ({ ...prev, email: e.target.value }))}
+                    onChange={(e) =>
+                      setVisitorInfo((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
                     required
                   />
                 </div>
@@ -356,7 +436,12 @@ export default function App() {
                     type="tel"
                     placeholder="+1 234 567 8900"
                     value={visitorInfo.phone}
-                    onChange={(e) => setVisitorInfo(prev => ({ ...prev, phone: e.target.value }))}
+                    onChange={(e) =>
+                      setVisitorInfo((prev) => ({
+                        ...prev,
+                        phone: e.target.value,
+                      }))
+                    }
                     required
                   />
                 </div>
@@ -364,7 +449,11 @@ export default function App() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={!visitorInfo.name || !visitorInfo.email || !visitorInfo.phone}
+                  disabled={
+                    !visitorInfo.name ||
+                    !visitorInfo.email ||
+                    !visitorInfo.phone
+                  }
                 >
                   Start Chat
                 </Button>
@@ -373,45 +462,57 @@ export default function App() {
           ) : (
             <>
               {/* Messages */}
-              <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-                <div className="space-y-4">
-                  {messages.length === 0 && (
+              <ScrollArea className="flex-1 min-h-0" ref={scrollAreaRef}>
+                <div className="p-4 space-y-3">
+                  {isLoadingHistory ? (
+                    <div className="text-center text-muted-foreground mt-8">
+                      <div className="w-12 h-12 mx-auto mb-2 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                      <p className="text-sm">Loading conversation...</p>
+                    </div>
+                  ) : messages.length === 0 ? (
                     <div className="text-center text-muted-foreground mt-8">
                       <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">Start a conversation</p>
-                      <p className="text-xs mt-1 opacity-70">We're here to help!</p>
+                      <p className="text-xs mt-1 opacity-70">
+                        We're here to help!
+                      </p>
                     </div>
-                  )}
+                  ) : null}
                   {messages.map((msg, idx) => (
                     <div
                       key={idx}
-                      className={`flex flex-col ${msg.sender === "visitor" ? "items-end" : "items-start"
-                        } animate-in slide-in-from-bottom-2 duration-300`}
+                      className={`flex ${
+                        msg.sender === "visitor" ? "justify-end" : "justify-start"
+                      } animate-in slide-in-from-bottom-2 duration-200`}
                     >
-                      <div className="flex items-end gap-2 max-w-[85%]">
-                        {msg.sender === "agent" && (
-                          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
+                      <div className={`flex items-end gap-2 max-w-[80%] ${
+                        msg.sender === "visitor" ? "flex-row-reverse" : "flex-row"
+                      }`}>
+                        {msg.sender === "agent" ? (
+                          <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-semibold shrink-0 mb-5">
                             A
                           </div>
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-semibold shrink-0 mb-5">
+                            Y
+                          </div>
                         )}
-                        <div>
-                          <Card
-                            className={`p-3 ${msg.sender === "visitor"
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "bg-muted border-muted"
-                              }`}
+                        <div className="flex flex-col gap-1">
+                          <div
+                            className={`rounded-2xl px-3.5 py-2.5 shadow-sm ${
+                              msg.sender === "visitor"
+                                ? "bg-primary text-primary-foreground rounded-br-sm"
+                                : "bg-muted border border-border rounded-bl-sm"
+                            }`}
                           >
-                            <p className="text-sm break-all">{msg.text}</p>
-                          </Card>
-                          <p className="text-xs text-muted-foreground mt-1 px-1">
+                            <p className="text-sm leading-relaxed wrap-break-word">{msg.text}</p>
+                          </div>
+                          <p className={`text-xs text-muted-foreground px-2 ${
+                            msg.sender === "visitor" ? "text-right" : "text-left"
+                          }`}>
                             {formatTime(msg.timestamp)}
                           </p>
                         </div>
-                        {msg.sender === "visitor" && (
-                          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground text-xs font-bold shrink-0">
-                            You
-                          </div>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -420,7 +521,7 @@ export default function App() {
 
               {/* Input */}
               <div className="p-4 border-t shrink-0 bg-background">
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <Input
                     type="text"
                     value={input}
