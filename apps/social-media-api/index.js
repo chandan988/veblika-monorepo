@@ -39,6 +39,13 @@ app.get("/", (req, res) => {
   res.json({ message: "API is running..." });
 });
 
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.listen(PORT, async () => {
   await connectDb();
   // Run migration to drop old orgNo index and ensure userId index exists
