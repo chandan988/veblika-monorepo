@@ -61,4 +61,25 @@ export const expressLoader = async (app: Express): Promise<void> => {
       timestamp: new Date().toISOString(),
     })
   })
+
+  // Admin diagnostics - SMTP verify
+  app.get('/admin/diagnostics/smtp', isAuth, async (req: Request, res: Response) => {
+    try {
+      const { emailService } = await import('../services/email')
+      if (!emailService || typeof emailService.verify !== 'function') {
+        return res.status(501).json({ success: false, message: 'SMTP verify not available' })
+      }
+
+      const result = await emailService.verify()
+
+      if (result.ok) {
+        return res.status(200).json({ success: true, message: 'SMTP verified', data: { ok: true } })
+      }
+
+      return res.status(200).json({ success: false, message: 'SMTP verify failed', data: result })
+    } catch (err) {
+      console.error('SMTP diagnostics error', err)
+      return res.status(500).json({ success: false, message: 'SMTP diagnostics error' })
+    }
+  })
 }
