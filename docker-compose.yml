@@ -1,23 +1,16 @@
-version: '3.8'
-
 services:
-  # Backend Assist API - Express + TypeScript + Socket.IO
+  # Backend Assist API
   backend-assist-api:
     build:
       context: .
       dockerfile: apps/backend-assist-api/Dockerfile
-    container_name: backend-assist-api
-    ports:
-      - "8000:8000"
     environment:
       - NODE_ENV=production
       - PORT=8000
       - MONGODB_URI=${BA_MONGODB_URI}
-      - API_PREFIX=/api/v1
-      - CORS_ORIGIN=http://backend-assist-web:3000,http://widget-ui:80
-      - CLIENT_URL=${BA_CLIENT_URL}
-      - BETTER_AUTH_URL=${BA_BETTER_AUTH_URL}
       - BETTER_AUTH_SECRET=${BA_BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${BA_BETTER_AUTH_URL}
+      - CLIENT_URL=${BA_CLIENT_URL}
       - DEFAULT_FROM_EMAIL=${BA_DEFAULT_FROM_EMAIL}
       - SMTP_HOST=${BA_SMTP_HOST}
       - SMTP_PORT=${BA_SMTP_PORT}
@@ -30,51 +23,37 @@ services:
     restart: unless-stopped
     networks:
       - dokploy-network
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
-  # Backend Assist Web - Next.js Frontend
+  # Backend Assist Web
   backend-assist-web:
     build:
       context: .
       dockerfile: apps/backend-assist-web/Dockerfile
-    container_name: backend-assist-web
-    ports:
-      - "3000:3000"
+      args:
+        BA_BETTER_AUTH_URL: ${BA_BETTER_AUTH_URL}
+        BA_CLIENT_URL: ${BA_CLIENT_URL}
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_AUTH_URL=http://localhost:8000
-      - NEXT_PUBLIC_CLIENT_URL=http://localhost:3000
+      - PORT=3000
+      - NEXT_PUBLIC_AUTH_URL=${BA_BETTER_AUTH_URL}
+      - NEXT_PUBLIC_CLIENT_URL=${BA_CLIENT_URL}
     depends_on:
-      backend-assist-api:
-        condition: service_healthy
+      - backend-assist-api
     restart: unless-stopped
     networks:
       - dokploy-network
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
-  # Social Media API - Express + MongoDB
+  # Social Media API
   social-media-api:
     build:
       context: .
       dockerfile: apps/social-media-api/Dockerfile
-    container_name: social-media-api
-    ports:
-      - "8001:8001"
     environment:
       - NODE_ENV=production
       - PORT=8001
       - MONGO_URL=${SM_MONGO_URL}
       - JWT_SECRET=${SM_JWT_SECRET}
+      - FRONTEND_URL=${SM_FRONTEND_URL}
       - AWS_REGION=${SM_AWS_REGION}
       - BUCKETNAME=${SM_BUCKETNAME}
       - S3ACCESSKEYID=${SM_S3ACCESSKEYID}
@@ -89,70 +68,42 @@ services:
       - LINKEDIN_CLIENT_ID=${SM_LINKEDIN_CLIENT_ID}
       - LINKEDIN_CLIENT_SECRET=${SM_LINKEDIN_CLIENT_SECRET}
       - LINKEDIN_REDIRECT_URI=${SM_LINKEDIN_REDIRECT_URI}
-      - GOOGLE_CLIENT_ID=${SM_YOUTUBE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${SM_YOUTUBE_CLIENT_SECRET}
-      - GOOGLE_REDIRECT_URI=${SM_YOUTUBE_REDIRECT_URI}
-      - FRONTEND_URL=${SM_FRONTEND_URL}
+      - YOUTUBE_CLIENT_ID=${SM_YOUTUBE_CLIENT_ID}
+      - YOUTUBE_CLIENT_SECRET=${SM_YOUTUBE_CLIENT_SECRET}
+      - YOUTUBE_REDIRECT_URI=${SM_YOUTUBE_REDIRECT_URI}
     restart: unless-stopped
     networks:
       - dokploy-network
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
-  # Social Media Web - Next.js Frontend
+  # Social Media Web
   social-media-web:
     build:
       context: .
       dockerfile: apps/social-media-web/Dockerfile
-    container_name: social-media-web
-    ports:
-      - "3001:3001"
+      args:
+        SM_FRONTEND_URL: ${SM_FRONTEND_URL}
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_CLIENT_URL=http://localhost:3001
-      - NEXT_PUBLIC_AUTH_URL=http://localhost:8000
-      - NEXT_PUBLIC_API_URL=http://localhost:8001
+      - PORT=3001
+      - NEXT_PUBLIC_API_URL=${SM_FRONTEND_URL}
     depends_on:
-      backend-assist-api:
-        condition: service_healthy
-      social-media-api:
-        condition: service_healthy
+      - social-media-api
     restart: unless-stopped
     networks:
       - dokploy-network
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
-  # Widget UI - Vite + React with Nginx
+  # Widget UI
   widget-ui:
     build:
       context: .
       dockerfile: apps/widget-ui/Dockerfile
       args:
-        - VITE_BACKEND_API_URL=http://localhost:8000
-    container_name: widget-ui
-    ports:
-      - "5173:80"
-    depends_on:
-      backend-assist-api:
-        condition: service_healthy
+        VITE_BACKEND_API_URL: ${BA_BETTER_AUTH_URL}
+    environment:
+      - NODE_ENV=production
     restart: unless-stopped
     networks:
       - dokploy-network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
 
 networks:
   dokploy-network:
