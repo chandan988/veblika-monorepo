@@ -89,7 +89,7 @@ export class ConversationController {
     );
 
     // Include sanitized delivery info (if available) so frontend can notify user
-    const deliveryInfo: any = undefined
+    let deliveryInfo: any = undefined
     try {
       if (message && message.metadata) {
         deliveryInfo = {
