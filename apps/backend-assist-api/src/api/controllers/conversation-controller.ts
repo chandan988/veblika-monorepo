@@ -75,9 +75,9 @@ export class ConversationController {
   sendMessage = asyncHandler(async (req: Request, res: Response) => {
     const data: SendMessageInput = req.body;
     
-    // Get orgId from authenticated user's session
-    // For now, we'll need to pass it from the request
-    const orgId = req.query.orgId as string || '';
+    // Get orgId from authenticated user's session if available,
+    // otherwise accept optional orgId query param. If neither present, pass undefined.
+    const orgId = (req.user && (req.user as any).orgId) || (req.query.orgId as string) || undefined;
     const agentId = req.user?.id || '';
 
     const message = await conversationService.sendMessage(
@@ -88,10 +88,36 @@ export class ConversationController {
       data.internal === true
     );
 
+    // Include sanitized delivery info (if available) so frontend can notify user
+    const deliveryInfo: any = undefined
+    try {
+      if (message && message.metadata) {
+        deliveryInfo = {
+          emailSent: message.metadata.emailSent === true,
+          emailError: message.metadata.emailError ? {
+            message: message.metadata.emailError.message,
+            code: message.metadata.emailError.code,
+          } : undefined,
+        }
+      }
+    } catch (err) {
+      // ignore errors while reading metadata
+    }
+
+    // Log a concise server-side entry if delivery failed
+    if (deliveryInfo && deliveryInfo.emailSent === false && deliveryInfo.emailError) {
+      console.warn('Message delivered to DB but email send failed', {
+        conversationId: req.params.id,
+        agentId,
+        error: deliveryInfo.emailError,
+      })
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Message sent successfully',
       data: message,
+      delivery: deliveryInfo,
     });
   });
 

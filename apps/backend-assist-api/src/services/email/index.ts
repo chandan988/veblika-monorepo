@@ -37,6 +37,24 @@ class NodemailerEmailProvider implements EmailProvider {
     this.transporter = nodemailer.createTransport(config)
   }
 
+  /**
+   * Verify the transporter connection. Returns a safe, serializable result.
+   */
+  async verify() {
+    try {
+      const ok = await this.transporter.verify()
+      return { ok: !!ok }
+    } catch (err: any) {
+      const safeErr: any = {
+        message: err?.message,
+        code: err?.code,
+        response: err?.response,
+        responseCode: err?.responseCode,
+      }
+      return { ok: false, error: safeErr }
+    }
+  }
+
   async sendEmail(options: EmailOptions) {
     try {
       const { to, subject, html, text, from, replyTo, attachments } = options
@@ -56,10 +74,25 @@ class NodemailerEmailProvider implements EmailProvider {
         messageId: result.messageId,
       }
     } catch (error) {
-      console.error("Email send error:", error)
-      return {
-        success: false,
-        error,
+      // Log a concise, non-sensitive error message for debugging
+      try {
+        const safeErr: any = {
+          message: (error as any)?.message,
+          code: (error as any)?.code,
+          response: (error as any)?.response,
+          responseCode: (error as any)?.responseCode,
+        }
+        console.error("Email send error:", safeErr)
+        return {
+          success: false,
+          error: safeErr,
+        }
+      } catch (e) {
+        console.error("Email send unknown error", error)
+        return {
+          success: false,
+          error: { message: 'Unknown send error' },
+        }
       }
     }
   }

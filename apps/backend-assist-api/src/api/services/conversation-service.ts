@@ -134,20 +134,20 @@ export class ConversationService {
     conversationId: string,
     agentId: string,
     messageText: string,
-    orgId: string,
+    orgId?: string,
     internal: boolean = false
   ): Promise<IMessage> {
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
       throw new Error('Invalid conversation ID');
     }
 
-    const conversation = await Conversation.findById(conversationId);
+    const conversation = await Conversation.findById(conversationId).populate('contactId');
     if (!conversation) {
       throw new Error('Conversation not found');
     }
 
-    // Verify orgId matches
-    if (conversation.orgId.toString() !== orgId) {
+    // If orgId provided, verify it matches the conversation orgId
+    if (orgId && conversation.orgId.toString() !== orgId) {
       throw new Error('Unauthorized: Conversation does not belong to your organization');
     }
 
@@ -177,6 +177,61 @@ export class ConversationService {
     conversation.lastMessageAt = new Date();
     conversation.lastMessagePreview = messageText.substring(0, 100);
     await conversation.save();
+
+    // If this is NOT an internal note and the conversation is an email-like channel,
+    // attempt to send the reply via configured SMTP/email provider.
+    try {
+      if (!internal && ['gmail', 'smtp', 'imap', 'email'].includes(conversation.channel)) {
+        // contactId may be populated above
+        const contact: any = (conversation.contactId as any) || (await Contact.findById(conversation.contactId));
+        const to = contact?.email
+        if (to) {
+          const { emailService } = await import('../../services/email')
+          const subject = conversation.sourceMetadata?.subject || `Re: ${conversation.sourceMetadata?.subject || 'Support'}`
+          const html = `<div>${messageText.replace(/\n/g, '<br/>')}</div>`
+
+          const sendResult = await emailService.sendEmail({
+            to,
+            subject,
+            html,
+            text: messageText,
+          })
+
+          // store delivery result and any error info in metadata
+          message.metadata = message.metadata || {}
+          message.metadata.emailSent = sendResult.success === true
+          if (sendResult.messageId) message.metadata.emailMessageId = sendResult.messageId
+          if (!sendResult.success && sendResult.error) {
+            // save structured error (non-sensitive)
+            message.metadata.emailError = sendResult.error
+            console.error('Outbound email send failed', {
+              conversationId: conversation._id?.toString(),
+              to,
+              error: sendResult.error,
+            })
+          }
+          await message.save()
+        }
+      }
+    } catch (err: any) {
+      // Persist error details on the message metadata but do not fail the API call
+      try {
+        message.metadata = message.metadata || {}
+        message.metadata.emailSent = false
+        message.metadata.emailError = {
+          message: err?.message || String(err),
+          code: err?.code,
+        }
+        await message.save()
+      } catch (saveErr) {
+        console.error('Failed to save message metadata after email send error', saveErr)
+      }
+
+      console.error('Failed to send outbound email for conversation reply (exception):', {
+        conversationId: conversation._id?.toString(),
+        error: err?.message || err,
+      })
+    }
 
     return message;
   }
