@@ -137,13 +137,13 @@ export default function OrganisationPage() {
         name: values.name,
         slug: values.slug,
       })
-      
+
       if (result.data) {
         // Set the newly created organization as active in the session
         await authClient.organization.setActive({
           organizationId: result.data.id,
         })
-        
+
         setIsCreateDialogOpen(false)
         createOrgForm.reset()
         // Select the newly created organization
@@ -205,6 +205,7 @@ export default function OrganisationPage() {
                 Set up a new organization to collaborate with your team
               </DialogDescription>
             </DialogHeader>
+
             <Form {...createOrgForm}>
               <form
                 onSubmit={createOrgForm.handleSubmit(handleCreateOrganization)}
@@ -273,7 +274,8 @@ export default function OrganisationPage() {
             </div>
             <h3 className="text-xl font-semibold mb-2">No Organizations Yet</h3>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              You haven't created or joined any organizations yet. Create one to get started with your team.
+              {`You haven't created or joined any organizations yet. Create one to
+              get started with your team.`}
             </p>
             <Button
               onClick={() => setIsCreateDialogOpen(true)}
@@ -294,7 +296,9 @@ export default function OrganisationPage() {
                 <Building2 className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Current Organization</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Current Organization
+                </p>
                 {organizations && organizations.length > 1 ? (
                   <Select
                     value={selectedOrgId}
@@ -317,17 +321,19 @@ export default function OrganisationPage() {
                 )}
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setIsCreateDialogOpen(true)
-              }}
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              New Organization
-            </Button>
+            {!hasOrganization && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsCreateDialogOpen(true)
+                }}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                New Organization
+              </Button>
+            )}
           </div>
 
           <Tabs defaultValue="overview" className="space-y-6">
@@ -347,16 +353,24 @@ export default function OrganisationPage() {
             </TabsList>
 
             {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-4 animate-in fade-in-50 duration-300">
+            <TabsContent
+              value="overview"
+              className="space-y-4 animate-in fade-in-50 duration-300"
+            >
               {currentOrg && <OrganizationOverview organization={currentOrg} />}
             </TabsContent>
 
             {/* Members Tab */}
-            <TabsContent value="members" className="space-y-4 animate-in fade-in-50 duration-300">
+            <TabsContent
+              value="members"
+              className="space-y-4 animate-in fade-in-50 duration-300"
+            >
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-semibold">Team Members</h2>
-                  <p className="text-sm text-muted-foreground">Manage who has access to this organization</p>
+                  <p className="text-sm text-muted-foreground">
+                    Manage who has access to this organization
+                  </p>
                 </div>
                 <Dialog
                   open={isInviteDialogOpen}
@@ -442,11 +456,16 @@ export default function OrganisationPage() {
             </TabsContent>
 
             {/* Invitations Tab */}
-            <TabsContent value="invitations" className="space-y-4 animate-in fade-in-50 duration-300">
+            <TabsContent
+              value="invitations"
+              className="space-y-4 animate-in fade-in-50 duration-300"
+            >
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-semibold">Pending Invitations</h2>
-                  <p className="text-sm text-muted-foreground">Manage outstanding invitations</p>
+                  <p className="text-sm text-muted-foreground">
+                    Manage outstanding invitations
+                  </p>
                 </div>
               </div>
               {currentOrg && <InvitationsList organizationId={currentOrg.id} />}
@@ -481,7 +500,10 @@ function OrganizationOverview({
         <CardContent className="space-y-6">
           <div className="flex items-center gap-6">
             <Avatar className="h-20 w-20 border">
-              <AvatarImage src={organization.logo || ""} alt={organization.name} />
+              <AvatarImage
+                src={organization.logo || ""}
+                alt={organization.name}
+              />
               <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                 {organization.name.charAt(0).toUpperCase()}
               </AvatarFallback>
@@ -494,17 +516,24 @@ function OrganizationOverview({
           <Separator />
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Created On</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                Created On
+              </p>
               <p className="font-medium">
-                {new Date(organization.createdAt).toLocaleDateString(undefined, {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+                {new Date(organization.createdAt).toLocaleDateString(
+                  undefined,
+                  {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  }
+                )}
               </p>
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Organization ID</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                Organization ID
+              </p>
               <p className="font-mono text-sm bg-muted p-1 rounded w-fit">
                 {organization.id}
               </p>
@@ -551,7 +580,9 @@ function OrganizationStats({ organizationId }: { organizationId: string }) {
           <Users className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-sm font-medium text-muted-foreground">Total Members</p>
+          <p className="text-sm font-medium text-muted-foreground">
+            Total Members
+          </p>
           <p className="text-2xl font-bold">{members?.length || 0}</p>
         </div>
       </div>
@@ -634,7 +665,9 @@ function MembersList({ organizationId }: { organizationId: string }) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={member.role === "owner" ? "default" : "secondary"}>
+                  <Badge
+                    variant={member.role === "owner" ? "default" : "secondary"}
+                  >
                     {member.role}
                   </Badge>
                 </TableCell>
@@ -709,7 +742,9 @@ function InvitationsList({ organizationId }: { organizationId: string }) {
               expiresAt: Date
             }) => (
               <TableRow key={invitation.id}>
-                <TableCell className="font-medium">{invitation.email}</TableCell>
+                <TableCell className="font-medium">
+                  {invitation.email}
+                </TableCell>
                 <TableCell>
                   <Badge variant="outline">{invitation.role}</Badge>
                 </TableCell>

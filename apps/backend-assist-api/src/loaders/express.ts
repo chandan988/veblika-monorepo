@@ -9,20 +9,27 @@ import { toNodeHandler } from "better-auth/node"
 import isAuth from "../middleware/authenticate"
 
 export const expressLoader = async (app: Express): Promise<void> => {
-  // Security middleware
-  app.use(helmet())
-
-  // CORS - MUST be before auth routes
+  // Security middleware with relaxed settings for Better Auth
   app.use(
-    cors({
-      origin: [...config.cors.origin],
-      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-      credentials: true,
-      allowedHeaders: ["Content-Type", "Authorization"],
+    helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+      crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
     })
   )
 
-  console.log("✅ CORS middleware initialized")
+  // CORS - MUST be before auth routes
+  // Allow all origins for all environments
+  app.use(
+    cors({
+      origin: true,
+      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      credentials: true,
+      allowedHeaders: ["Content-Type", "Authorization", "Cookie", "Set-Cookie"],
+      exposedHeaders: ["Set-Cookie"],
+    })
+  )
+
+  console.log("✅ CORS middleware initialized (allow all origins)")
 
   // Handle preflight requests
   // app.options("*", cors())
@@ -47,8 +54,8 @@ export const expressLoader = async (app: Express): Promise<void> => {
 
   console.log("✅ Express middleware initialized")
 
-  // Health check
-  app.get("/health",isAuth, (req: Request, res: Response) => {
+  // Health check (no auth required for health checks)
+  app.get("/health", (req: Request, res: Response) => {
     res.status(200).json({
       status: "ok",
       timestamp: new Date().toISOString(),
