@@ -2,22 +2,14 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
-const allowedOrigins = (() => {
-  const fallbacks = [
-    "http://localhost:3000", // Next.js app
-    "http://localhost:5173", // Widget UI (Vite)
-    "*", // Allow all origins for widget embedding
-  ]
-
-  // Deduplicate while preserving order
-  return Array.from(new Set([...fallbacks]))
-})()
+// Allow all origins for all environments
+const allowedOrigins = true
 
 export const config = {
   port: process.env.PORT || 8000,
   nodeEnv: process.env.NODE_ENV || "development",
   mongodb: {
-    uri: process.env.MONGODB_URI,
+    uri: process.env.MONGODB_URI || "mongodb://localhost:27017/veblika-assist",
   },
   api: {
     prefix: process.env.API_PREFIX || "/api/v1",

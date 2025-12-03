@@ -13,13 +13,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 8001;
 
 app.use(
   cors({
     origin: [
-      process.env.CLIENT_URL,
-      "http://localhost:3000",
+      process.env.FRONTEND_URL,
+      "http://localhost:3001",
       "https://strengthen-sunglasses-writing-fundamental.trycloudflare.com",
       "https://technological-pillow-adsl-movers.trycloudflare.com",
       "https://precision-ralph-related-cad.trycloudflare.com"
@@ -37,6 +37,13 @@ app.use("/api", allRouter);
 
 app.get("/", (req, res) => {
   res.json({ message: "API is running..." });
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.listen(PORT, async () => {

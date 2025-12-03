@@ -8,9 +8,8 @@ import { Textarea } from "@workspace/ui/components/textarea";
 import { ScrollArea } from "@workspace/ui/components/scroll-area";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { Badge } from "@workspace/ui/components/badge";
-import { Send, MoreVertical, User, X, Mail, MessageSquare, ExternalLink } from "lucide-react";
+import { Send, MoreVertical, User, X, Mail, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
-import { startTyping, stopTyping } from "@/lib/socket-client";
 
 interface Message {
   _id: string;
@@ -64,9 +63,7 @@ export function MessageThread({
   typingUsers = [],
 }: MessageThreadProps) {
   const [messageText, setMessageText] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -77,35 +74,12 @@ export function MessageThread({
 
   const handleInputChange = (text: string) => {
     setMessageText(text);
-
-    // Start typing indicator
-    if (!isTyping && text.length > 0) {
-      setIsTyping(true);
-      startTyping(conversation._id);
-    }
-
-    // Clear existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    // Stop typing after 2 seconds of inactivity
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-      stopTyping(conversation._id);
-    }, 2000);
   };
 
   const handleSend = () => {
     if (messageText.trim() && !isSending) {
       onSendMessage(messageText.trim());
       setMessageText("");
-      setIsTyping(false);
-      stopTyping(conversation._id);
-
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
     }
   };
 
