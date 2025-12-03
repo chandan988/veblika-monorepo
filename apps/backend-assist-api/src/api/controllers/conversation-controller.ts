@@ -84,7 +84,8 @@ export class ConversationController {
       req.params.id!,
       agentId,
       data.text,
-      orgId
+      orgId,
+      data.internal === true
     );
 
     return res.status(201).json({

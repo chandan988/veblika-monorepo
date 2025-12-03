@@ -29,6 +29,7 @@ export const updateConversationSchema = z.object({
 export const sendMessageSchema = z.object({
   body: z.object({
     text: z.string().min(1, 'Message text is required').max(5000, 'Message too long'),
+    internal: z.boolean().optional(),
   }),
 });
 

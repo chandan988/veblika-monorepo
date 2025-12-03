@@ -134,7 +134,8 @@ export class ConversationService {
     conversationId: string,
     agentId: string,
     messageText: string,
-    orgId: string
+    orgId: string,
+    internal: boolean = false
   ): Promise<IMessage> {
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
       throw new Error('Invalid conversation ID');
@@ -150,20 +151,27 @@ export class ConversationService {
       throw new Error('Unauthorized: Conversation does not belong to your organization');
     }
 
-    const message = await Message.create({
+    const messagePayload: any = {
       orgId: conversation.orgId,
       conversationId: conversation._id,
       contactId: conversation.contactId,
       senderType: 'agent',
       senderId: agentId,
-      direction: 'outbound',
+      direction: internal ? 'internal' : 'outbound',
       channel: conversation.channel,
       body: {
         text: messageText,
       },
       status: 'sent',
       attachments: [],
-    });
+      metadata: {},
+    };
+
+    if (internal) {
+      messagePayload.metadata.internal = true;
+    }
+
+    const message = await Message.create(messagePayload);
 
     // Update conversation
     conversation.lastMessageAt = new Date();
