@@ -5,6 +5,7 @@ import { api } from "@/services/api"
 import { useSocket } from "./use-socket"
 import { useEffect } from "react"
 import { toast } from "sonner"
+import { useChatStore, type Conversation as StoreConversation } from "@/stores/chat-store"
 
 interface Conversation {
   _id: string
@@ -18,6 +19,7 @@ interface Conversation {
   lastMessagePreview: string
   tags: string[]
   assignedMemberId?: string
+  sourceMetadata?: any
 }
 
 interface GetConversationsParams {
@@ -35,95 +37,113 @@ export const useConversations = (params: GetConversationsParams) => {
     autoConnect: true,
   })
 
-  // Fetch conversations
+  // Zustand store actions
+  const setConversations = useChatStore((state) => state.setConversations)
+  const addConversation = useChatStore((state) => state.addConversation)
+  const updateConversationMessage = useChatStore((state) => state.updateConversationMessage)
+  const storeConversations = useChatStore((state) => state.conversations)
+  const conversationsLoaded = useChatStore((state) => state.conversationsLoaded)
+
+  // Fetch conversations from API (only once or when params change)
   const query = useQuery({
     queryKey: ["conversations", params],
     queryFn: async () => {
       const { data } = await api.get("/conversations", { params })
+      
+      // Sync with Zustand store
+      const conversations = data.data || []
+      setConversations(conversations)
+      
       return data
     },
-    refetchInterval: 30000, // Refetch every 30 seconds as fallback
+    staleTime: 5 * 60 * 1000, // 5 minutes - don't refetch unless stale
+    refetchInterval: 30000, // Background sync every 30 seconds
+    enabled: !!params.orgId,
   })
 
-  // Listen for new messages via socket
+  // Listen for real-time updates via socket
   useEffect(() => {
     if (!socket || !isConnected) return
 
     const handleNewMessage = (data: any) => {
-      console.log("New message received:", data)
+      console.log("📨 New message received:", data)
 
-      // Invalidate and refetch conversations
-      queryClient.invalidateQueries({ queryKey: ["conversations"] })
+      const conversation = data.conversation
+      const message = data.message
 
-      // If it's a new conversation, show notification
       if (data.isNewConversation) {
+        // Add new conversation to store
+        const newConv: StoreConversation = {
+          _id: conversation._id,
+          orgId: conversation.orgId,
+          integrationId: conversation.integrationId,
+          contactId: conversation.contactId,
+          channel: conversation.channel || "webchat",
+          status: conversation.status,
+          priority: conversation.priority || "normal",
+          lastMessageAt: message.createdAt || new Date().toISOString(),
+          lastMessagePreview: message.body?.text?.substring(0, 100) || "",
+          tags: conversation.tags || [],
+          assignedMemberId: conversation.assignedMemberId,
+        }
+        
+        addConversation(newConv)
+
+        // Show notification
         toast.success("New conversation started!", {
-          description: `From: ${data.conversation?.contactId?.name || data.conversation?.contactId?.email || 'Unknown'}`,
+          description: `From: ${conversation?.contactId?.name || conversation?.contactId?.email || 'Unknown'}`,
         })
+      } else {
+        // Update existing conversation with new message
+        updateConversationMessage(
+          conversation._id,
+          message.body?.text?.substring(0, 100) || "",
+          message.createdAt || new Date().toISOString()
+        )
       }
     }
 
     const handleGmailNewMessage = (data: any) => {
       console.log("📧 Gmail message received:", data)
       
-      // Update conversations list
-      queryClient.setQueryData(["conversations", params], (old: any) => {
-        if (!old) return old
-        
-        const conversations = old.data || []
-        
-        if (data.conversation?.isNew) {
-          // Add new conversation at the top
-          return {
-            ...old,
-            data: [{
-              _id: data.conversation._id,
-              orgId: params.orgId,
-              integrationId: data.integration?._id,
-              contactId: data.contact,
-              channel: "gmail",
-              status: data.conversation.status,
-              priority: "normal",
-              lastMessageAt: new Date().toISOString(),
-              lastMessagePreview: data.message?.snippet || data.message?.body?.text?.substring(0, 100) || "",
-              tags: [],
-              sourceMetadata: {
-                subject: data.conversation.subject,
-                from: data.contact?.email,
-              },
-            }, ...conversations]
-          }
-        } else {
-          // Update existing conversation
-          const updated = conversations.map((conv: any) => {
-            if (conv._id === data.conversation?._id) {
-              return {
-                ...conv,
-                lastMessageAt: new Date().toISOString(),
-                lastMessagePreview: data.message?.snippet || data.message?.body?.text?.substring(0, 100) || conv.lastMessagePreview,
-                status: data.conversation.status || conv.status,
-              }
-            }
-            return conv
-          })
-          
-          // Sort by lastMessageAt (newest first)
-          updated.sort((a: any, b: any) => 
-            new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
-          )
-          
-          return { ...old, data: updated }
+      if (data.conversation?.isNew) {
+        // Add new Gmail conversation
+        const newConv: StoreConversation = {
+          _id: data.conversation._id,
+          orgId: params.orgId as string,
+          integrationId: data.integration?._id,
+          contactId: data.contact,
+          channel: "gmail",
+          status: data.conversation.status,
+          priority: "normal",
+          lastMessageAt: new Date().toISOString(),
+          lastMessagePreview: data.message?.snippet || data.message?.body?.text?.substring(0, 100) || "",
+          tags: [],
+          sourceMetadata: {
+            subject: data.conversation.subject,
+            from: data.contact?.email,
+          },
         }
-      })
-      
-      // Show notification
-      toast.success(
-        data.conversation?.isNew ? "📧 New Email Received" : "📧 Email Reply Received",
-        {
+        
+        addConversation(newConv)
+        
+        toast.success("📧 New Email Received", {
           description: `From: ${data.contact?.name || data.contact?.email}\nSubject: ${data.conversation?.subject || 'No subject'}`,
           duration: 5000,
-        }
-      )
+        })
+      } else {
+        // Update existing Gmail conversation
+        updateConversationMessage(
+          data.conversation?._id,
+          data.message?.snippet || data.message?.body?.text?.substring(0, 100) || "",
+          new Date().toISOString()
+        )
+        
+        toast.success("📧 Email Reply Received", {
+          description: `From: ${data.contact?.name || data.contact?.email}`,
+          duration: 3000,
+        })
+      }
     }
 
     socket.on("new:message", handleNewMessage)
@@ -133,12 +153,20 @@ export const useConversations = (params: GetConversationsParams) => {
       socket.off("new:message", handleNewMessage)
       socket.off("gmail:new-message", handleGmailNewMessage)
     }
-  }, [socket, isConnected, queryClient, params])
+  }, [socket, isConnected, params.orgId, addConversation, updateConversationMessage])
 
-  return query
+  // Return store data if loaded, otherwise return query data
+  return {
+    ...query,
+    data: conversationsLoaded 
+      ? { ...query.data, data: storeConversations }
+      : query.data,
+  }
 }
 
 export const useConversation = (conversationId: string) => {
+  const storeConversation = useChatStore((state) => state.getConversation(conversationId))
+
   return useQuery({
     queryKey: ["conversation", conversationId],
     queryFn: async () => {
@@ -146,11 +174,14 @@ export const useConversation = (conversationId: string) => {
       return data.data
     },
     enabled: !!conversationId,
+    initialData: storeConversation,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
 export const useUpdateConversation = () => {
   const queryClient = useQueryClient()
+  const updateConversation = useChatStore((state) => state.updateConversation)
 
   return useMutation({
     mutationFn: async ({
@@ -165,6 +196,10 @@ export const useUpdateConversation = () => {
         updates
       )
       return data.data
+    },
+    onMutate: async ({ conversationId, updates }) => {
+      // Optimistic update in Zustand
+      updateConversation(conversationId, updates)
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["conversations"] })

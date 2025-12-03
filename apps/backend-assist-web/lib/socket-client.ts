@@ -92,20 +92,4 @@ export const sendAgentMessage = (
   }
 };
 
-export const startTyping = (conversationId: string) => {
-  const socketInstance = getSocket();
-
-  if (socketInstance.connected) {
-    socketInstance.emit("typing:start", { conversationId, isAgent: true });
-  }
-};
-
-export const stopTyping = (conversationId: string) => {
-  const socketInstance = getSocket();
-
-  if (socketInstance.connected) {
-    socketInstance.emit("typing:stop", { conversationId, isAgent: true });
-  }
-};
-
 export { socket };
