@@ -31,7 +31,8 @@ const baseUrl = config.client.url
 
 export const auth = betterAuth({
   baseURL: config.auth.serviceUrl,
-  trustedOrigins: config.cors.origin,
+  // Allow all origins for all environments
+  trustedOrigins: ["*"],
 
   database: mongodbAdapter(mongoose.connection.db!, {
     client: mongoClient,
@@ -182,6 +183,7 @@ export const auth = betterAuth({
     google: {
       clientId: config.google.clientId,
       clientSecret: config.google.clientSecret,
+      redirectURI: `${config.auth.serviceUrl}/api/auth/callback/google`,
     },
   },
 })
