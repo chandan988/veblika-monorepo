@@ -14,11 +14,37 @@ export interface Message {
   status?: 'sending' | 'sent' | 'failed';
 }
 
+export interface Conversation {
+  _id: string;
+  orgId: string;
+  integrationId: string;
+  contactId: any;
+  channel: string;
+  status: 'open' | 'pending' | 'closed';
+  priority: string;
+  lastMessageAt: string;
+  lastMessagePreview: string;
+  tags: string[];
+  assignedMemberId?: string;
+  sourceMetadata?: any;
+}
+
 interface ChatStore {
+  // Conversation state
+  conversations: Conversation[];
+  conversationsLoaded: boolean;
+  
   // Message state by conversation
   messagesByConversation: Record<string, Message[]>;
   
-  // Actions
+  // Conversation Actions
+  setConversations: (conversations: Conversation[]) => void;
+  addConversation: (conversation: Conversation) => void;
+  updateConversation: (conversationId: string, updates: Partial<Conversation>) => void;
+  removeConversation: (conversationId: string) => void;
+  updateConversationMessage: (conversationId: string, messagePreview: string, timestamp: string) => void;
+  
+  // Message Actions
   addMessage: (conversationId: string, message: Message) => void;
   addMessages: (conversationId: string, messages: Message[]) => void;
   updateMessage: (conversationId: string, messageId: string, updates: Partial<Message>) => void;
@@ -26,12 +52,75 @@ interface ChatStore {
   
   // Getters
   getMessages: (conversationId: string) => Message[];
+  getConversations: () => Conversation[];
+  getConversation: (conversationId: string) => Conversation | undefined;
 }
 
 export const useChatStore = create<ChatStore>()(
   devtools(
     (set, get) => ({
+      // Conversation state
+      conversations: [],
+      conversationsLoaded: false,
+      
+      // Message state
       messagesByConversation: {},
+
+      // Conversation actions
+      setConversations: (conversations) => {
+        set({ conversations, conversationsLoaded: true });
+      },
+
+      addConversation: (conversation) => {
+        set((state) => {
+          // Check if conversation already exists
+          const exists = state.conversations.some((c) => c._id === conversation._id);
+          if (exists) {
+            return state;
+          }
+          
+          // Add new conversation at the beginning
+          return {
+            conversations: [conversation, ...state.conversations],
+          };
+        });
+      },
+
+      updateConversation: (conversationId, updates) => {
+        set((state) => ({
+          conversations: state.conversations.map((conv) =>
+            conv._id === conversationId ? { ...conv, ...updates } : conv
+          ),
+        }));
+      },
+
+      removeConversation: (conversationId) => {
+        set((state) => ({
+          conversations: state.conversations.filter((c) => c._id !== conversationId),
+        }));
+      },
+
+      updateConversationMessage: (conversationId, messagePreview, timestamp) => {
+        set((state) => {
+          const updatedConversations = state.conversations.map((conv) => {
+            if (conv._id === conversationId) {
+              return {
+                ...conv,
+                lastMessagePreview: messagePreview,
+                lastMessageAt: timestamp,
+              };
+            }
+            return conv;
+          });
+
+          // Sort by lastMessageAt (newest first)
+          updatedConversations.sort(
+            (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+          );
+
+          return { conversations: updatedConversations };
+        });
+      },
 
       addMessage: (conversationId, message) => {
         set((state) => {
@@ -101,6 +190,14 @@ export const useChatStore = create<ChatStore>()(
 
       getMessages: (conversationId) => {
         return get().messagesByConversation[conversationId] || [];
+      },
+
+      getConversations: () => {
+        return get().conversations;
+      },
+
+      getConversation: (conversationId) => {
+        return get().conversations.find((c) => c._id === conversationId);
       },
     }),
     { name: 'ChatStore' }

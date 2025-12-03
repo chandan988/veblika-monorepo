@@ -1,4 +1,32 @@
 import { io, Socket } from "socket.io-client"
-const URL = "http://localhost:8000"
 
-export const socket: Socket = io(URL)
+const SOCKET_URL = import.meta.env.VITE_BACKEND_API_URL || "http://localhost:8000"
+
+let socket: Socket | null = null
+
+export const getSocket = (): Socket => {
+  if (!socket) {
+    socket = io(SOCKET_URL, {
+      autoConnect: false,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 5,
+    })
+  }
+  return socket
+}
+
+export const connectSocket = (): Socket => {
+  const socketInstance = getSocket()
+  if (!socketInstance.connected) {
+    socketInstance.connect()
+  }
+  return socketInstance
+}
+
+export const disconnectSocket = () => {
+  if (socket?.connected) {
+    socket.disconnect()
+  }
+}

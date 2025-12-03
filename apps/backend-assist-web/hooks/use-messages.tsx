@@ -106,10 +106,33 @@ export const useMessages = (conversationId: string) => {
       addMessage(conversationId, storeMessage);
     };
 
+    const handleNewMessage = (data: { message: Message; conversation: any; isNewConversation?: boolean }) => {
+      console.log("📨 New message received in useMessages:", data);
+      
+      // Only add message if it belongs to current conversation
+      if (data.conversation?._id === conversationId || data.message?.conversationId === conversationId) {
+        const storeMessage: StoreMessage = {
+          _id: data.message._id,
+          conversationId: data.message.conversationId || conversationId,
+          sender: {
+            id: data.message.senderId || "",
+            type: data.message.senderType === "contact" ? "visitor" : "agent",
+          },
+          content: data.message.body?.text || "",
+          timestamp: data.message.createdAt ? new Date(data.message.createdAt) : new Date(),
+          status: "sent",
+        };
+        
+        addMessage(conversationId, storeMessage);
+      }
+    };
+
     socket.on("agent:message", handleAgentMessage);
+    socket.on("new:message", handleNewMessage);
 
     return () => {
       socket.off("agent:message", handleAgentMessage);
+      socket.off("new:message", handleNewMessage);
       leaveConversation(conversationId);
     };
   }, [socket, isConnected, conversationId, addMessage]);
