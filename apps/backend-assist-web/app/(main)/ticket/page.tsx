@@ -20,7 +20,7 @@ import {
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { useSession } from "@/hooks/useSession"
 import { useState, useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/services/api"
 
 export default function TicketPage() {
@@ -47,17 +47,28 @@ export default function TicketPage() {
   const [replyText, setReplyText] = useState("")
   const [internalNote, setInternalNote] = useState(false)
 
-  const handleSend = async () => {
-    if (!selectedConversationId || !replyText.trim()) return
+  const queryClient = useQueryClient()
 
-    try {
-      await api.post(`/conversations/${selectedConversationId}/messages?orgId=${orgId}`, { text: replyText, internal: internalNote })
-
+  const sendMutation = useMutation({
+    mutationFn: async (payload: { text: string; internal: boolean }) => {
+      if (!selectedConversationId) throw new Error('No conversation selected')
+      return api.post(`/conversations/${selectedConversationId}/messages?orgId=${orgId}`, payload)
+    },
+    onSuccess: () => {
       setReplyText("")
       setInternalNote(false)
-    } catch (err) {
+      queryClient.invalidateQueries({ queryKey: ["messages", selectedConversationId] })
+      queryClient.invalidateQueries({ queryKey: ["conversations"] })
+      queryClient.invalidateQueries({ queryKey: ["conversations", "list"] })
+    },
+    onError: (err) => {
       console.error("Failed to send message", err)
-    }
+    },
+  })
+
+  const handleSend = () => {
+    if (!selectedConversationId || !replyText.trim()) return
+    sendMutation.mutate({ text: replyText, internal: internalNote })
   }
 
   return (
