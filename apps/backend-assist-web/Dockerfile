@@ -42,7 +42,6 @@ RUN adduser --system --uid 1001 nextjs
 # Copy Next.js standalone output with proper ownership
 COPY --from=builder --chown=nextjs:nodejs /app/apps/backend-assist-web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/backend-assist-web/.next/static ./apps/backend-assist-web/.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/apps/backend-assist-web/public ./apps/backend-assist-web/public
 
 WORKDIR /app/apps/backend-assist-web
 
