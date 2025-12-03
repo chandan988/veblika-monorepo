@@ -1,10 +1,19 @@
+# Base stage
+FROM node:20-alpine AS base
+RUN apk add --no-cache libc6-compat
+RUN apk update
+
 # Build stage
-FROM node:20-alpine AS builder
+FROM base AS builder
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
+
+# Accept build arguments
+ARG SM_FRONTEND_URL
+ENV NEXT_PUBLIC_API_URL=${SM_FRONTEND_URL}
 
 # Copy workspace files
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
@@ -16,30 +25,32 @@ RUN pnpm install --frozen-lockfile
 
 # Build the application
 WORKDIR /app/apps/social-media-web
+ENV NODE_ENV=production
 RUN pnpm run build
 
 # Production stage
-FROM node:20-alpine AS production
+FROM base AS production
 
 WORKDIR /app
 
-# Copy Next.js standalone output
-COPY --from=builder /app/apps/social-media-web/.next/standalone ./
-COPY --from=builder /app/apps/social-media-web/.next/static ./apps/social-media-web/.next/static
-COPY --from=builder /app/apps/social-media-web/public ./apps/social-media-web/public
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy Next.js standalone output with proper ownership
+COPY --from=builder --chown=nextjs:nodejs /app/apps/social-media-web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/social-media-web/.next/static ./apps/social-media-web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/social-media-web/public ./apps/social-media-web/public
 
 WORKDIR /app/apps/social-media-web
+
+# Switch to non-root user
+USER nextjs
 
 # Set environment variables
 ENV PORT=3001
 ENV HOSTNAME="0.0.0.0"
-
-# Expose port
-EXPOSE 3001
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+ENV NODE_ENV=production
 
 # Start the application
 CMD ["node", "server.js"]
