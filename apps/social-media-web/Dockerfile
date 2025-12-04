@@ -12,8 +12,8 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
 # Accept build arguments
-ARG SM_FRONTEND_URL
-ENV NEXT_PUBLIC_API_URL=${SM_FRONTEND_URL}
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 # Copy workspace files
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
@@ -48,8 +48,6 @@ WORKDIR /app/apps/social-media-web
 USER nextjs
 
 # Set environment variables
-ENV PORT=3001
-ENV HOSTNAME="0.0.0.0"
 ENV NODE_ENV=production
 
 # Start the application

@@ -29,7 +29,7 @@ WORKDIR /app/apps/social-media-api
 USER nodejs
 
 # Set environment variables
-ENV PORT=8001
+ENV PORT=8000
 ENV NODE_ENV=production
 
 # Start the application

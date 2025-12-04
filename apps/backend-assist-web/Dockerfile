@@ -12,10 +12,10 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
 # Accept build arguments
-ARG BA_BETTER_AUTH_URL
-ARG BA_CLIENT_URL
-ENV NEXT_PUBLIC_AUTH_URL=${BA_BETTER_AUTH_URL}
-ENV NEXT_PUBLIC_CLIENT_URL=${BA_CLIENT_URL}
+ARG BETTER_AUTH_URL
+ARG CLIENT_URL
+ENV NEXT_PUBLIC_AUTH_URL=${BETTER_AUTH_URL}
+ENV NEXT_PUBLIC_CLIENT_URL=${CLIENT_URL}
 
 # Copy workspace files
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
@@ -47,11 +47,6 @@ WORKDIR /app/apps/backend-assist-web
 
 # Switch to non-root user
 USER nextjs
-
-# Set environment variables
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-ENV NODE_ENV=production
 
 # Start the application
 CMD ["node", "server.js"]
