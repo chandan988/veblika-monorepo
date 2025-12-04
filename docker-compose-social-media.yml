@@ -4,29 +4,8 @@ services:
     build:
       context: .
       dockerfile: apps/social-media-api/Dockerfile
-    environment:
-      - NODE_ENV=production
-      - PORT=8000
-      - MONGO_URL=${MONGO_URL}
-      - JWT_SECRET=${JWT_SECRET}
-      - FRONTEND_URL=${FRONTEND_URL}
-      - AWS_REGION=${AWS_REGION}
-      - BUCKETNAME=${BUCKETNAME}
-      - S3ACCESSKEYID=${S3ACCESSKEYID}
-      - S3ACCESSKEY=${S3ACCESSKEY}
-      - S3_ENDPOINT=${S3_ENDPOINT}
-      - META_APP_ID=${META_APP_ID}
-      - META_APP_SECRET=${META_APP_SECRET}
-      - INSTAGRAM_APP_ID=${INSTAGRAM_APP_ID}
-      - INSTAGRAM_APP_SECRET=${INSTAGRAM_APP_SECRET}
-      - INSTAGRAM_REDIRECT_URI=${INSTAGRAM_REDIRECT_URI}
-      - FACEBOOK_REDIRECT_URI=${FACEBOOK_REDIRECT_URI}
-      - LINKEDIN_CLIENT_ID=${LINKEDIN_CLIENT_ID}
-      - LINKEDIN_CLIENT_SECRET=${LINKEDIN_CLIENT_SECRET}
-      - LINKEDIN_REDIRECT_URI=${LINKEDIN_REDIRECT_URI}
-      - YOUTUBE_CLIENT_ID=${YOUTUBE_CLIENT_ID}
-      - YOUTUBE_CLIENT_SECRET=${YOUTUBE_CLIENT_SECRET}
-      - YOUTUBE_REDIRECT_URI=${YOUTUBE_REDIRECT_URI}
+    env_file:
+      - .env
     restart: unless-stopped
     networks:
       - dokploy-network
@@ -37,11 +16,11 @@ services:
       context: .
       dockerfile: apps/social-media-web/Dockerfile
       args:
+        NEXT_PUBLIC_CLIENT_URL: ${NEXT_PUBLIC_CLIENT_URL}
+        NEXT_PUBLIC_AUTH_URL: ${NEXT_PUBLIC_AUTH_URL}
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+    env_file:
+      - .env
     depends_on:
       - social-media-api
     restart: unless-stopped
