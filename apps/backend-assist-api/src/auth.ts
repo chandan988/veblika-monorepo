@@ -42,6 +42,19 @@ export const auth = betterAuth({
   //   // disableCSRFCheck: true
   // },
 
+  advanced: {
+  crossSubDomainCookies: {
+    enabled: true,
+    domain: "veblika.com",
+  },
+  defaultCookieAttributes: {
+    secure: true,
+    httpOnly: true,
+    sameSite: "lax",  // correct
+  },
+},
+
+
   database: mongodbAdapter(mongoose.connection.db!, {
     client: mongoClient,
   }),
