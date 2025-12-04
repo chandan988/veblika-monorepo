@@ -32,11 +32,11 @@ const baseUrl = config.client.url
 export const auth = betterAuth({
   baseURL: config.auth.serviceUrl,
   // Allow all origins for all environments
-  trustedOrigins: ["*"],
-  advanced: {
-    disableOriginCheck: true,
-    disableCSRFCheck: true
-  },
+  trustedOrigins: ["https://*.veblika.com","*"],
+  // advanced: {
+  //   disableOriginCheck: true,
+  //   disableCSRFCheck: true
+  // },
 
   database: mongodbAdapter(mongoose.connection.db!, {
     client: mongoClient,
