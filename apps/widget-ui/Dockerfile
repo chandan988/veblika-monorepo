@@ -12,7 +12,7 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
 # Accept build arguments
-ARG VITE_BACKEND_API_URL=http://localhost:8000
+ARG VITE_BACKEND_API_URL
 ENV VITE_BACKEND_API_URL=${VITE_BACKEND_API_URL}
 
 # Copy workspace files
