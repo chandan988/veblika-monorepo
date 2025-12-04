@@ -12,10 +12,10 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
 # Accept build arguments
-ARG BETTER_AUTH_URL
-ARG CLIENT_URL
-ENV NEXT_PUBLIC_AUTH_URL=${BETTER_AUTH_URL}
-ENV NEXT_PUBLIC_CLIENT_URL=${CLIENT_URL}
+ARG NEXT_PUBLIC_AUTH_URL
+ARG NEXT_PUBLIC_CLIENT_URL
+ENV NEXT_PUBLIC_AUTH_URL=${NEXT_PUBLIC_AUTH_URL}
+ENV NEXT_PUBLIC_CLIENT_URL=${NEXT_PUBLIC_CLIENT_URL}
 
 # Copy workspace files
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
