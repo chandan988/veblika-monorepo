@@ -33,6 +33,9 @@ export const auth = betterAuth({
   baseURL: config.auth.serviceUrl,
   // Allow all origins for all environments
   trustedOrigins: ["*"],
+  advanced: {
+    disableOriginCheck: true,
+  },
 
   database: mongodbAdapter(mongoose.connection.db!, {
     client: mongoClient,
