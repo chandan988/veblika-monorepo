@@ -35,6 +35,7 @@ export const auth = betterAuth({
   trustedOrigins: ["*"],
   advanced: {
     disableOriginCheck: true,
+    disableCSRFCheck: true
   },
 
   database: mongodbAdapter(mongoose.connection.db!, {
