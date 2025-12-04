@@ -32,10 +32,11 @@ const baseUrl = config.client.url
 export const auth = betterAuth({
   baseURL: config.auth.serviceUrl,
   // Allow all origins for all environments
-  trustedOrigins: ["https://*.veblika.com","*"],
+  trustedOrigins: ["https://*.veblika.com"],
   advanced: {
     crossSubDomainCookies: {
             enabled: true,
+            domain: "veblika.com"
         },
     // disableOriginCheck: true,
     // disableCSRFCheck: true
