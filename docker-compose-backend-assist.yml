@@ -4,22 +4,8 @@ services:
     build:
       context: .
       dockerfile: apps/backend-assist-api/Dockerfile
-    environment:
-      - NODE_ENV=production
-      - PORT=8000
-      - MONGODB_URI=${MONGODB_URI}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
-      - CLIENT_URL=${CLIENT_URL}
-      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_PORT=${SMTP_PORT}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASS=${SMTP_PASS}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
-      - GMAIL_PUBSUB_TOPIC=${GMAIL_PUBSUB_TOPIC}
+    env_file:
+      - .env
     restart: unless-stopped
     networks:
       - dokploy-network
@@ -30,13 +16,10 @@ services:
       context: .
       dockerfile: apps/backend-assist-web/Dockerfile
       args:
-        BA_BETTER_AUTH_URL: ${BETTER_AUTH_URL}
-        BA_CLIENT_URL: ${CLIENT_URL}
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - NEXT_PUBLIC_AUTH_URL=${BETTER_AUTH_URL}
-      - NEXT_PUBLIC_CLIENT_URL=${CLIENT_URL}
+        NEXT_PUBLIC_AUTH_URL: ${NEXT_PUBLIC_AUTH_URL}
+        NEXT_PUBLIC_CLIENT_URL: ${NEXT_PUBLIC_CLIENT_URL}
+    env_file:
+      - .env
     depends_on:
       - backend-assist-api
     restart: unless-stopped
@@ -49,9 +32,7 @@ services:
       context: .
       dockerfile: apps/widget-ui/Dockerfile
       args:
-        VITE_BACKEND_API_URL: ${BETTER_AUTH_URL}
-    environment:
-      - NODE_ENV=production
+        VITE_BACKEND_API_URL: ${VITE_BACKEND_API_URL}
     restart: unless-stopped
     networks:
       - dokploy-network
