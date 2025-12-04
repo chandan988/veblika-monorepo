@@ -33,10 +33,13 @@ export const auth = betterAuth({
   baseURL: config.auth.serviceUrl,
   // Allow all origins for all environments
   trustedOrigins: ["https://*.veblika.com","*"],
-  // advanced: {
-  //   disableOriginCheck: true,
-  //   disableCSRFCheck: true
-  // },
+  advanced: {
+    crossSubDomainCookies: {
+            enabled: true,
+        },
+    // disableOriginCheck: true,
+    // disableCSRFCheck: true
+  },
 
   database: mongodbAdapter(mongoose.connection.db!, {
     client: mongoClient,
