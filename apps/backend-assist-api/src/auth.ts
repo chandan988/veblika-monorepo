@@ -32,7 +32,7 @@ const baseUrl = config.client.url
 export const auth = betterAuth({
   baseURL: config.auth.serviceUrl,
   // Allow all origins for all environments
-  trustedOrigins: ["https://support.veblika.com","https://social.veblika.com"],
+  trustedOrigins: ["https://*.veblika.com"],
   // advanced: {
   //   crossSubDomainCookies: {
   //           enabled: true,
@@ -43,17 +43,16 @@ export const auth = betterAuth({
   // },
 
   advanced: {
-  crossSubDomainCookies: {
-    enabled: true,
-    domain: "veblika.com",
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: "veblika.com",
+    },
+    defaultCookieAttributes: {
+      secure: true,
+      httpOnly: true,
+      sameSite: "lax", // correct
+    },
   },
-  defaultCookieAttributes: {
-    secure: true,
-    httpOnly: true,
-    sameSite: "lax",  // correct
-  },
-},
-
 
   database: mongodbAdapter(mongoose.connection.db!, {
     client: mongoClient,
