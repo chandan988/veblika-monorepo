@@ -8,6 +8,7 @@
     "lint": "turbo lint",
     "dev:ba": "turbo run dev --filter=backend-assist-api... --filter=backend-assist-web... --filter=widget-ui...",
     "dev:sm": "turbo run dev --filter=backend-assist-api... --filter=social-media-api... --filter=social-media-web...",
+    "dev:hrms": "turbo run dev --filter=hrms... --filter=backend-assist-api...",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up -d",
@@ -31,12 +32,5 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ],
-  "dependencies": {
-    "@hookform/resolvers": "^5.2.2",
-    "date-fns": "^4.1.0",
-    "react-day-picker": "^9.11.1",
-    "react-hook-form": "^7.67.0",
-    "zod": "^4.1.13"
-  }
+  ]
 }
