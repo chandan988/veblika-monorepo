@@ -35,7 +35,7 @@ export const integrationGmailService = {
         JSON.stringify({ orgId, userId, timestamp: Date.now() })
       ).toString("base64")
 
-      const redirectUri = `${config.google.redirectUri}`;
+      const redirectUri = `${config.google.redirectUri}`
       const client = createOAuth2Client(redirectUri)
       logger.info({ redirectUri }, "Creating OAuth2 client with redirect URI")
 
@@ -92,6 +92,7 @@ export const integrationGmailService = {
       // Get user's Gmail profile
       const gmail = google.gmail({ version: "v1", auth: client })
       const profile = await gmail.users.getProfile({ userId: "me" })
+
       const email = profile.data.emailAddress
 
       if (!email) {
@@ -116,6 +117,7 @@ export const integrationGmailService = {
           email,
         }
         integration.status = "connected"
+        integration.markModified("credentials")
         await integration.save()
         logger.info(
           { integrationId: integration._id, email },
@@ -255,7 +257,7 @@ export const integrationGmailService = {
       const watchResponse = await gmail.users.watch({
         userId: "me",
         requestBody: {
-          topicName: config.google.gmailPubsubTopic, // e.g., "projects/PROJECT_ID/topics/gmail-notifications"
+          topicName: config.google.gmailPubsubTopic,
           labelIds: ["INBOX"], // Watch only inbox
         },
       })
@@ -266,6 +268,8 @@ export const integrationGmailService = {
         integration.credentials.watchExpiration = watchResponse.data.expiration
           ? new Date(parseInt(watchResponse.data.expiration))
           : undefined
+
+        integration.markModified("credentials")
       }
 
       await integration.save()
@@ -318,6 +322,7 @@ export const integrationGmailService = {
       if (integration.credentials) {
         integration.credentials.historyId = undefined
         integration.credentials.watchExpiration = undefined
+        integration.markModified("credentials")
       }
       await integration.save()
 
@@ -361,9 +366,14 @@ export const integrationGmailService = {
 
       // Use historyId from notification if we don't have one stored yet
       const startHistoryId = credentials.historyId || historyId
-      
+
       logger.info(
-        { emailAddress, storedHistoryId: credentials.historyId, notificationHistoryId: historyId, usingHistoryId: startHistoryId },
+        {
+          emailAddress,
+          storedHistoryId: credentials.historyId,
+          notificationHistoryId: historyId,
+          usingHistoryId: startHistoryId,
+        },
         "Processing Gmail notification with historyId"
       )
 
@@ -386,28 +396,36 @@ export const integrationGmailService = {
           startHistoryId: startHistoryId,
           historyTypes: ["messageAdded"],
         })
-        
+
         logger.info(
-          { 
-            emailAddress, 
+          {
+            emailAddress,
             startHistoryId,
             responseHistoryId: historyResponse.data.historyId,
             historyCount: historyResponse.data.history?.length || 0,
-            rawHistory: historyResponse.data.history 
+            rawHistory: historyResponse.data.history,
           },
           "Gmail history API response"
         )
       } catch (historyError: any) {
         // If historyId is too old or invalid, get current profile to update historyId
-        if (historyError?.code === 404 || historyError?.message?.includes("historyId")) {
+        if (
+          historyError?.code === 404 ||
+          historyError?.message?.includes("historyId")
+        ) {
           logger.warn(
-            { emailAddress, historyId: startHistoryId, error: historyError.message },
+            {
+              emailAddress,
+              historyId: startHistoryId,
+              error: historyError.message,
+            },
             "Invalid historyId, fetching current profile to reset"
           )
-          
+
           const profile = await gmail.users.getProfile({ userId: "me" })
           if (integration.credentials && profile.data.historyId) {
             integration.credentials.historyId = profile.data.historyId
+            integration.markModified("credentials")
             await integration.save()
             logger.info(
               { emailAddress, newHistoryId: profile.data.historyId },
@@ -421,32 +439,40 @@ export const integrationGmailService = {
 
       const history = historyResponse.data.history || []
       const newHistoryId = historyResponse.data.historyId
-      
+
       if (history.length === 0) {
         logger.info(
-          { 
-            emailAddress, 
+          {
+            emailAddress,
             newHistoryId,
             startHistoryId,
-            message: "This usually means: 1) Email already processed, 2) Email not in INBOX, 3) Outbound email, or 4) historyId already current"
+            message:
+              "This usually means: 1) Email already processed, 2) Email not in INBOX, 3) Outbound email, or 4) historyId already current",
           },
           "No new messages in history"
         )
-        
+
         // Try fetching recent messages directly as fallback
-        logger.info({ emailAddress }, "Attempting to fetch recent messages directly")
+        logger.info(
+          { emailAddress },
+          "Attempting to fetch recent messages directly"
+        )
         const messagesResponse = await gmail.users.messages.list({
           userId: "me",
           labelIds: ["INBOX", "UNREAD"],
           maxResults: 5,
         })
-        
+
         const recentMessages = messagesResponse.data.messages || []
         logger.info(
-          { emailAddress, recentMessageCount: recentMessages.length, messages: recentMessages },
+          {
+            emailAddress,
+            recentMessageCount: recentMessages.length,
+            messages: recentMessages,
+          },
           "Recent messages fetched"
         )
-        
+
         if (recentMessages.length > 0) {
           logger.info(
             { emailAddress, messageCount: recentMessages.length },
@@ -454,17 +480,17 @@ export const integrationGmailService = {
           )
           // Continue to process these messages
           // Create a fake history structure
-          const fakeHistory = recentMessages.map(msg => ({
-            messagesAdded: [{ message: { id: msg.id } }]
+          const fakeHistory = recentMessages.map((msg) => ({
+            messagesAdded: [{ message: { id: msg.id } }],
           }))
-          
+
           // Process messages (code will continue below)
           for (const record of fakeHistory) {
             const messagesAdded = record.messagesAdded || []
             for (const added of messagesAdded) {
               const messageId = added.message?.id
               if (!messageId) continue
-              
+
               // Fetch full message details
               const messageResponse = await gmail.users.messages.get({
                 userId: "me",
@@ -474,15 +500,25 @@ export const integrationGmailService = {
 
               const gmailMessage = messageResponse.data
               const parsed = parseGmailMessage(gmailMessage)
-              
+
               logger.info(
-                { messageId, from: parsed.from, subject: parsed.subject, threadId: parsed.threadId },
+                {
+                  messageId,
+                  from: parsed.from,
+                  subject: parsed.subject,
+                  threadId: parsed.threadId,
+                },
                 "Processing fallback message"
               )
 
               // Skip if this is an outbound email (from our integration email)
-              if (parsed.from?.toLowerCase().includes(emailAddress.toLowerCase())) {
-                logger.info({ messageId, from: parsed.from }, "Skipping outbound email")
+              if (
+                parsed.from?.toLowerCase().includes(emailAddress.toLowerCase())
+              ) {
+                logger.info(
+                  { messageId, from: parsed.from },
+                  "Skipping outbound email"
+                )
                 continue
               }
 
@@ -494,7 +530,9 @@ export const integrationGmailService = {
 
               // Extract sender name
               const nameMatch = parsed.from.match(/^(.+?)\s*</)
-              const senderName = nameMatch ? nameMatch[1]?.trim() || senderEmail : senderEmail
+              const senderName = nameMatch
+                ? nameMatch[1]?.trim() || senderEmail
+                : senderEmail
 
               // ========== CONTACT LOGIC ==========
               const contact = await Contact.findOneAndUpdate(
@@ -541,7 +579,8 @@ export const integrationGmailService = {
                   status: "open",
                   priority: "normal",
                   lastMessageAt: new Date(),
-                  lastMessagePreview: parsed.snippet || parsed.text?.substring(0, 100),
+                  lastMessagePreview:
+                    parsed.snippet || parsed.text?.substring(0, 100),
                   sourceMetadata: {
                     subject: parsed.subject,
                     from: parsed.from,
@@ -550,7 +589,10 @@ export const integrationGmailService = {
                 })
                 isNewConversation = true
                 logger.info(
-                  { conversationId: conversation._id, threadId: parsed.threadId },
+                  {
+                    conversationId: conversation._id,
+                    threadId: parsed.threadId,
+                  },
                   "New conversation created (fallback)"
                 )
               } else {
@@ -566,7 +608,10 @@ export const integrationGmailService = {
                   parsed.snippet || parsed.text?.substring(0, 100)
                 await conversation.save()
                 logger.info(
-                  { conversationId: conversation._id, threadId: parsed.threadId },
+                  {
+                    conversationId: conversation._id,
+                    threadId: parsed.threadId,
+                  },
                   "Existing conversation updated (fallback)"
                 )
               }
@@ -652,10 +697,11 @@ export const integrationGmailService = {
             }
           }
         }
-        
+
         // Update historyId even when there are no messages
         if (integration.credentials && newHistoryId) {
           integration.credentials.historyId = newHistoryId
+          integration.markModified("credentials")
           await integration.save()
         }
         return
@@ -685,9 +731,7 @@ export const integrationGmailService = {
           const parsed = parseGmailMessage(gmailMessage)
 
           // Skip if this is an outbound email (from our integration email)
-          if (
-            parsed.from?.toLowerCase().includes(emailAddress.toLowerCase())
-          ) {
+          if (parsed.from?.toLowerCase().includes(emailAddress.toLowerCase())) {
             logger.info({ messageId }, "Skipping outbound email")
             continue
           }
@@ -700,7 +744,9 @@ export const integrationGmailService = {
 
           // Extract sender name
           const nameMatch = parsed.from.match(/^(.+?)\s*</)
-          const senderName = nameMatch ? nameMatch[1]?.trim() || senderEmail : senderEmail
+          const senderName = nameMatch
+            ? nameMatch[1]?.trim() || senderEmail
+            : senderEmail
 
           // ========== CONTACT LOGIC ==========
           // Find or create contact by email (unique per org)
@@ -750,7 +796,8 @@ export const integrationGmailService = {
               status: "open",
               priority: "normal",
               lastMessageAt: new Date(),
-              lastMessagePreview: parsed.snippet || parsed.text?.substring(0, 100),
+              lastMessagePreview:
+                parsed.snippet || parsed.text?.substring(0, 100),
               sourceMetadata: {
                 subject: parsed.subject,
                 from: parsed.from,
@@ -870,6 +917,7 @@ export const integrationGmailService = {
       // Update integration with latest historyId
       if (integration.credentials) {
         integration.credentials.historyId = historyResponse.data.historyId
+        integration.markModified("credentials")
       }
       await integration.save()
 
