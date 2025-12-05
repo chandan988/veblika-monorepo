@@ -179,10 +179,10 @@ export default function IntegrationsPage() {
                 Coming Soon
               </Badge>
             </div>
-            <h3 className="text-xl font-bold mb-2">WhatsApp</h3>
+            <h3 className="text-xl font-bold mb-2">SMTP</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Connect WhatsApp Business API to chat with customers on their
-              favorite app.
+              Connect your SMTP server to send and receive emails directly from
+              the platform.
             </p>
           </div>
 
