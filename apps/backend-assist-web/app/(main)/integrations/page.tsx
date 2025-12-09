@@ -51,7 +51,9 @@ export default function IntegrationsPage() {
               Manage your website chat widgets and settings
             </p>
           </div>
-          <WebchatIntegrations orgId={data?.data?.session.activeOrganizationId || ""} />
+          <WebchatIntegrations
+            orgId={data?.data?.session.activeOrganizationId || ""}
+          />
         </div>
       </div>
     )
@@ -83,7 +85,9 @@ export default function IntegrationsPage() {
               Manage your Gmail connections and email synchronization
             </p>
           </div>
-          <GmailIntegrations orgId={data?.data?.session.activeOrganizationId || ""} />
+          <GmailIntegrations
+            orgId={data?.data?.session.activeOrganizationId || ""}
+          />
         </div>
       </div>
     )
@@ -159,39 +163,6 @@ export default function IntegrationsPage() {
               className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black font-medium border-none"
               onClick={() => setActiveIntegration("gmail")}
             >
-              <Plug className="h-4 w-4 mr-2" />
-              Connect
-            </Button>
-          </div>
-        </Card>
-
-        {/* WhatsApp Card (Coming Soon) */}
-        <Card className="p-6 flex flex-col h-full opacity-75 bg-muted/30">
-          <div className="mb-6">
-            <div className="flex justify-between items-start mb-4">
-              <div className="w-12 h-12 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center border border-green-100 dark:border-green-800">
-                <MessageCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
-              </div>
-              <Badge
-                variant="secondary"
-                className="bg-muted text-muted-foreground"
-              >
-                Coming Soon
-              </Badge>
-            </div>
-            <h3 className="text-xl font-bold mb-2">SMTP</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Connect your SMTP server to send and receive emails directly from
-              the platform.
-            </p>
-          </div>
-
-          <div className="mt-auto flex gap-3">
-            <Button variant="outline" className="flex-1" disabled>
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Manage
-            </Button>
-            <Button className="flex-1" disabled variant="secondary">
               <Plug className="h-4 w-4 mr-2" />
               Connect
             </Button>
