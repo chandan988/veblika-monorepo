@@ -9,9 +9,9 @@ export default function MainLayout({
 }) {
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="h-screen bg-background flex flex-col overflow-hidden">
         <TopNavbar />
-        <main className="flex-1 overflow-hidden p-6">{children}</main>
+        <main className="flex-1 min-h-0 overflow-auto">{children}</main>
         <Footer />
       </div>
     </AuthProvider>
