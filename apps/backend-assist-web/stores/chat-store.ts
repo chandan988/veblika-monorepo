@@ -29,20 +29,33 @@ export interface Conversation {
   sourceMetadata?: any;
 }
 
+export interface PaginationInfo {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 interface ChatStore {
   // Conversation state
   conversations: Conversation[];
   conversationsLoaded: boolean;
+  paginationInfo: PaginationInfo | null;
+  activeChannel: string | null; // Track active channel
   
   // Message state by conversation
   messagesByConversation: Record<string, Message[]>;
   
   // Conversation Actions
-  setConversations: (conversations: Conversation[]) => void;
+  setConversations: (conversations: Conversation[], channel: string) => void;
+  appendConversations: (conversations: Conversation[]) => void;
   addConversation: (conversation: Conversation) => void;
   updateConversation: (conversationId: string, updates: Partial<Conversation>) => void;
   removeConversation: (conversationId: string) => void;
   updateConversationMessage: (conversationId: string, messagePreview: string, timestamp: string) => void;
+  setPaginationInfo: (pagination: PaginationInfo) => void;
+  setActiveChannel: (channel: string) => void;
+  clearConversations: () => void;
   
   // Message Actions
   addMessage: (conversationId: string, message: Message) => void;
@@ -52,7 +65,7 @@ interface ChatStore {
   
   // Getters
   getMessages: (conversationId: string) => Message[];
-  getConversations: () => Conversation[];
+  getConversations: (channel?: string) => Conversation[];
   getConversation: (conversationId: string) => Conversation | undefined;
 }
 
@@ -62,13 +75,41 @@ export const useChatStore = create<ChatStore>()(
       // Conversation state
       conversations: [],
       conversationsLoaded: false,
+      paginationInfo: null,
+      activeChannel: null,
       
       // Message state
       messagesByConversation: {},
 
       // Conversation actions
-      setConversations: (conversations) => {
-        set({ conversations, conversationsLoaded: true });
+      setConversations: (conversations, channel) => {
+        set({ conversations, conversationsLoaded: true, activeChannel: channel });
+      },
+
+      setActiveChannel: (channel) => {
+        set({ activeChannel: channel });
+      },
+
+      clearConversations: () => {
+        set({ conversations: [], conversationsLoaded: false, paginationInfo: null });
+      },
+
+      appendConversations: (newConversations) => {
+        set((state) => {
+          // Get existing IDs to avoid duplicates
+          const existingIds = new Set(state.conversations.map((c) => c._id));
+          const uniqueNewConversations = newConversations.filter(
+            (c) => !existingIds.has(c._id)
+          );
+          
+          return {
+            conversations: [...state.conversations, ...uniqueNewConversations],
+          };
+        });
+      },
+
+      setPaginationInfo: (pagination) => {
+        set({ paginationInfo: pagination });
       },
 
       addConversation: (conversation) => {
@@ -192,8 +233,10 @@ export const useChatStore = create<ChatStore>()(
         return get().messagesByConversation[conversationId] || [];
       },
 
-      getConversations: () => {
-        return get().conversations;
+      getConversations: (channel?: string) => {
+        const conversations = get().conversations;
+        if (!channel) return conversations;
+        return conversations.filter((c) => c.channel === channel);
       },
 
       getConversation: (conversationId) => {
