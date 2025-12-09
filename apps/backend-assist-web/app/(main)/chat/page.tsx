@@ -1,8 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { ConversationList } from "@/components/chat/conversation-list"
-import { MessageThreadWebchat } from "@/components/chat/message-thread-webchat"
+import { useSearchParams, useRouter } from "next/navigation"
+import { ConversationList, MessageThread } from "./components"
 import {
   useConversations,
   useUpdateConversation,
@@ -11,27 +10,36 @@ import { useMessages, useSendMessage } from "@/hooks/use-messages"
 import { MessageSquare } from "lucide-react"
 import type { Conversation } from "@/types/chat"
 import { useSession } from "@/hooks/useSession"
-import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
-import { Badge } from "@workspace/ui/components/badge"
 
 export default function ChatPage() {
-  const [selectedConversationId, setSelectedConversationId] = useState<
-    string | undefined
-  >()
-  const [statusFilter, setStatusFilter] = useState<"all" | "open" | "pending" | "closed">("all")
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  // Get selectedConversationId from URL params for state persistence
+  const selectedConversationId = searchParams.get("conversation") || undefined
+
   const { data } = useSession()
 
-  // Fetch conversations - get ALL webchat conversations
-  const { data: conversationsData, isLoading: isLoadingConversations } =
-    useConversations({
-      orgId: data?.data?.session.activeOrganizationId,
-      channel: "webchat", // Only webchat conversations
-    })
+  // Fetch conversations - get ALL webchat conversations with infinite scroll
+  const {
+    data: conversationsData,
+    isLoading: isLoadingConversations,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useConversations({
+    orgId: data?.data?.session.activeOrganizationId,
+    channel: "webchat", // Only webchat conversations
+  })
 
-  // Fetch messages for selected conversation
-  const { messages = [], isLoading: isLoadingMessages } = useMessages(
-    selectedConversationId || ""
-  )
+  // Fetch messages for selected conversation with infinite scroll
+  const {
+    messages = [],
+    isLoading: isLoadingMessages,
+    hasNextPage: hasNextMessagePage,
+    isFetchingNextPage: isFetchingNextMessagePage,
+    fetchNextPage: fetchNextMessagePage,
+  } = useMessages(selectedConversationId || "", { limit: 25 })
 
   // Mutations
   const updateConversation = useUpdateConversation()
@@ -41,24 +49,18 @@ export default function ChatPage() {
     data?.data?.session.userId || ""
   )
 
-  const allConversations = (conversationsData?.data || []) as Conversation[]
+  const conversations = (conversationsData?.data || []) as Conversation[]
 
-  // Filter conversations by status
-  const conversations = statusFilter === "all"
-    ? allConversations
-    : allConversations.filter(c => c.status === statusFilter)
+  // Handle conversation selection - update URL params
+  const handleSelectConversation = (conversationId: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("conversation", conversationId)
+    router.push(`/chat?${params.toString()}`, { scroll: false })
+  }
 
-  const selectedConversation = allConversations.find(
+  const selectedConversation = conversations.find(
     (c) => c._id === selectedConversationId
   )
-
-  // Count conversations by status
-  const statusCounts = {
-    all: allConversations.length,
-    open: allConversations.filter(c => c.status === "open").length,
-    pending: allConversations.filter(c => c.status === "pending").length,
-    closed: allConversations.filter(c => c.status === "closed").length,
-  }
 
   const handleSendMessage = (text: string) => {
     sendMessage.mutate({ text })
@@ -74,81 +76,48 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-190px)] gap-4">
-      {/* Header with Status Filters */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Web Chat</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage conversations from your website chat widget
-          </p>
-        </div>
-
-        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)} className="w-auto">
-          <TabsList className="bg-muted">
-            <TabsTrigger value="all" className="gap-2">
-              All
-              <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
-                {statusCounts.all}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="open" className="gap-2">
-              Open
-              <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
-                {statusCounts.open}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="pending" className="gap-2">
-              Pending
-              <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
-                {statusCounts.pending}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="closed" className="gap-2">
-              Closed
-              <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
-                {statusCounts.closed}
-              </Badge>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+    <div className="flex h-full">
+      {/* Conversation List - Sidebar */}
+      <div className="w-85 shrink-0 flex flex-col border-r">
+        <ConversationList
+          conversations={conversations}
+          selectedConversationId={selectedConversationId}
+          onSelectConversation={handleSelectConversation}
+          isLoading={isLoadingConversations}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          fetchNextPage={fetchNextPage}
+        />
       </div>
 
-      {/* Main Content - Takes remaining height */}
-      <div className="flex-1 grid grid-cols-12 gap-4 min-h-0 overflow-hidden">
-        {/* Conversation List */}
-        <div className="col-span-12 md:col-span-4 lg:col-span-3 h-full overflow-hidden">
-          <ConversationList
-            conversations={conversations}
-            selectedConversationId={selectedConversationId}
-            onSelectConversation={setSelectedConversationId}
-            isLoading={isLoadingConversations}
+      {/* Message Thread - Main Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {selectedConversation ? (
+          <MessageThread
+            conversation={selectedConversation}
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            onUpdateConversation={handleUpdateConversation}
+            isLoading={isLoadingMessages}
+            isSending={sendMessage.isPending}
+            hasNextPage={hasNextMessagePage}
+            isFetchingNextPage={isFetchingNextMessagePage}
+            fetchNextPage={fetchNextMessagePage}
           />
-        </div>
-
-        {/* Message Thread */}
-        <div className="col-span-12 md:col-span-8 lg:col-span-9 h-full overflow-hidden">
-          {selectedConversation ? (
-            <MessageThreadWebchat
-              conversation={selectedConversation}
-              messages={messages}
-              onSendMessage={handleSendMessage}
-              onUpdateConversation={handleUpdateConversation}
-              isLoading={isLoadingMessages}
-              isSending={sendMessage.isPending}
-            />
-          ) : (
-            <div className="h-full flex items-center justify-center border rounded-lg bg-muted/20">
-              <div className="text-center text-muted-foreground">
-                <MessageSquare className="h-16 w-16 mx-auto mb-4 opacity-20" />
-                <p className="text-lg font-medium">No conversation selected</p>
-                <p className="text-sm">
-                  Select a conversation from the list to start chatting
-                </p>
-              </div>
+        ) : (
+          <div className="h-full flex flex-col items-center justify-center bg-card/50">
+            <div className="h-24 w-24 rounded-full bg-muted/50 flex items-center justify-center mb-6">
+              <MessageSquare className="h-12 w-12 text-muted-foreground/30" />
             </div>
-          )}
-        </div>
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              No conversation selected
+            </h3>
+            <p className="text-sm text-muted-foreground text-center max-w-sm">
+              Select a conversation from the list to start chatting with your
+              visitors
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )
