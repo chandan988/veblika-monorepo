@@ -1,7 +1,7 @@
 export function Footer() {
   return (
-    <footer className="border-t bg-background">
-      <div className="container mx-auto px-4 py-6">
+    <footer className="h-[48px] border-t bg-background flex items-center">
+      <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} Veblika. All rights reserved.
