@@ -1,6 +1,6 @@
 "use client"
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query"
 import { api } from "@/services/api"
 import { useSocket } from "./use-socket"
 import { useEffect } from "react"
@@ -22,11 +22,22 @@ interface Conversation {
   sourceMetadata?: any
 }
 
+interface PaginationInfo {
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+interface ConversationsResponse {
+  data: Conversation[]
+  pagination: PaginationInfo
+}
+
 interface GetConversationsParams {
   orgId: string | undefined | null
   status?: "open" | "pending" | "closed"
   channel?: string
-  page?: number
   limit?: number
 }
 
@@ -39,23 +50,57 @@ export const useConversations = (params: GetConversationsParams) => {
 
   // Zustand store actions
   const setConversations = useChatStore((state) => state.setConversations)
+  const appendConversations = useChatStore((state) => state.appendConversations)
   const addConversation = useChatStore((state) => state.addConversation)
   const updateConversationMessage = useChatStore((state) => state.updateConversationMessage)
-  const storeConversations = useChatStore((state) => state.conversations)
+  const getConversations = useChatStore((state) => state.getConversations)
   const conversationsLoaded = useChatStore((state) => state.conversationsLoaded)
+  const setPaginationInfo = useChatStore((state) => state.setPaginationInfo)
+  const paginationInfo = useChatStore((state) => state.paginationInfo)
+  const activeChannel = useChatStore((state) => state.activeChannel)
+  const setActiveChannel = useChatStore((state) => state.setActiveChannel)
+  const clearConversations = useChatStore((state) => state.clearConversations)
 
-  // Fetch conversations from API (only once or when params change)
-  const query = useQuery({
-    queryKey: ["conversations", params],
-    queryFn: async () => {
-      const { data } = await api.get("/conversations", { params })
+  const limit = params.limit || 30
+
+  // Clear store if channel changed
+  useEffect(() => {
+    if (params.channel && params.channel !== activeChannel) {
+      clearConversations()
+      setActiveChannel(params.channel)
+    }
+  }, [params.channel, activeChannel, clearConversations, setActiveChannel])
+
+  // Fetch conversations from API with infinite scroll
+  const query = useInfiniteQuery({
+    queryKey: ["conversations", params.orgId, params.channel, params.status, params.limit],
+    queryFn: async ({ pageParam = 1 }) => {
+      const { data } = await api.get<ConversationsResponse>("/conversations", { 
+        params: { ...params, page: pageParam, limit } 
+      })
       
-      // Sync with Zustand store
       const conversations = data.data || []
-      setConversations(conversations)
+      const pagination = data.pagination || { total: 0, page: 1, limit, totalPages: 1 }
+      
+      // Sync with Zustand store - with channel awareness
+      if (pageParam === 1) {
+        // First page - replace all conversations for this channel
+        setConversations(conversations, params.channel || 'unknown')
+      } else {
+        // Subsequent pages - append
+        appendConversations(conversations)
+      }
+      
+      // Update pagination info
+      setPaginationInfo(pagination)
       
       return data
     },
+    getNextPageParam: (lastPage) => {
+      const { page, totalPages } = lastPage.pagination || { page: 1, totalPages: 1 }
+      return page < totalPages ? page + 1 : undefined
+    },
+    initialPageParam: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes - don't refetch unless stale
     refetchInterval: 30000, // Background sync every 30 seconds
     enabled: !!params.orgId,
@@ -70,6 +115,13 @@ export const useConversations = (params: GetConversationsParams) => {
 
       const conversation = data.conversation
       const message = data.message
+      const conversationChannel = conversation.channel || "webchat"
+
+      // Only process if matches current channel filter
+      if (params.channel && conversationChannel !== params.channel) {
+        console.log(`Ignoring message from channel ${conversationChannel}, current filter: ${params.channel}`)
+        return
+      }
 
       if (data.isNewConversation) {
         // Add new conversation to store
@@ -78,7 +130,7 @@ export const useConversations = (params: GetConversationsParams) => {
           orgId: conversation.orgId,
           integrationId: conversation.integrationId,
           contactId: conversation.contactId,
-          channel: conversation.channel || "webchat",
+          channel: conversationChannel,
           status: conversation.status,
           priority: conversation.priority || "normal",
           lastMessageAt: message.createdAt || new Date().toISOString(),
@@ -105,6 +157,12 @@ export const useConversations = (params: GetConversationsParams) => {
 
     const handleGmailNewMessage = (data: any) => {
       console.log("📧 Gmail message received:", data)
+      
+      // Only process if matches current channel filter
+      if (params.channel && params.channel !== "gmail") {
+        console.log(`Ignoring Gmail message, current filter: ${params.channel}`)
+        return
+      }
       
       if (data.conversation?.isNew) {
         // Add new Gmail conversation
@@ -155,12 +213,25 @@ export const useConversations = (params: GetConversationsParams) => {
     }
   }, [socket, isConnected, params.orgId, addConversation, updateConversationMessage])
 
-  // Return store data if loaded, otherwise return query data
+  // Flatten all pages data for easy access
+  const allConversations = query.data?.pages?.flatMap(page => page.data || []) || []
+
+  // Get conversations filtered by current channel from store
+  const storeConversations = getConversations(params.channel)
+
+  // Return store data if loaded and channel matches, otherwise return query data
+  const shouldUseStore = conversationsLoaded && activeChannel === params.channel
+  
   return {
     ...query,
-    data: conversationsLoaded 
-      ? { ...query.data, data: storeConversations }
-      : query.data,
+    conversations: shouldUseStore ? storeConversations : allConversations,
+    data: shouldUseStore 
+      ? { data: storeConversations, pagination: paginationInfo }
+      : { data: allConversations, pagination: paginationInfo },
+    // Expose infinite scroll helpers
+    fetchNextPage: query.fetchNextPage,
+    hasNextPage: query.hasNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
   }
 }
 
