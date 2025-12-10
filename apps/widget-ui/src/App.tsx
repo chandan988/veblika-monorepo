@@ -62,7 +62,7 @@ export default function App() {
     const saved = localStorage.getItem(`mychat_visitor_${sessionId}`)
     return !saved
   })
-  
+
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const hasJoinedRoom = useRef(false)
 
@@ -152,7 +152,7 @@ export default function App() {
 
     function onConnect() {
       setIsConnected(true)
-      
+
       // Join widget room after connection
       if (!showForm && !hasJoinedRoom.current) {
         socket.emit("widget:join", {
@@ -166,7 +166,7 @@ export default function App() {
           },
         })
         hasJoinedRoom.current = true
-        
+
         // Load conversation history after joining
         loadConversationHistory()
       }
@@ -238,12 +238,20 @@ export default function App() {
       socket.off("widget:connected", onWidgetConnected)
       socket.off("agent:message", onAgentMessage)
       socket.off("message:confirmed", onMessageConfirmed)
-      
+
       // Disconnect socket when dialog closes to save resources
       disconnectSocket()
       hasJoinedRoom.current = false
     }
-  }, [isOpen, integrationId, orgId, sessionId, showForm, visitorInfo, loadConversationHistory])
+  }, [
+    isOpen,
+    integrationId,
+    orgId,
+    sessionId,
+    showForm,
+    visitorInfo,
+    loadConversationHistory,
+  ])
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -253,26 +261,8 @@ export default function App() {
         `mychat_visitor_${sessionId}`,
         JSON.stringify(visitorInfo)
       )
+      // setShowForm(false) will trigger the useEffect to emit widget:join
       setShowForm(false)
-
-      // Join widget room after form submission
-      const socket = getSocket()
-      if (socket.connected && !hasJoinedRoom.current) {
-        socket.emit("widget:join", {
-          integrationId,
-          orgId,
-          sessionId,
-          visitorInfo: {
-            ...visitorInfo,
-            userAgent: navigator.userAgent,
-            referrer: document.referrer,
-          },
-        })
-        hasJoinedRoom.current = true
-        
-        // Load conversation history after joining
-        loadConversationHistory()
-      }
     }
   }
 
@@ -284,7 +274,7 @@ export default function App() {
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, newMessage])
-      
+
       const socket = getSocket()
       socket.emit("visitor:message", {
         integrationId,
@@ -359,7 +349,7 @@ export default function App() {
                 <X className="w-5 h-5" />
               </Button>
             </DialogTitle>
-            
+
             {!showForm && visitorInfo.name ? (
               <div className="mt-3 pt-3 border-t border-primary-foreground/20">
                 <div className="flex items-center gap-3">
@@ -367,7 +357,9 @@ export default function App() {
                     <User className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">{visitorInfo.name}</p>
+                    <p className="text-xs font-medium truncate">
+                      {visitorInfo.name}
+                    </p>
                     <div className="flex items-center gap-2 text-xs opacity-80 mt-0.5">
                       {visitorInfo.email && (
                         <span className="truncate">{visitorInfo.email}</span>
@@ -482,12 +474,18 @@ export default function App() {
                     <div
                       key={idx}
                       className={`flex ${
-                        msg.sender === "visitor" ? "justify-end" : "justify-start"
+                        msg.sender === "visitor"
+                          ? "justify-end"
+                          : "justify-start"
                       } animate-in slide-in-from-bottom-2 duration-200`}
                     >
-                      <div className={`flex items-end gap-2 max-w-[80%] ${
-                        msg.sender === "visitor" ? "flex-row-reverse" : "flex-row"
-                      }`}>
+                      <div
+                        className={`flex items-end gap-2 max-w-[80%] ${
+                          msg.sender === "visitor"
+                            ? "flex-row-reverse"
+                            : "flex-row"
+                        }`}
+                      >
                         {msg.sender === "agent" ? (
                           <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-semibold shrink-0 mb-5">
                             A
@@ -505,11 +503,17 @@ export default function App() {
                                 : "bg-muted border border-border rounded-bl-sm"
                             }`}
                           >
-                            <p className="text-sm leading-relaxed wrap-break-word">{msg.text}</p>
+                            <p className="text-sm leading-relaxed wrap-break-word">
+                              {msg.text}
+                            </p>
                           </div>
-                          <p className={`text-xs text-muted-foreground px-2 ${
-                            msg.sender === "visitor" ? "text-right" : "text-left"
-                          }`}>
+                          <p
+                            className={`text-xs text-muted-foreground px-2 ${
+                              msg.sender === "visitor"
+                                ? "text-right"
+                                : "text-left"
+                            }`}
+                          >
                             {formatTime(msg.timestamp)}
                           </p>
                         </div>
