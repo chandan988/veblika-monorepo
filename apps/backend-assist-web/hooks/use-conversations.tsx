@@ -36,6 +36,7 @@ interface ConversationsResponse {
 
 interface GetConversationsParams {
   orgId: string | undefined | null
+  userId?: string | undefined | null
   status?: "open" | "pending" | "closed"
   channel?: string
   limit?: number
@@ -45,6 +46,7 @@ export const useConversations = (params: GetConversationsParams) => {
   const queryClient = useQueryClient()
   const { socket, isConnected } = useSocket({
     orgId: params.orgId,
+    userId: params.userId || undefined,
     autoConnect: true,
   })
 

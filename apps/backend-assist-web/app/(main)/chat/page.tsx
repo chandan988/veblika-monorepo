@@ -29,6 +29,7 @@ export default function ChatPage() {
     fetchNextPage,
   } = useConversations({
     orgId: data?.data?.session.activeOrganizationId,
+    userId: data?.data?.session.userId,
     channel: "webchat", // Only webchat conversations
   })
 
