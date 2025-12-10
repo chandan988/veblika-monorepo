@@ -111,7 +111,8 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
           socket.sessionId = data.sessionId
 
           // Join session-specific room (unique per visitor)
-          const sessionRoom = `session:${data.sessionId}`
+          // Use "widget:" prefix to match conversation.threadId format
+          const sessionRoom = `widget:${data.sessionId}`
           socket.join(sessionRoom)
 
           // Also join integration room (for broadcasts)
@@ -248,18 +249,17 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
           const conversation = await Conversation.findById(data.conversationId)
 
           if (conversation) {
-            // Extract sessionId from threadId (format: "session:xxx")
-            const sessionId = conversation.threadId?.replace("widget:", "")
-            console.log({ sessionId })
-            if (!sessionId) {
+            // Use threadId directly (already has "widget:" prefix)
+            const sessionRoom = conversation.threadId
+            
+            if (!sessionRoom) {
               logger.warn(
-                `No sessionId found in conversation ${data.conversationId}`
+                `No threadId found in conversation ${data.conversationId}`
               )
               return
             }
 
             // Send message ONLY to this specific visitor's session room
-            const sessionRoom = `session:${sessionId}`
             io.to(sessionRoom).emit("agent:message", {
               message: message,
               conversationId: conversation._id,
