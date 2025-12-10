@@ -145,7 +145,7 @@ export default function WebchatIntegrations() {
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <Button 
+          <Button
             onClick={() => setIsCreateDialogOpen(true)}
             disabled={integrations.length > 0}
           >
