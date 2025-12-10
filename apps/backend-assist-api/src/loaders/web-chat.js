@@ -22,10 +22,10 @@
     return
   }
 
-  // ✅ Generate or retrieve sessionId from localStorage
-  let sessionId = localStorage.getItem("mychat_session_id")
+  // ✅ Generate or retrieve sessionId from sessionStorage
+  let sessionId = sessionStorage.getItem("mychat_session_id")
   let sessionCreated = parseInt(
-    localStorage.getItem("mychat_session_created") || "0"
+    sessionStorage.getItem("mychat_session_created") || "0"
   )
 
   // Check if session expired (2 hours)
@@ -35,8 +35,8 @@
   if (!sessionId || now - sessionCreated > twoHours) {
     // Generate new session ID: timestamp + random string
     sessionId = `session_${now}_${Math.random().toString(36).substr(2, 9)}`
-    localStorage.setItem("mychat_session_id", sessionId)
-    localStorage.setItem("mychat_session_created", now.toString())
+    sessionStorage.setItem("mychat_session_id", sessionId)
+    sessionStorage.setItem("mychat_session_created", now.toString())
     console.log("[MyChat] New session created:", sessionId)
   } else {
     console.log("[MyChat] Existing session loaded:", sessionId)
