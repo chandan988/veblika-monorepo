@@ -52,11 +52,11 @@ export class ConversationController {
   });
 
   /**
-   * Get messages for a conversation
+   * Get messages for a conversation with cursor-based pagination
    */
   getConversationMessages = asyncHandler(async (req: Request, res: Response) => {
     const { limit, before } = req.query as GetMessagesQuery;
-    const messages = await conversationService.getConversationMessages(
+    const result = await conversationService.getConversationMessages(
       req.params.id!,
       limit ? parseInt(limit) : 50,
       before
@@ -65,7 +65,12 @@ export class ConversationController {
     return res.status(200).json({
       success: true,
       message: 'Messages retrieved successfully',
-      data: messages,
+      data: result.messages,
+      pagination: {
+        hasMore: result.hasMore,
+        nextCursor: result.nextCursor,
+        limit: limit ? parseInt(limit) : 50,
+      },
     });
   });
 

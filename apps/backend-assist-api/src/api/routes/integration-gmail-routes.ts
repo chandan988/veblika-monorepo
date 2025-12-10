@@ -173,6 +173,58 @@ router.post("/:integrationId/stop-watch", isAuth, async (req: Request, res: Resp
 });
 
 /**
+ * @route   POST /api/v1/integrations/gmail/:integrationId/send
+ * @desc    Send an email via Gmail API
+ * @access  Private
+ */
+router.post("/:integrationId/send", isAuth, async (req: Request, res: Response) => {
+  try {
+    const { integrationId } = req.params;
+    const { to, subject, body, htmlBody, threadId, inReplyTo, references, cc, bcc } = req.body;
+
+    if (!integrationId) {
+      res.status(400).json({
+        success: false,
+        error: "Missing integrationId",
+      });
+      return;
+    }
+
+    if (!to || !subject || !body) {
+      res.status(400).json({
+        success: false,
+        error: "Missing required fields: to, subject, body",
+      });
+      return;
+    }
+
+    const result = await integrationGmailService.sendGmailMessage({
+      integrationId,
+      to,
+      subject,
+      body,
+      htmlBody,
+      threadId,
+      inReplyTo,
+      references,
+      cc,
+      bcc,
+    });
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    logger.error({ error }, "Error sending Gmail message");
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to send Gmail message",
+    });
+  }
+});
+
+/**
  * @route   DELETE /api/v1/integrations/gmail/:integrationId
  * @desc    Disconnect Gmail integration
  * @access  Private
