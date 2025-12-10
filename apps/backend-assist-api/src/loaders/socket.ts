@@ -1,7 +1,6 @@
 import { Server as SocketIOServer, Socket } from "socket.io"
 import { logger } from "../config/logger"
 import { widgetService } from "../api/services/widget-service"
-import { notifications } from "../utils/notifications"
 import { Integration } from "../api/models/integration-model"
 import mongoose from "mongoose"
 import { Conversation } from "../api/models/conversation-model"
@@ -113,7 +112,6 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
 
           // Join session-specific room (unique per visitor)
           const sessionRoom = `session:${data.sessionId}`
-          console.log({sessionRoom})
           socket.join(sessionRoom)
 
           // Also join integration room (for broadcasts)
@@ -182,15 +180,6 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
             message: result.message,
             conversation: result.conversation,
             isNewConversation: result.isNewConversation,
-          })
-
-          // Also emit SSE notification for agents not on socket
-          notifications.emit("notification", {
-            type: "new_message",
-            orgId: data.orgId,
-            conversationId: result.conversation._id,
-            messageId: result.message._id,
-            preview: data.message.text.substring(0, 100),
           })
 
           logger.info(`Message saved and agents notified in ${agentRoom} and ${conversationRoom}`)
