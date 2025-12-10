@@ -47,11 +47,12 @@ export class WidgetService {
 
   /**
    * Find or create a contact from visitor information
-   * Priority: email -> phone -> session
+   * Priority: email -> phone -> existing conversation threadId
    */
   async findOrCreateContact(
     orgId: mongoose.Types.ObjectId,
     sessionId: string,
+    integrationId: mongoose.Types.ObjectId,
     visitorInfo?: {
       name?: string;
       email?: string;
@@ -59,7 +60,8 @@ export class WidgetService {
       userAgent?: string;
       referrer?: string;
     }
-  ): Promise<IContact> {
+  ): Promise<{ contact: IContact; wasAnonymous: boolean }> {
+    let wasAnonymous = false;
     // PRIORITY 1: Find by email (if provided)
     if (visitorInfo?.email) {
       let contact = await Contact.findOne({
@@ -71,12 +73,8 @@ export class WidgetService {
         // Update other fields if needed
         if (visitorInfo.name && !contact.name) contact.name = visitorInfo.name;
         if (visitorInfo.phone && !contact.phone) contact.phone = visitorInfo.phone;
-        // Update session reference
-        if (contact.source !== `session:${sessionId}`) {
-          contact.source = `session:${sessionId}`;
-        }
         await contact.save();
-        return contact;
+        return { contact, wasAnonymous: false };
       }
     }
 
@@ -90,37 +88,47 @@ export class WidgetService {
       if (contact) {
         if (visitorInfo.name && !contact.name) contact.name = visitorInfo.name;
         if (visitorInfo.email && !contact.email) contact.email = visitorInfo.email;
-        contact.source = `session:${sessionId}`;
         await contact.save();
-        return contact;
+        return { contact, wasAnonymous: false };
       }
     }
 
-    // PRIORITY 3: Find by session (for anonymous visitors or returning sessions)
-    let contact = await Contact.findOne({
+    // PRIORITY 3: Find by existing conversation with this session
+    // Use conversation.threadId instead of contact.source
+    const existingConversation = await Conversation.findOne({
       orgId,
-      source: `session:${sessionId}`,
-    });
+      integrationId,
+      threadId: `widget:${sessionId}`,
+    }).populate('contactId');
 
-    if (contact) {
-      // Visitor submitted form later, update contact
+    if (existingConversation && existingConversation.contactId) {
+      const contact = existingConversation.contactId as any as IContact;
+      
+      // If visitor now provided email/phone, update contact
+      wasAnonymous = !contact.email && !!visitorInfo?.email;
+      
       if (visitorInfo?.name && !contact.name) contact.name = visitorInfo.name;
       if (visitorInfo?.email && !contact.email) contact.email = visitorInfo.email;
       if (visitorInfo?.phone && !contact.phone) contact.phone = visitorInfo.phone;
-      await contact.save();
-      return contact;
+      
+      if (wasAnonymous || visitorInfo?.name || visitorInfo?.email || visitorInfo?.phone) {
+        await contact.save();
+      }
+      
+      return { contact, wasAnonymous };
     }
 
     // PRIORITY 4: Create new contact
-    contact = await Contact.create({
+    // Set source to channel type instead of session ID
+    const contact = await Contact.create({
       orgId,
       name: visitorInfo?.name || 'Anonymous Visitor',
       email: visitorInfo?.email || '',
       phone: visitorInfo?.phone || '',
-      source: `session:${sessionId}`,
+      source: 'webchat',
     });
 
-    return contact;
+    return { contact, wasAnonymous: false };
   }
 
   /**
@@ -140,7 +148,7 @@ export class WidgetService {
       orgId,
       integrationId,
       contactId,
-      threadId: `session:${sessionId}`,
+      threadId: `widget:${sessionId}`,
       status: { $in: ['open', 'pending'] },
       lastMessageAt: { $gte: twentyFourHoursAgo },
     });
@@ -155,7 +163,7 @@ export class WidgetService {
         orgId,
         integrationId,
         contactId,
-        threadId: `session:${sessionId}`,
+        threadId: `widget:${sessionId}`,
         status: { $in: ['open', 'pending'] },
         lastMessageAt: { $lt: twentyFourHoursAgo },
       },
@@ -173,7 +181,7 @@ export class WidgetService {
       integrationId,
       contactId,
       channel: 'webchat',
-      threadId: `session:${sessionId}`,
+      threadId: `widget:${sessionId}`,
       status: 'open',
       priority: 'normal',
       tags: ['widget'],
@@ -189,7 +197,9 @@ export class WidgetService {
   async saveVisitorMessage(data: SendWidgetMessageInput): Promise<{
     message: IMessage;
     conversation: IConversation;
+    contact: IContact;
     isNewConversation: boolean;
+    wasAnonymous: boolean;
   }> {
     // 1. Verify integration exists
     const integration = await Integration.findOne({
@@ -206,9 +216,10 @@ export class WidgetService {
     const orgId = integration.orgId;
 
     // 2. Find or create contact
-    const contact = await this.findOrCreateContact(
+    const { contact, wasAnonymous } = await this.findOrCreateContact(
       orgId,
       data.sessionId,
+      integration._id,
       data.visitorInfo
     );
 
@@ -217,6 +228,7 @@ export class WidgetService {
       orgId,
       integrationId: integration._id,
       contactId: contact._id,
+      threadId: `widget:${data.sessionId}`,
       status: { $in: ['open', 'pending'] },
     });
 
@@ -248,8 +260,8 @@ export class WidgetService {
       status: 'sent',
       attachments: [],
       metadata: {
-        sessionId: data.sessionId,
-        visitorInfo: data.visitorInfo,
+        userAgent: data.visitorInfo?.userAgent,
+        referrer: data.visitorInfo?.referrer,
       },
     });
 
@@ -261,7 +273,9 @@ export class WidgetService {
     return {
       message,
       conversation,
+      contact,
       isNewConversation,
+      wasAnonymous,
     };
   }
 
@@ -315,7 +329,7 @@ export class WidgetService {
       conversationId: conversation._id,
       contactId: conversation.contactId,
       senderType: 'agent',
-      senderId: agentId,
+      senderId: new mongoose.Types.ObjectId(agentId),
       direction: 'outbound',
       channel: 'webchat',
       body: {
@@ -340,7 +354,7 @@ export class WidgetService {
     sessionId: string,
     integrationId: string
   ): Promise<any[]> {
-    // Find conversation by threadId (format: "session:xxx")
+    // Find conversation by threadId (format: "widget:xxx")
     const conversation = await Conversation.findOne({
       integrationId: new mongoose.Types.ObjectId(integrationId),
       threadId: `widget:${sessionId}`,
