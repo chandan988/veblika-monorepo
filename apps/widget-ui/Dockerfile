@@ -14,6 +14,8 @@ WORKDIR /app
 # Accept build arguments
 ARG VITE_BACKEND_API_URL
 ENV VITE_BACKEND_API_URL=${VITE_BACKEND_API_URL}
+ARG VITE_WIDGET_BASE_PATH
+ENV VITE_WIDGET_BASE_PATH=${VITE_WIDGET_BASE_PATH}
 
 # Copy workspace files
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
