@@ -138,7 +138,7 @@ export class ConversationService {
     }
 
     // Reverse to get chronological order (oldest first)
-    const orderedMessages = messages.reverse() as IMessage[];
+    const orderedMessages = messages.reverse() as unknown as IMessage[];
     
     // Next cursor is the oldest message's createdAt (first in ordered array)
     const nextCursor = hasMore && orderedMessages.length > 0
