@@ -3,6 +3,7 @@ import { Conversation, IConversation } from '../models/conversation-model';
 import { Message, IMessage } from '../models/message-model';
 import { Contact } from '../models/contact-model';
 import { GetConversationsQuery, UpdateConversationInput } from '../validators/conversation-validator';
+import { integrationGmailService } from './integration-gmail-service';
 
 export class ConversationService {
   /**
@@ -16,7 +17,7 @@ export class ConversationService {
   }> {
     const filter: any = {};
     const page = parseInt(query.page || '1');
-    const limit = parseInt(query.limit || '50');
+    const limit = parseInt(query.limit || '30');
     const skip = (page - 1) * limit;
 
     if (query.orgId) {
@@ -100,13 +101,17 @@ export class ConversationService {
   }
 
   /**
-   * Get messages for a conversation
+   * Get messages for a conversation with cursor-based pagination
    */
   async getConversationMessages(
     conversationId: string,
     limit: number = 50,
     before?: string
-  ): Promise<IMessage[]> {
+  ): Promise<{
+    messages: IMessage[];
+    hasMore: boolean;
+    nextCursor: string | null;
+  }> {
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
       throw new Error('Invalid conversation ID');
     }
@@ -119,12 +124,32 @@ export class ConversationService {
       query.createdAt = { $lt: new Date(before) };
     }
 
+    // Fetch one extra to determine if there are more messages
     const messages = await Message.find(query)
       .sort({ createdAt: -1 })
-      .limit(limit)
+      .limit(limit + 1)
       .lean();
 
-    return messages.reverse() as any[];
+    const hasMore = messages.length > limit;
+    
+    // Remove the extra message if we fetched more than limit
+    if (hasMore) {
+      messages.pop();
+    }
+
+    // Reverse to get chronological order (oldest first)
+    const orderedMessages = messages.reverse() as unknown as IMessage[];
+    
+    // Next cursor is the oldest message's createdAt (first in ordered array)
+    const nextCursor = hasMore && orderedMessages.length > 0
+      ? (orderedMessages[0] as any).createdAt?.toISOString() || null
+      : null;
+
+    return {
+      messages: orderedMessages,
+      hasMore,
+      nextCursor,
+    };
   }
 
   /**
@@ -186,31 +211,71 @@ export class ConversationService {
         const contact: any = (conversation.contactId as any) || (await Contact.findById(conversation.contactId));
         const to = contact?.email
         if (to) {
-          const { emailService } = await import('../../services/email')
-          const subject = conversation.sourceMetadata?.subject || `Re: ${conversation.sourceMetadata?.subject || 'Support'}`
-          const html = `<div>${messageText.replace(/\n/g, '<br/>')}</div>`
+          // For Gmail channel, use Gmail API to send from user's Gmail account
+          if (conversation.channel === 'gmail' && conversation.integrationId) {
+            const integrationId = conversation.integrationId.toString();
+            
+            // Get threading info from the last inbound message
+            const lastInboundMessage = await Message.findOne({
+              conversationId: conversation._id,
+              direction: 'inbound',
+            }).sort({ createdAt: -1 }).lean();
 
-          const sendResult = await emailService.sendEmail({
-            to,
-            subject,
-            html,
-            text: messageText,
-          })
+            const subject = conversation.sourceMetadata?.subject 
+              ? (conversation.sourceMetadata.subject.startsWith('Re:') 
+                  ? conversation.sourceMetadata.subject 
+                  : `Re: ${conversation.sourceMetadata.subject}`)
+              : 'Re: Support';
 
-          // store delivery result and any error info in metadata
-          message.metadata = message.metadata || {}
-          message.metadata.emailSent = sendResult.success === true
-          if (sendResult.messageId) message.metadata.emailMessageId = sendResult.messageId
-          if (!sendResult.success && sendResult.error) {
-            // save structured error (non-sensitive)
-            message.metadata.emailError = sendResult.error
-            console.error('Outbound email send failed', {
-              conversationId: conversation._id?.toString(),
+            const htmlBody = `<div>${messageText.replace(/\n/g, '<br/>')}</div>`;
+
+            const sendResult = await integrationGmailService.sendGmailMessage({
+              integrationId,
               to,
-              error: sendResult.error,
+              subject,
+              body: messageText,
+              htmlBody,
+              threadId: conversation.threadId,
+              inReplyTo: (lastInboundMessage as any)?.metadata?.messageIdHeader,
+              references: (lastInboundMessage as any)?.metadata?.referencesHeader 
+                ? `${(lastInboundMessage as any).metadata.referencesHeader} ${(lastInboundMessage as any).metadata?.messageIdHeader || ''}`
+                : (lastInboundMessage as any)?.metadata?.messageIdHeader,
+            });
+
+            // Store delivery result in metadata
+            message.metadata = message.metadata || {};
+            message.metadata.emailSent = sendResult.success === true;
+            if (sendResult.messageId) message.metadata.gmailMessageId = sendResult.messageId;
+            if (sendResult.threadId) message.metadata.gmailThreadId = sendResult.threadId;
+            await message.save();
+          } else {
+            // For other email channels, use SMTP
+            const { emailService } = await import('../../services/email')
+            const subject = conversation.sourceMetadata?.subject || `Re: ${conversation.sourceMetadata?.subject || 'Support'}`
+            const html = `<div>${messageText.replace(/\n/g, '<br/>')}</div>`
+
+            const sendResult = await emailService.sendEmail({
+              to,
+              subject,
+              html,
+              text: messageText,
             })
+
+            // store delivery result and any error info in metadata
+            message.metadata = message.metadata || {}
+            message.metadata.emailSent = sendResult.success === true
+            if (sendResult.messageId) message.metadata.emailMessageId = sendResult.messageId
+            if (!sendResult.success && sendResult.error) {
+              // save structured error (non-sensitive)
+              message.metadata.emailError = sendResult.error
+              console.error('Outbound email send failed', {
+                conversationId: conversation._id?.toString(),
+                to,
+                error: sendResult.error,
+              })
+            }
+            await message.save()
           }
-          await message.save()
         }
       }
     } catch (err: any) {

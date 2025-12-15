@@ -1,7 +1,6 @@
 import { Server as SocketIOServer, Socket } from "socket.io"
 import { logger } from "../config/logger"
 import { widgetService } from "../api/services/widget-service"
-import { notifications } from "../utils/notifications"
 import { Integration } from "../api/models/integration-model"
 import mongoose from "mongoose"
 import { Conversation } from "../api/models/conversation-model"
@@ -76,6 +75,7 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
     /**
      * Widget connects and joins room
      * Visitor connects from widget UI
+     * Supports optional initialMessage to create conversation on join
      */
     socket.on(
       "widget:join",
@@ -83,7 +83,14 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
         integrationId: string
         orgId: string
         sessionId: string
-        visitorInfo?: any
+        visitorInfo?: {
+          name?: string
+          email?: string
+          phone?: string
+          userAgent?: string
+          referrer?: string
+        }
+        initialMessage?: string
       }) => {
         try {
           logger.info(
@@ -112,8 +119,8 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
           socket.sessionId = data.sessionId
 
           // Join session-specific room (unique per visitor)
-          const sessionRoom = `session:${data.sessionId}`
-          console.log({sessionRoom})
+          // Use "widget:" prefix to match conversation.threadId format
+          const sessionRoom = `widget:${data.sessionId}`
           socket.join(sessionRoom)
 
           // Also join integration room (for broadcasts)
@@ -123,6 +130,51 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
           logger.info(
             `Widget socket ${socket.id} joined rooms: ${sessionRoom}, ${integrationRoom}`
           )
+
+          // If initialMessage is provided, create contact/conversation and save message
+          if (data.initialMessage && data.initialMessage.trim() && data.visitorInfo) {
+            try {
+              const result = await widgetService.saveVisitorMessage({
+                integrationId: data.integrationId,
+                orgId: data.orgId,
+                sessionId: data.sessionId,
+                message: { text: data.initialMessage.trim() },
+                visitorInfo: data.visitorInfo,
+              })
+
+              // Send message confirmation to widget
+              socket.emit("message:confirmed", {
+                messageId: result.message._id,
+                conversationId: result.conversation._id,
+                timestamp: new Date(),
+              })
+
+              // Notify agents in the organization
+              const agentRoom = `org:${data.orgId}:agents`
+              io.to(agentRoom).emit("new:message", {
+                message: result.message,
+                conversation: result.conversation,
+                isNewConversation: result.isNewConversation,
+              })
+
+              // Also emit to specific conversation room
+              const conversationRoom = `conversation:${result.conversation._id}`
+              io.to(conversationRoom).emit("new:message", {
+                message: result.message,
+                conversation: result.conversation,
+                isNewConversation: result.isNewConversation,
+              })
+
+              logger.info(
+                `Initial message saved and agents notified: ${result.message._id}`
+              )
+            } catch (msgError) {
+              logger.error("Error saving initial message:", msgError)
+              socket.emit("message:error", {
+                message: "Failed to send initial message",
+              })
+            }
+          }
 
           // Send confirmation to widget
           socket.emit("widget:connected", {
@@ -182,15 +234,6 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
             message: result.message,
             conversation: result.conversation,
             isNewConversation: result.isNewConversation,
-          })
-
-          // Also emit SSE notification for agents not on socket
-          notifications.emit("notification", {
-            type: "new_message",
-            orgId: data.orgId,
-            conversationId: result.conversation._id,
-            messageId: result.message._id,
-            preview: data.message.text.substring(0, 100),
           })
 
           logger.info(`Message saved and agents notified in ${agentRoom} and ${conversationRoom}`)
@@ -259,18 +302,17 @@ export const initializeSocketIO = (io: SocketIOServer): void => {
           const conversation = await Conversation.findById(data.conversationId)
 
           if (conversation) {
-            // Extract sessionId from threadId (format: "session:xxx")
-            const sessionId = conversation.threadId?.replace("widget:", "")
-            console.log({ sessionId })
-            if (!sessionId) {
+            // Use threadId directly (already has "widget:" prefix)
+            const sessionRoom = conversation.threadId
+            
+            if (!sessionRoom) {
               logger.warn(
-                `No sessionId found in conversation ${data.conversationId}`
+                `No threadId found in conversation ${data.conversationId}`
               )
               return
             }
 
             // Send message ONLY to this specific visitor's session room
-            const sessionRoom = `session:${sessionId}`
             io.to(sessionRoom).emit("agent:message", {
               message: message,
               conversationId: conversation._id,

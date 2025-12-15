@@ -933,4 +933,153 @@ export const integrationGmailService = {
       throw error
     }
   },
+
+  /**
+   * Send an email via Gmail API
+   * Supports replies (threading) by providing threadId, inReplyTo, and references
+   */
+  sendGmailMessage: async (options: {
+    integrationId: string
+    to: string
+    subject: string
+    body: string
+    htmlBody?: string
+    threadId?: string
+    inReplyTo?: string
+    references?: string
+    cc?: string
+    bcc?: string
+  }) => {
+    try {
+      const {
+        integrationId,
+        to,
+        subject,
+        body,
+        htmlBody,
+        threadId,
+        inReplyTo,
+        references,
+        cc,
+        bcc,
+      } = options
+
+      const integration = await Integration.findById(integrationId)
+      if (!integration || integration.channel !== "gmail") {
+        throw new Error("Gmail integration not found")
+      }
+
+      if (integration.status !== "connected") {
+        throw new Error("Gmail integration is not connected")
+      }
+
+      const credentials = integration.credentials
+      if (!credentials?.accessToken) {
+        throw new Error("No access token found")
+      }
+
+      // Setup OAuth client
+      oauth2Client.setCredentials({
+        access_token: credentials.accessToken,
+        refresh_token: credentials.refreshToken,
+        expiry_date: credentials.expiryDate
+          ? new Date(credentials.expiryDate).getTime()
+          : undefined,
+      })
+
+      const gmail = google.gmail({ version: "v1", auth: oauth2Client })
+
+      // Get sender email from integration
+      const fromEmail = credentials.email || integration.channelEmail
+      if (!fromEmail) {
+        throw new Error("Sender email not found in integration")
+      }
+
+      // Build RFC 2822 compliant email
+      const boundary = `boundary_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      
+      const emailLines: string[] = []
+      
+      // Headers
+      emailLines.push(`From: ${fromEmail}`)
+      emailLines.push(`To: ${to}`)
+      if (cc) emailLines.push(`Cc: ${cc}`)
+      if (bcc) emailLines.push(`Bcc: ${bcc}`)
+      emailLines.push(`Subject: ${subject}`)
+      emailLines.push(`MIME-Version: 1.0`)
+      
+      // Threading headers for replies
+      if (inReplyTo) {
+        emailLines.push(`In-Reply-To: ${inReplyTo}`)
+      }
+      if (references) {
+        emailLines.push(`References: ${references}`)
+      }
+      
+      // Content-Type for multipart (text + html)
+      if (htmlBody) {
+        emailLines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`)
+        emailLines.push("")
+        emailLines.push(`--${boundary}`)
+        emailLines.push(`Content-Type: text/plain; charset="UTF-8"`)
+        emailLines.push("")
+        emailLines.push(body)
+        emailLines.push(`--${boundary}`)
+        emailLines.push(`Content-Type: text/html; charset="UTF-8"`)
+        emailLines.push("")
+        emailLines.push(htmlBody)
+        emailLines.push(`--${boundary}--`)
+      } else {
+        emailLines.push(`Content-Type: text/plain; charset="UTF-8"`)
+        emailLines.push("")
+        emailLines.push(body)
+      }
+
+      const rawEmail = emailLines.join("\r\n")
+      
+      // Base64url encode the email
+      const encodedEmail = Buffer.from(rawEmail)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "")
+
+      // Send the email
+      const sendRequest: any = {
+        userId: "me",
+        requestBody: {
+          raw: encodedEmail,
+        },
+      }
+
+      // Include threadId for replies to keep in same thread
+      if (threadId) {
+        sendRequest.requestBody.threadId = threadId
+      }
+
+      const response = await gmail.users.messages.send(sendRequest)
+
+      logger.info(
+        {
+          integrationId,
+          to,
+          subject,
+          threadId,
+          messageId: response.data.id,
+          gmailThreadId: response.data.threadId,
+        },
+        "Gmail message sent successfully"
+      )
+
+      return {
+        success: true,
+        messageId: response.data.id,
+        threadId: response.data.threadId,
+        labelIds: response.data.labelIds,
+      }
+    } catch (error: any) {
+      logger.error({ error, options }, "Failed to send Gmail message")
+      throw error
+    }
+  },
 }

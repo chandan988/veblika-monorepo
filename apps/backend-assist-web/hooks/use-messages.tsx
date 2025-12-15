@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { useSocket } from "./use-socket";
 import { useEffect, useMemo } from "react";
@@ -25,6 +25,17 @@ interface Message {
   updatedAt?: string;
 }
 
+interface PaginationInfo {
+  hasMore: boolean;
+  nextCursor: string | null;
+  limit: number;
+}
+
+interface MessagesResponse {
+  data: Message[];
+  pagination: PaginationInfo;
+}
+
 // Helper function to convert store message to component message format
 const convertToComponentMessage = (storeMsg: StoreMessage): Message => ({
   _id: storeMsg._id,
@@ -41,7 +52,13 @@ const convertToComponentMessage = (storeMsg: StoreMessage): Message => ({
   status: storeMsg.status,
 });
 
-export const useMessages = (conversationId: string) => {
+interface UseMessagesOptions {
+  limit?: number;
+}
+
+export const useMessages = (conversationId: string, options: UseMessagesOptions = {}) => {
+  const { limit = 25 } = options; // Default limit is 25
+  
   const { socket, isConnected } = useSocket({ autoConnect: true });
   const addMessage = useChatStore((state) => state.addMessage);
   const addMessages = useChatStore((state) => state.addMessages);
@@ -50,12 +67,33 @@ export const useMessages = (conversationId: string) => {
   // Memoize empty array to prevent infinite loop
   const safeStoreMessages = useMemo(() => storeMessages || [], [storeMessages]);
 
-  // Fetch messages from server (only runs once on mount)
-  const query = useQuery({
-    queryKey: ["messages", conversationId],
-    queryFn: async () => {
-      const { data } = await api.get(`/conversations/${conversationId}/messages`);
-      const fetchedMessages = data.data as Message[];
+  // Fetch messages from server with cursor-based infinite scroll
+  const query = useInfiniteQuery({
+    queryKey: ["messages", conversationId, limit],
+    queryFn: async ({ pageParam }) => {
+      const params: { limit: number; before?: string } = {
+        limit, // Use limit from options
+      };
+      
+      // pageParam is the cursor (before timestamp) for subsequent pages
+      if (pageParam) {
+        params.before = pageParam;
+      }
+      
+      const { data } = await api.get(`/conversations/${conversationId}/messages`, {
+        params,
+      });
+      
+      // Handle both response formats: with pagination or simple array
+      let fetchedMessages: Message[] = [];
+      let pagination: PaginationInfo | undefined;
+      
+      if (data.data && Array.isArray(data.data)) {
+        fetchedMessages = data.data as Message[];
+        pagination = data.pagination;
+      } else if (Array.isArray(data)) {
+        fetchedMessages = data as Message[];
+      }
       
       // Transform and add to Zustand store
       const storeMessages: StoreMessage[] = fetchedMessages.map((msg) => ({
@@ -72,7 +110,20 @@ export const useMessages = (conversationId: string) => {
       }));
       
       addMessages(conversationId, storeMessages);
-      return fetchedMessages;
+      
+      return {
+        data: fetchedMessages,
+        pagination: pagination || {
+          hasMore: false,
+          nextCursor: null,
+          limit,
+        },
+      };
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage?.pagination?.hasMore) return undefined;
+      return lastPage.pagination.nextCursor || undefined;
     },
     enabled: !!conversationId,
     refetchOnWindowFocus: false,
@@ -147,6 +198,9 @@ export const useMessages = (conversationId: string) => {
     messages,
     isLoading: query.isLoading,
     error: query.error,
+    hasNextPage: query.hasNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
+    fetchNextPage: query.fetchNextPage,
   };
 };
 

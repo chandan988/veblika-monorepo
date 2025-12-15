@@ -7,6 +7,7 @@
 
   const INTEGRATION_ID = window.MYCHAT_INTEGRATION_ID || null
   const ORG_ID = window.MYCHAT_ORG_ID || null
+  const chatWidgetUrl = "__CHAT_WIDGET_BASE_URL__" // Will be replaced at runtime
 
   if (!INTEGRATION_ID) {
     console.warn("[MyChat] Integration ID missing!")
@@ -16,23 +17,29 @@
     console.warn("[MyChat] Organization ID missing!")
     return
   }
+  if (!chatWidgetUrl) {
+    console.warn("[MyChat] Chat Widget Base URL missing!")
+    return
+  }
 
-  // ✅ Generate or retrieve sessionId from localStorage
-  let sessionId = localStorage.getItem('mychat_session_id')
-  let sessionCreated = parseInt(localStorage.getItem('mychat_session_created') || '0')
-  
-  // Check if session expired (24 hours)
-  const twentyFourHours = 24 * 60 * 60 * 1000
+  // ✅ Generate or retrieve sessionId from sessionStorage
+  let sessionId = sessionStorage.getItem("mychat_session_id")
+  let sessionCreated = parseInt(
+    sessionStorage.getItem("mychat_session_created") || "0"
+  )
+
+  // Check if session expired (2 hours)
+  const twoHours = 2 * 60 * 60 * 1000
   const now = Date.now()
-  
-  if (!sessionId || (now - sessionCreated > twentyFourHours)) {
+
+  if (!sessionId || now - sessionCreated > twoHours) {
     // Generate new session ID: timestamp + random string
     sessionId = `session_${now}_${Math.random().toString(36).substr(2, 9)}`
-    localStorage.setItem('mychat_session_id', sessionId)
-    localStorage.setItem('mychat_session_created', now.toString())
-    console.log('[MyChat] New session created:', sessionId)
+    sessionStorage.setItem("mychat_session_id", sessionId)
+    sessionStorage.setItem("mychat_session_created", now.toString())
+    console.log("[MyChat] New session created:", sessionId)
   } else {
-    console.log('[MyChat] Existing session loaded:', sessionId)
+    console.log("[MyChat] Existing session loaded:", sessionId)
   }
 
   // ✅ Optional: basic bot / crawler detection
@@ -57,7 +64,7 @@
     link.crossOrigin = ""
     document.head.appendChild(link)
   }
-  preconnect("http://localhost:5173/")
+  preconnect(chatWidgetUrl)
 
   // ✅ Wait for DOM Ready
   const ready = (fn) => {
@@ -77,7 +84,7 @@
     // Create iframe
     const iframe = document.createElement("iframe")
     iframe.id = "mychat-widget-iframe"
-    iframe.src = `http://localhost:5173?integrationId=${INTEGRATION_ID}&orgId=${ORG_ID}&sessionId=${sessionId}` // Your chat-ui URL
+    iframe.src = `${chatWidgetUrl}?integrationId=${INTEGRATION_ID}&orgId=${ORG_ID}&sessionId=${sessionId}` // Your chat-ui URL
     iframe.style.cssText = `
     position: fixed;
     bottom: 20px;
