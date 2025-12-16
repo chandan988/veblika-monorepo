@@ -5,7 +5,7 @@ import path from "path"
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: process.env.VITE_WIDGET_BASE_PATH || "/",
+  base: process.env.VITE_WIDGET_BASE_PATH || "/widget/",
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
