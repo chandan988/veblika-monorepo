@@ -41,9 +41,9 @@ import { authClient } from "@/lib/auth-client"
 const menuItems = [
   { title: "Home", icon: Home, url: "/" },
   { title: "Dashboard", icon: BarChart3, url: "/dashboard" },
-  { title: "Users", icon: Users, url: "/users" },
-  { title: "Documents", icon: FileText, url: "/documents" },
-  { title: "Settings", icon: Settings, url: "/settings" },
+  { title: "Employees", icon: Users, url: "/employees" },
+  { title: "Attendance", icon: FileText, url: "/attendance" },
+  { title: "Payroll", icon: Settings, url: "/payroll" },
 ]
 
 export function AppSidebar() {
@@ -61,7 +61,7 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-sidebar-foreground">
-              App Name
+              HRMS
             </span>
             <span className="text-xs text-muted-foreground">v1.0.0</span>
           </div>

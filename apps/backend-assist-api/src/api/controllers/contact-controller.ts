@@ -59,7 +59,8 @@ export const contactController = {
    */
   createContact: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { orgId, name, email, phone, slackId, whatsappId, source } = req.body
+
+      const { orgId, name, email, phone, slackId, whatsappId, source } = req.body;
 
       if (!orgId) {
         return res.status(400).json({
