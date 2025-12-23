@@ -107,7 +107,7 @@ export class IntegrationService {
   generateEmbedScript(integration: IIntegration): string {
     const integrationId = integration._id.toString()
     const orgId = integration.orgId.toString()
-    const apiUrl = config.auth.serviceUrl
+    const apiUrl = config.api.baseUrl
 
     return `<!-- Veblika Chat Widget -->
 <script>

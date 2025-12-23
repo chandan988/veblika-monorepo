@@ -32,6 +32,7 @@ import {
   TicketListSkeleton,
   TicketDetailSheet
 } from "./components"
+import { useOrganisationStore } from "@/stores/organisation-store"
 
 // Sidebar filter items
 const defaultFilters = [
@@ -50,7 +51,8 @@ const sharedFilters = [
 
 export default function TicketPage() {
   const { data } = useSession()
-  const orgId = data?.data?.session.activeOrganizationId
+  const { activeOrganisation } = useOrganisationStore()
+  const orgId = activeOrganisation?._id
   const searchParams = useSearchParams()
   const router = useRouter()
 
