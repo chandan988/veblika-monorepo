@@ -11,11 +11,13 @@ import widgetLoaderRoutes from "../api/routes/widget-loader-routes"
 import integrationGmailRoutes from "../api/routes/integration-gmail-routes"
 import gmailWebhookRoutes from "../api/routes/gmail-webhook-routes"
 import contactRoutes from "../api/routes/contact-routes"
+import organisationRoutes from "../api/routes/organisation-routes"
 
 export const routesLoader = (app: Express): void => {
   const router = Router()
 
   // API routes
+  router.use("/organisations", organisationRoutes)
   router.use("/integrations", integrationRoutes)
   router.use("/integrations/gmail", integrationGmailRoutes)
   router.use("/widget", widgetRoutes)

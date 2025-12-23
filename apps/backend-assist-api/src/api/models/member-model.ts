@@ -1,8 +1,8 @@
 import mongoose, { Document, Schema } from "mongoose"
 
 export interface IMember extends Document {
-  organizationId: string
-  userId: string
+  organizationId: Schema.Types.ObjectId
+  userId: Schema.Types.ObjectId
   role: string | string[]
   invitedBy?: string
   createdAt: Date
@@ -12,13 +12,13 @@ export interface IMember extends Document {
 const memberSchema = new Schema<IMember>(
   {
     organizationId: {
-      type: String,
+      type: Schema.Types.ObjectId,
       required: true,
       ref: "organization",
       index: true,
     },
     userId: {
-      type: String,
+      type: Schema.Types.ObjectId,
       required: true,
       ref: "user",
       index: true,

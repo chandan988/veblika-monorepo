@@ -18,6 +18,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { authClient } from "@/lib/auth-client"
 import Image from "next/image"
+import { OrganisationSwitcher } from "./organisation-switcher"
 
 const menuItems = [
   { name: "Dashboard", href: "/" },
@@ -54,9 +55,9 @@ export function TopNavbar() {
     <header className="sticky top-0 pt-4 flex flex-col  justify-center px-4 z-50 w-full backdrop-blur border-b">
       <div className=" h-9 flex justify-between items-center">
         <div className="flex gap-4 items-center justify-center">
-        <img src={LOGO} alt="Logo" width={30} height={30} />
-        <span >|</span>
-        <span>Dashboard</span>
+          <img src={LOGO} alt="Logo" width={30} height={30} />
+          <span >|</span>
+          <OrganisationSwitcher />
 
         </div>
         <div className="flex items-center gap-3">
@@ -113,11 +114,10 @@ export function TopNavbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  isActive
-                    ? "text-foreground bg-accent"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                }`}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${isActive
+                  ? "text-foreground bg-accent"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  }`}
               >
                 {item.name}
               </Link>
