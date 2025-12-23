@@ -25,7 +25,6 @@ const menuItems = [
   { name: "Chat", href: "/chat" },
   { name: "Analytics", href: "/analytics" },
   { name: "Contacts", href: "/contacts" },
-  { name: "Organisation", href: "/organisation" },
   { name: "Integrations", href: "/integrations" },
   { name: "Knowledge Base", href: "/knowledge-base" },
 ]

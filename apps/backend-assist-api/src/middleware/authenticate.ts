@@ -1,8 +1,24 @@
 import { Request, Response, NextFunction } from "express"
-import { Session, User } from "better-auth"
-import { fromNodeHeaders } from "better-auth/node"
 import { config } from "../config/index"
-// import { auth } from "../auth"
+
+interface User {
+  id: string
+  email: string
+  name: string
+  emailVerified: boolean
+  createdAt: Date
+  updatedAt: Date
+  resellerId: string
+  role: string
+}
+
+interface Session {
+  id: string
+  userId: string
+  expiresAt: Date
+  ipAddress?: string
+  userAgent?: string
+}
 
 declare global {
   namespace Express {
@@ -19,17 +35,34 @@ const isAuth = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { auth } = await import("../auth")
-    const session = await auth.api.getSession({
-      headers: fromNodeHeaders(req.headers),
+    // Extract cookies from request headers
+    const cookieHeader = req.headers.cookie || ""
+    
+    // Call external auth service to validate session
+    const authServiceUrl = config.auth.authUrl
+    const response = await fetch(`${authServiceUrl}/api/auth/get-session`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Cookie": cookieHeader,
+      },
+      credentials: "include",
     })
-    if (!session) {
+
+    if (!response.ok) {
       res.status(401).json({ success: false, error: "Unauthorized" })
       return
     }
 
-    req.session = session.session
-    req.user = session.user
+    const data = await response.json()
+    
+    if (!data || !data.user || !data.session) {
+      res.status(401).json({ success: false, error: "Unauthorized" })
+      return
+    }
+
+    req.session = data.session
+    req.user = data.user
     next()
   } catch (error) {
     console.error("Authentication error:", error)
