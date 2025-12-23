@@ -11,7 +11,6 @@ import widgetLoaderRoutes from "../api/routes/widget-loader-routes"
 import integrationGmailRoutes from "../api/routes/integration-gmail-routes"
 import gmailWebhookRoutes from "../api/routes/gmail-webhook-routes"
 import contactRoutes from "../api/routes/contact-routes"
-import userRoutes from "../api/routes/user-routes"
 
 export const routesLoader = (app: Express): void => {
   const router = Router()
@@ -23,7 +22,6 @@ export const routesLoader = (app: Express): void => {
   router.use("/widget", widgetLoaderRoutes)
   router.use("/conversations", conversationRoutes)
   router.use("/contacts", contactRoutes)
-  router.use("/users", userRoutes)
   router.use("/webhook", gmailWebhookRoutes) // Public webhook endpoint
 
   // Example route
