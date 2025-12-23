@@ -4,6 +4,7 @@ export interface IMember extends Document {
   organizationId: string
   userId: string
   role: string | string[]
+  invitedBy?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -26,7 +27,8 @@ const memberSchema = new Schema<IMember>(
       type: Schema.Types.Mixed,
       required: true,
       default: "member",
-    }
+    },
+    invitedBy: String,
   },
   {
     timestamps: true,
