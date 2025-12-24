@@ -18,13 +18,13 @@ ENV NEXT_PUBLIC_AUTH_URL=${NEXT_PUBLIC_AUTH_URL}
 # Copy workspace files
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages ./packages
-COPY apps/backend-assist-web ./apps/backend-assist-web
+COPY apps/auth ./apps/auth
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
 # Build the application
-WORKDIR /app/apps/backend-assist-web
+WORKDIR /app/apps/auth
 ENV NODE_ENV=production
 RUN pnpm run build
 
@@ -38,10 +38,10 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Copy Next.js standalone output with proper ownership
-COPY --from=builder --chown=nextjs:nodejs /app/apps/backend-assist-web/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/backend-assist-web/.next/static ./apps/backend-assist-web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/.next/static ./apps/auth/.next/static
 
-WORKDIR /app/apps/backend-assist-web
+WORKDIR /app/apps/auth
 
 # Switch to non-root user
 USER nextjs
