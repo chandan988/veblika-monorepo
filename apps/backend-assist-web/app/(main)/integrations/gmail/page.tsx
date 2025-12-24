@@ -60,6 +60,7 @@ export default function GmailIntegrations() {
         authUrl,
         redirectUrl
       )
+      console.log(params, "oauth params")
 
       if (params.error) {
         toast.error(`OAuth Error: ${params.error_description || params.error}`)

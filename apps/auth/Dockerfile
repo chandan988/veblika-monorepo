@@ -1,44 +1,50 @@
-# syntax=docker/dockerfile:1.7
-
+# Base stage
 FROM node:20-alpine AS base
-ENV BUN_INSTALL=/root/.bun
-ENV PATH="${BUN_INSTALL}/bin:${PATH}"
-RUN apk add --no-cache bash curl ca-certificates \
-  && curl -fsSL https://bun.sh/install | bash
+RUN apk add --no-cache libc6-compat
+RUN apk update
+
+# Build stage
+FROM base AS builder
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
-COPY bun.lock package.json turbo.json tsconfig.json ./
-COPY packages ./packages
-COPY apps/auth ./apps/auth
-RUN bun install --frozen-lockfile
 
-FROM base AS builder
-WORKDIR /app/apps/auth
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-ENV BETTER_AUTH_URL=${BETTER_AUTH_URL}
-ENV DATABASE_URL=${DATABASE_URL}
-ENV GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-ENV GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-ENV DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
-ENV SMTP_HOST=${SMTP_HOST}
-ENV SMTP_PORT=${SMTP_PORT}
-ENV SMTP_SECURE=${SMTP_SECURE}
-ENV SMTP_USER=${SMTP_USER}
-ENV SMTP_PASS=${SMTP_PASS}
+# Accept build arguments
+ARG NEXT_PUBLIC_AUTH_URL
 ENV NEXT_PUBLIC_AUTH_URL=${NEXT_PUBLIC_AUTH_URL}
 
-RUN bun run build
+# Copy workspace files
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY packages ./packages
+COPY apps/backend-assist-web ./apps/backend-assist-web
 
-FROM node:20-alpine AS runner
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Build the application
+WORKDIR /app/apps/backend-assist-web
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+RUN pnpm run build
+
+# Production stage
+FROM base AS production
+
 WORKDIR /app
 
-COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/apps/auth ./apps/auth
-COPY --from=builder /app/apps/auth/.next ./apps/auth/.next
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-WORKDIR /app/apps/auth
-EXPOSE 3000
-CMD ["npm", "run", "start"]
+# Copy Next.js standalone output with proper ownership
+COPY --from=builder --chown=nextjs:nodejs /app/apps/backend-assist-web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/backend-assist-web/.next/static ./apps/backend-assist-web/.next/static
+
+WORKDIR /app/apps/backend-assist-web
+
+# Switch to non-root user
+USER nextjs
+
+# Start the application
+CMD ["node", "server.js"]

@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense, use } from "react"
+
 import Link from "next/link"
-import { redirect, useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -39,11 +40,15 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callback?: string }>
+}) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
-  const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callback")
+  const params = use(searchParams)
+  const callbackUrl = params?.callback
   console.log("Callback URL:", callbackUrl)
 
   // http://localhost:3000/login?callback=%2F
