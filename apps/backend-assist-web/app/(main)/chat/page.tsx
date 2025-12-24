@@ -10,6 +10,7 @@ import { useMessages, useSendMessage } from "@/hooks/use-messages"
 import { MessageSquare } from "lucide-react"
 import type { Conversation } from "@/types/chat"
 import { useSession } from "@/hooks/useSession"
+import { useOrganisationStore } from "@/stores/organisation-store"
 
 export default function ChatPage() {
   const searchParams = useSearchParams()
@@ -19,6 +20,7 @@ export default function ChatPage() {
   const selectedConversationId = searchParams.get("conversation") || undefined
 
   const { data } = useSession()
+  const { activeOrganisation } = useOrganisationStore()
 
   // Fetch conversations - get ALL webchat conversations with infinite scroll
   const {
@@ -28,7 +30,7 @@ export default function ChatPage() {
     isFetchingNextPage,
     fetchNextPage,
   } = useConversations({
-    orgId: data?.data?.session.activeOrganizationId,
+    orgId: activeOrganisation?._id,
     userId: data?.data?.session.userId,
     channel: "webchat", // Only webchat conversations
   })
@@ -46,7 +48,7 @@ export default function ChatPage() {
   const updateConversation = useUpdateConversation()
   const sendMessage = useSendMessage(
     selectedConversationId || "",
-    data?.data?.session.activeOrganizationId || "",
+    activeOrganisation?._id || "",
     data?.data?.session.userId || ""
   )
 

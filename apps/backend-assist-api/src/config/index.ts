@@ -13,16 +13,17 @@ export const config = {
   },
   api: {
     prefix: process.env.API_PREFIX || "/api/v1",
+    baseUrl: process.env.APP_BASE_URL || "http://localhost:8000",
   },
   cors: {
     origin: allowedOrigins,
   },
 
   auth: {
-    serviceUrl: process.env.BETTER_AUTH_URL || "http://localhost:8000",
+    authUrl: process.env.AUTH_SERVICE_URL || "http://localhost:3000",
   },
   client: {
-    url: process.env.CLIENT_URL || "http://localhost:3000",
+    url: process.env.CLIENT_URL || "http://localhost:3003",
   },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || "",

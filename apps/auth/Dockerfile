@@ -1,44 +1,51 @@
-# syntax=docker/dockerfile:1.7
-
-FROM node:20-alpine AS base
-ENV BUN_INSTALL=/root/.bun
-ENV PATH="${BUN_INSTALL}/bin:${PATH}"
-RUN apk add --no-cache bash curl ca-certificates \
-  && curl -fsSL https://bun.sh/install | bash
+# Configurable Node version
+ARG NODE_VERSION=24.11.1
+FROM node:${NODE_VERSION}-slim AS base
 
 WORKDIR /app
-COPY bun.lock package.json turbo.json tsconfig.json ./
-COPY packages ./packages
-COPY apps/auth ./apps/auth
-RUN bun install --frozen-lockfile
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
+# ---
+# Prepare stage - Prune monorepo for this app
+FROM base AS prepare
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN pnpm add -g turbo
+
+COPY . .
+RUN turbo prune auth --docker
+
+# ---
+# Build stage
 FROM base AS builder
-WORKDIR /app/apps/auth
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-ENV BETTER_AUTH_URL=${BETTER_AUTH_URL}
-ENV DATABASE_URL=${DATABASE_URL}
-ENV GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-ENV GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-ENV DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
-ENV SMTP_HOST=${SMTP_HOST}
-ENV SMTP_PORT=${SMTP_PORT}
-ENV SMTP_SECURE=${SMTP_SECURE}
-ENV SMTP_USER=${SMTP_USER}
-ENV SMTP_PASS=${SMTP_PASS}
+
+# Accept build arguments
+ARG NEXT_PUBLIC_AUTH_URL
 ENV NEXT_PUBLIC_AUTH_URL=${NEXT_PUBLIC_AUTH_URL}
 
-RUN bun run build
+# Install dependencies first (better caching)
+COPY --from=prepare /app/out/json/ .
+COPY --from=prepare /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=prepare /app/out/pnpm-workspace.yaml ./pnpm-workspace.yaml
+RUN pnpm install --frozen-lockfile
 
-FROM node:20-alpine AS runner
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+# Copy source and build
+COPY --from=prepare /app/out/full/ .
+RUN pnpm turbo build --filter=auth
+
+# ---
+# Production stage
+FROM node:${NODE_VERSION}-alpine AS runner
 WORKDIR /app
 
-COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/apps/auth ./apps/auth
-COPY --from=builder /app/apps/auth/.next ./apps/auth/.next
+# Don't run production as root
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+USER nextjs
 
-WORKDIR /app/apps/auth
-EXPOSE 3000
-CMD ["npm", "run", "start"]
+# Copy Next.js standalone output
+COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/.next/static ./apps/auth/.next/static
+
+CMD ["node", "apps/auth/server.js"]

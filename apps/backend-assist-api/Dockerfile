@@ -1,60 +1,49 @@
-# Base stage
-FROM node:20-alpine AS base
-RUN apk add --no-cache libc6-compat
-RUN apk update
+# Configurable Node version
+ARG NODE_VERSION=24.11.1
+FROM node:${NODE_VERSION}-slim AS base
 
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# ---
+# Prepare stage - Prune monorepo for this app
+FROM base AS prepare
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN pnpm add -g turbo
+
+COPY . .
+RUN turbo prune backend-assist-api --docker
+
+# ---
 # Build stage
 FROM base AS builder
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
-WORKDIR /app
-
-# Copy workspace files
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
-COPY packages ./packages
-COPY apps/backend-assist-api ./apps/backend-assist-api
-
-# Install dependencies
+# Install dependencies first (better caching)
+COPY --from=prepare /app/out/json/ .
+COPY --from=prepare /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=prepare /app/out/pnpm-workspace.yaml ./pnpm-workspace.yaml
 RUN pnpm install --frozen-lockfile
 
-# Build the application
-WORKDIR /app/apps/backend-assist-api
-ENV NODE_ENV=production
-RUN pnpm run build
+# Copy source and build
+COPY --from=prepare /app/out/full/ .
+RUN pnpm turbo build --filter=backend-assist-api
 
+# ---
 # Production stage
-FROM base AS production
-
+FROM node:${NODE_VERSION}-alpine AS runner
 WORKDIR /app
 
-# Create non-root user
+# Don't run production as root
 RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nodejs
+RUN adduser --system --uid 1001 expressjs
+USER expressjs
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Copy entire built app (includes node_modules and dist)
+COPY --from=builder --chown=expressjs:nodejs /app .
 
-# Copy workspace files with proper ownership
-COPY --chown=nodejs:nodejs pnpm-workspace.yaml pnpm-lock.yaml package.json ./
-COPY --chown=nodejs:nodejs packages ./packages
-COPY --chown=nodejs:nodejs apps/backend-assist-api/package.json ./apps/backend-assist-api/
-
-# Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod --filter backend-assist-api...
-
-WORKDIR /app/apps/backend-assist-api
-
-# Copy built application with proper ownership
-COPY --from=builder --chown=nodejs:nodejs /app/apps/backend-assist-api/dist ./dist
-
-# Switch to non-root user
-USER nodejs
-
-# Set environment variables
 ENV PORT=8000
 ENV NODE_ENV=production
 
-# Start the application
-CMD ["node", "dist/server.js"]
+CMD ["node", "apps/backend-assist-api/dist/server.js"]

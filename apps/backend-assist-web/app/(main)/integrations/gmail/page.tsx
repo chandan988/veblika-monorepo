@@ -28,10 +28,12 @@ import { oauth2Utils } from "@/utils/oauth-utils"
 import { toast } from "sonner"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { useSession } from "@/hooks/useSession"
+import { useOrganisationStore } from "@/stores/organisation-store"
 
 export default function GmailIntegrations() {
   const { data } = useSession()
-  const orgId = data?.data?.session.activeOrganizationId || ""
+  const { activeOrganisation } = useOrganisationStore()
+  const orgId = activeOrganisation?._id || ""
   const [isConnecting, setIsConnecting] = useState(false)
   const [watchingId, setWatchingId] = useState<string | null>(null)
   const [deleteIntegrationId, setDeleteIntegrationId] = useState<string | null>(
@@ -58,6 +60,7 @@ export default function GmailIntegrations() {
         authUrl,
         redirectUrl
       )
+      console.log(params, "oauth params")
 
       if (params.error) {
         toast.error(`OAuth Error: ${params.error_description || params.error}`)
@@ -187,8 +190,8 @@ export default function GmailIntegrations() {
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <Button 
-            onClick={handleConnectGmail} 
+          <Button
+            onClick={handleConnectGmail}
             disabled={isConnecting || integrations.length > 0}
           >
             {isConnecting ? (

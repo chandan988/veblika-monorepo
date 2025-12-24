@@ -3,9 +3,6 @@ import cors from "cors"
 import helmet from "helmet"
 import compression from "compression"
 import cookieParser from "cookie-parser"
-import { config } from "../config/index"
-import { httpLogger } from "../config/logger"
-import { toNodeHandler } from "better-auth/node"
 import isAuth from "../middleware/authenticate"
 
 export const expressLoader = async (app: Express): Promise<void> => {
@@ -34,13 +31,6 @@ export const expressLoader = async (app: Express): Promise<void> => {
   // Handle preflight requests
   // app.options("*", cors())
 
-  // Auth routes - MUST be after CORS
-  const { auth } = await import("../auth")
-  // app.all("/api/auth/*splat", toNodeHandler(auth))
-  app.all('/api/auth/{*any}', toNodeHandler(auth));
-
-  console.log("✅ Auth middleware initialized")
-
   app.use(cookieParser())
   // Body parser
   app.use(express.json())
@@ -55,7 +45,7 @@ export const expressLoader = async (app: Express): Promise<void> => {
   console.log("✅ Express middleware initialized")
 
   // Health check (no auth required for health checks)
-  app.get("/health", (req: Request, res: Response) => {
+  app.get("/health",isAuth, (req: Request, res: Response) => {
     res.status(200).json({
       status: "ok",
       timestamp: new Date().toISOString(),

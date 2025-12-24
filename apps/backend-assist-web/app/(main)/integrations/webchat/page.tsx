@@ -35,10 +35,12 @@ import {
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Badge } from "@workspace/ui/components/badge"
 import { useSession } from "@/hooks/useSession"
+import { useOrganisationStore } from "@/stores/organisation-store"
 
 export default function WebchatIntegrations() {
   const { data } = useSession()
-  const orgId = data?.data?.session.activeOrganizationId || ""
+  const { activeOrganisation } = useOrganisationStore()
+  const orgId = activeOrganisation?._id || ""
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newIntegrationName, setNewIntegrationName] = useState("")
   const [selectedIntegrationId, setSelectedIntegrationId] = useState<

@@ -7,8 +7,23 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@workspace/ui/components/card"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@workspace/ui/components/form"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from "@workspace/ui/components/form"
 import { authClient } from "@/lib/auth-client"
 import { toast } from "sonner"
 import { ArrowLeft, Mail } from "lucide-react"
@@ -36,7 +51,8 @@ export default function ForgetPasswordPage() {
     setIsLoading(true)
 
     try {
-      const result = await authClient.forgetPassword({
+      // Todo: May need to test
+      const result = await authClient.requestPasswordReset({
         email: data.email,
         redirectTo: "/reset-password",
       })
@@ -77,7 +93,9 @@ export default function ForgetPasswordPage() {
               <div className="text-center space-y-2">
                 <p className="text-sm text-muted-foreground">
                   We've sent a password reset link to{" "}
-                  <span className="font-medium text-foreground">{form.getValues("email")}</span>
+                  <span className="font-medium text-foreground">
+                    {form.getValues("email")}
+                  </span>
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Didn't receive the email? Check your spam folder or{" "}
@@ -92,7 +110,10 @@ export default function ForgetPasswordPage() {
             </div>
           ) : (
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
                 <FormField
                   control={form.control}
                   name="email"

@@ -14,8 +14,8 @@ const startServer = async () => {
 ║                                                        ║
 ║   📡 Port: ${config.port}                                    ║
 ║   🌍 Environment: ${config.nodeEnv}                    ║
-║   🔗 API: ${config.auth.serviceUrl}${config.api.prefix}       ║
-║   ❤️  Health: ${config.auth.serviceUrl}/health          ║
+║   🔗 API: ${config.api.baseUrl}${config.api.prefix}       ║
+║   ❤️  Health: ${config.api.baseUrl}/health          ║
 ║                                                        ║
 ╚════════════════════════════════════════════════════════╝
       `)

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { 
-  useContacts, 
-  useCreateContact, 
-  useUpdateContact, 
-  useDeleteContact 
+import {
+  useContacts,
+  useCreateContact,
+  useUpdateContact,
+  useDeleteContact
 } from "@/hooks/use-contacts";
 import { useSession } from "@/hooks/useSession";
 import { Input } from "@workspace/ui/components/input";
@@ -41,6 +41,7 @@ import {
 } from "@workspace/ui/components/alert-dialog";
 import { Label } from "@workspace/ui/components/label";
 import { useToast } from "@workspace/ui/components/use-toast";
+import { useOrganisationStore } from "@/stores/organisation-store";
 
 interface Contact {
   _id: string;
@@ -79,10 +80,11 @@ export default function ContactsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  
+
   const { toast } = useToast();
   const { data: sessionData } = useSession();
-  const orgId = sessionData?.data?.session.activeOrganizationId || "";
+  const { activeOrganisation } = useOrganisationStore();
+  const orgId = activeOrganisation?._id || "";
 
   const [filters, setFilters] = useState<FilterState>({
     search: "",
@@ -122,19 +124,19 @@ export default function ContactsPage() {
 
     // Filter by source
     if (filters.source !== "all") {
-      filtered = filtered.filter((contact: Contact) => 
+      filtered = filtered.filter((contact: Contact) =>
         contact.source?.toLowerCase() === filters.source.toLowerCase()
       );
     }
 
     // Filter by date range
     if (filters.dateFrom) {
-      filtered = filtered.filter((contact: Contact) => 
+      filtered = filtered.filter((contact: Contact) =>
         new Date(contact.createdAt) >= new Date(filters.dateFrom)
       );
     }
     if (filters.dateTo) {
-      filtered = filtered.filter((contact: Contact) => 
+      filtered = filtered.filter((contact: Contact) =>
         new Date(contact.createdAt) <= new Date(filters.dateTo)
       );
     }
@@ -142,7 +144,7 @@ export default function ContactsPage() {
     // Sort contacts
     filtered = [...filtered].sort((a: Contact, b: Contact) => {
       let aVal, bVal;
-      
+
       switch (filters.sortBy) {
         case "name":
           aVal = a.name?.toLowerCase() || "";
@@ -313,7 +315,7 @@ export default function ContactsPage() {
   };
 
   const scrollToLetter = (letter: string) => {
-    const firstContact = contacts.find((c: Contact) => 
+    const firstContact = contacts.find((c: Contact) =>
       c.name?.toUpperCase().startsWith(letter)
     );
     if (firstContact) {
@@ -330,9 +332,9 @@ export default function ContactsPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Filters</h3>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleResetFilters}
                 className="h-7 text-xs"
               >
@@ -416,7 +418,7 @@ export default function ContactsPage() {
                 <label className="text-xs font-medium mb-2 block">Sort Order</label>
                 <Select
                   value={filters.sortOrder}
-                  onValueChange={(value: "asc" | "desc") => 
+                  onValueChange={(value: "asc" | "desc") =>
                     setFilters({ ...filters, sortOrder: value })
                   }
                 >
@@ -461,7 +463,7 @@ export default function ContactsPage() {
                 {showFilters ? "Hide" : "Show"} Filters
               </Button>
             </div>
-            <Button 
+            <Button
               className="bg-green-500 hover:bg-green-600"
               onClick={() => setIsAddDialogOpen(true)}
             >
@@ -527,25 +529,25 @@ export default function ContactsPage() {
                           {new Date(contact.createdAt).toLocaleDateString()}
                         </span>
                         <div className="flex items-center gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8"
                             onClick={() => handleEditContact(contact)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8"
                             onClick={() => handleCopyEmail(contact.email)}
                           >
                             <Copy className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8"
                             onClick={() => {
                               setSelectedContact(contact);
@@ -573,7 +575,7 @@ export default function ContactsPage() {
 
       {/* Right Sidebar - Alphabet Index */}
       <div className="w-12 border-l bg-card flex flex-col items-center py-4 gap-1 overflow-y-auto">
-        <button 
+        <button
           className="text-xs font-medium text-muted-foreground hover:text-foreground py-1"
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         >
@@ -599,7 +601,7 @@ export default function ContactsPage() {
               Create a new contact in your organization. Email and phone are required.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="name">Name</Label>
@@ -712,7 +714,7 @@ export default function ContactsPage() {
               Update contact information. Email and phone are required.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="edit-name">Name</Label>

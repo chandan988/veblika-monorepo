@@ -15,10 +15,12 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import { useSession } from "@/hooks/useSession"
 import { useIntegrations } from "@/hooks/use-integrations"
 import Link from "next/link"
+import { useOrganisationStore } from "@/stores/organisation-store"
 
 export default function IntegrationsPage() {
   const { data } = useSession()
-  const orgId = data?.data?.session.activeOrganizationId || ""
+  const { activeOrganisation } = useOrganisationStore()
+  const orgId = activeOrganisation?._id || ""
   const { data: integrations = [], isLoading } = useIntegrations(orgId)
 
   // Group integrations by channel

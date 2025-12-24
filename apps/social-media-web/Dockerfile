@@ -1,15 +1,24 @@
-# Base stage
-FROM node:20-alpine AS base
-RUN apk add --no-cache libc6-compat
-RUN apk update
-
-# Build stage
-FROM base AS builder
-
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Configurable Node version
+ARG NODE_VERSION=24.11.1
+FROM node:${NODE_VERSION}-slim AS base
 
 WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# ---
+# Prepare stage - Prune monorepo for this app
+FROM base AS prepare
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN pnpm add -g turbo
+
+COPY . .
+RUN turbo prune social-media-web --docker
+
+# ---
+# Build stage
+FROM base AS builder
 
 # Accept build arguments
 ARG NEXT_PUBLIC_CLIENT_URL
@@ -19,40 +28,31 @@ ENV NEXT_PUBLIC_CLIENT_URL=${NEXT_PUBLIC_CLIENT_URL}
 ENV NEXT_PUBLIC_AUTH_URL=${NEXT_PUBLIC_AUTH_URL}
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
-# Copy workspace files
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
-COPY packages ./packages
-COPY apps/social-media-web ./apps/social-media-web
-
-# Install dependencies
+# Install dependencies first (better caching)
+COPY --from=prepare /app/out/json/ .
+COPY --from=prepare /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=prepare /app/out/pnpm-workspace.yaml ./pnpm-workspace.yaml
 RUN pnpm install --frozen-lockfile
 
-# Build the application
-WORKDIR /app/apps/social-media-web
-ENV NODE_ENV=production
-RUN pnpm run build
+# Copy source and build
+COPY --from=prepare /app/out/full/ .
+RUN pnpm turbo build --filter=social-media-web
 
+# ---
 # Production stage
-FROM base AS production
-
+FROM node:${NODE_VERSION}-alpine AS runner
 WORKDIR /app
 
-# Create non-root user
+# Don't run production as root
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
+USER nextjs
 
-# Copy Next.js standalone output with proper ownership
+# Copy Next.js standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/apps/social-media-web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/social-media-web/.next/static ./apps/social-media-web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/apps/social-media-web/public ./apps/social-media-web/public
 
-WORKDIR /app/apps/social-media-web
-
-# Switch to non-root user
-USER nextjs
-
-# Set environment variables
 ENV NODE_ENV=production
 
-# Start the application
-CMD ["node", "server.js"]
+CMD ["node", "apps/social-media-web/server.js"]
