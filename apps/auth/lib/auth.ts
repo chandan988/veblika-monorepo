@@ -37,7 +37,12 @@ await connectToDatabase()
 const db = client.db()
 
 export const auth: ReturnType<typeof betterAuth> = betterAuth({
-  trustedOrigins: ["https://*.veblika.com", "http://localhost:*"],
+  trustedOrigins: [
+    "https://*.veblika.com",
+    "https://support.veblika.com",
+    "https://auth.veblika.com",
+    "http://localhost:*",
+  ],
   // advanced: {
   //   crossSubDomainCookies: {
   //           enabled: true,
@@ -55,7 +60,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
     defaultCookieAttributes: {
       secure: true,
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "none",
     },
   },
   database: mongodbAdapter(db, {
