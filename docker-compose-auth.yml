@@ -1,23 +1,10 @@
 services:
-  # Backend Assist API
-  backend-assist-api:
+  auth:
     build:
       context: .
-      dockerfile: apps/backend-assist-api/Dockerfile
-    env_file:
-      - .env
-    restart: unless-stopped
-    networks:
-      - dokploy-network
-
-  # Backend Assist Web
-  backend-assist-web:
-    build:
-      context: .
-      dockerfile: apps/backend-assist-web/Dockerfile
+      dockerfile: apps/auth/Dockerfile
       args:
         NEXT_PUBLIC_AUTH_URL: ${NEXT_PUBLIC_AUTH_URL}
-        NEXT_PUBLIC_CLIENT_URL: ${NEXT_PUBLIC_CLIENT_URL}
     env_file:
       - .env
     depends_on:
@@ -26,16 +13,6 @@ services:
     networks:
       - dokploy-network
 
-  # Widget UI
-  widget-ui:
-    build:
-      context: .
-      dockerfile: apps/widget-ui/Dockerfile
-      args:
-        VITE_BACKEND_API_URL: ${VITE_BACKEND_API_URL}
-    restart: unless-stopped
-    networks:
-      - dokploy-network
 
 networks:
   dokploy-network:
