@@ -1,0 +1,127 @@
+# Development Docker Compose - All Services
+# Usage: docker compose -f docker-compose-dev.yml up --build
+
+services:
+  # ===================
+  # Auth Service (Port 3000)
+  # ===================
+  auth:
+    build:
+      context: .
+      dockerfile: apps/auth/Dockerfile
+      args:
+        NEXT_PUBLIC_AUTH_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    env_file:
+      - apps/auth/.env
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    restart: unless-stopped
+    networks:
+      - veblika-dev
+
+  # ===================
+  # Backend Assist API (Port 8000)
+  # ===================
+  backend-assist-api:
+    build:
+      context: .
+      dockerfile: apps/backend-assist-api/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - apps/backend-assist-api/.env
+    environment:
+      - NODE_ENV=development
+      - PORT=8000
+    restart: unless-stopped
+    networks:
+      - veblika-dev
+
+  # ===================
+  # Backend Assist Web (Port 3003)
+  # ===================
+  backend-assist-web:
+    build:
+      context: .
+      dockerfile: apps/backend-assist-web/Dockerfile
+      args:
+        NEXT_PUBLIC_AUTH_URL: http://localhost:3000
+        NEXT_PUBLIC_CLIENT_URL: http://localhost:3003
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3003:3000"
+    env_file:
+      - apps/backend-assist-web/.env
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - auth
+      - backend-assist-api
+    restart: unless-stopped
+    networks:
+      - veblika-dev
+
+  # ===================
+  # Widget UI (Port 5173)
+  # ===================
+  widget-ui:
+    build:
+      context: .
+      dockerfile: apps/widget-ui/Dockerfile
+      args:
+        VITE_BACKEND_API_URL: http://localhost:8000
+        VITE_WIDGET_BASE_PATH: /widget
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+    networks:
+      - veblika-dev
+
+  # ===================
+  # Social Media API (Port 8001)
+  # ===================
+  social-media-api:
+    build:
+      context: .
+      dockerfile: apps/social-media-api/Dockerfile
+    ports:
+      - "8001:8000"
+    env_file:
+      - apps/social-media-api/.env
+    environment:
+      - NODE_ENV=development
+      - PORT=8000
+    restart: unless-stopped
+    networks:
+      - veblika-dev
+
+  # ===================
+  # Social Media Web (Port 3001)
+  # ===================
+  social-media-web:
+    build:
+      context: .
+      dockerfile: apps/social-media-web/Dockerfile
+      args:
+        NEXT_PUBLIC_CLIENT_URL: http://localhost:3001
+        NEXT_PUBLIC_AUTH_URL: http://localhost:3000
+        NEXT_PUBLIC_API_URL: http://localhost:8001
+    ports:
+      - "3001:3000"
+    env_file:
+      - apps/social-media-web/.env
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - auth
+      - social-media-api
+    restart: unless-stopped
+    networks:
+      - veblika-dev
+
+networks:
+  veblika-dev:
+    driver: bridge

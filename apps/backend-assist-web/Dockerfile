@@ -1,15 +1,24 @@
-# Base stage
-FROM node:20-alpine AS base
-RUN apk add --no-cache libc6-compat
-RUN apk update
-
-# Build stage
-FROM base AS builder
-
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Configurable Node version
+ARG NODE_VERSION=24.11.1
+FROM node:${NODE_VERSION}-slim AS base
 
 WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# ---
+# Prepare stage - Prune monorepo for this app
+FROM base AS prepare
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN pnpm add -g turbo
+
+COPY . .
+RUN turbo prune backend-assist-web --docker
+
+# ---
+# Build stage
+FROM base AS builder
 
 # Accept build arguments
 ARG NEXT_PUBLIC_AUTH_URL
@@ -19,36 +28,28 @@ ENV NEXT_PUBLIC_AUTH_URL=${NEXT_PUBLIC_AUTH_URL}
 ENV NEXT_PUBLIC_CLIENT_URL=${NEXT_PUBLIC_CLIENT_URL}
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 
-# Copy workspace files
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
-COPY packages ./packages
-COPY apps/backend-assist-web ./apps/backend-assist-web
-
-# Install dependencies
+# Install dependencies first (better caching)
+COPY --from=prepare /app/out/json/ .
+COPY --from=prepare /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=prepare /app/out/pnpm-workspace.yaml ./pnpm-workspace.yaml
 RUN pnpm install --frozen-lockfile
 
-# Build the application
-WORKDIR /app/apps/backend-assist-web
-ENV NODE_ENV=production
-RUN pnpm run build
+# Copy source and build
+COPY --from=prepare /app/out/full/ .
+RUN pnpm turbo build --filter=backend-assist-web
 
+# ---
 # Production stage
-FROM base AS production
-
+FROM node:${NODE_VERSION}-alpine AS runner
 WORKDIR /app
 
-# Create non-root user
+# Don't run production as root
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
+USER nextjs
 
-# Copy Next.js standalone output with proper ownership
+# Copy Next.js standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/apps/backend-assist-web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/backend-assist-web/.next/static ./apps/backend-assist-web/.next/static
 
-WORKDIR /app/apps/backend-assist-web
-
-# Switch to non-root user
-USER nextjs
-
-# Start the application
-CMD ["node", "server.js"]
+CMD ["node", "apps/backend-assist-web/server.js"]

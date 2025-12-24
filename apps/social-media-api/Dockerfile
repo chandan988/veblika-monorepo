@@ -1,36 +1,44 @@
-# Base stage
-FROM node:20-alpine AS base
-RUN apk add --no-cache libc6-compat
-RUN apk update
-
-# Production stage
-FROM base AS production
-
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Configurable Node version
+ARG NODE_VERSION=24.11.1
+FROM node:${NODE_VERSION}-slim AS base
 
 WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Create non-root user
+# ---
+# Prepare stage - Prune monorepo for this app
+FROM base AS prepare
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN pnpm add -g turbo
+
+COPY . .
+RUN turbo prune social-media-api --docker
+
+# ---
+# Production stage (no build needed - plain JS)
+FROM node:${NODE_VERSION}-alpine AS runner
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Don't run production as root
 RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nodejs
+RUN adduser --system --uid 1001 expressjs
 
-# Copy workspace files with proper ownership
-COPY --chown=nodejs:nodejs pnpm-workspace.yaml pnpm-lock.yaml package.json ./
-COPY --chown=nodejs:nodejs packages ./packages
-COPY --chown=nodejs:nodejs apps/social-media-api ./apps/social-media-api
+# Copy pruned files and install prod dependencies
+COPY --from=prepare --chown=expressjs:nodejs /app/out/json/ .
+COPY --from=prepare --chown=expressjs:nodejs /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=prepare --chown=expressjs:nodejs /app/out/pnpm-workspace.yaml ./pnpm-workspace.yaml
+RUN pnpm install --frozen-lockfile --prod
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile --filter social-media-api...
+# Copy source code
+COPY --from=prepare --chown=expressjs:nodejs /app/out/full/ .
 
-WORKDIR /app/apps/social-media-api
+USER expressjs
 
-# Switch to non-root user
-USER nodejs
-
-# Set environment variables
 ENV PORT=8000
 ENV NODE_ENV=production
 
-# Start the application
-CMD ["node", "index.js"]
+CMD ["node", "apps/social-media-api/index.js"]
