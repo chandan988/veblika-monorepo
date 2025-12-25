@@ -5,6 +5,16 @@ services:
       dockerfile: apps/auth/Dockerfile
       args:
         NEXT_PUBLIC_AUTH_URL: ${NEXT_PUBLIC_AUTH_URL}
+        BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+        BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+        DATABASE_URL: ${DATABASE_URL}
+        GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+        GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+        DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL}
+        SMTP_HOST: ${SMTP_HOST}
+        SMTP_PORT: ${SMTP_PORT}
+        SMTP_USER: ${SMTP_USER}
+        SMTP_PASSWORD: ${SMTP_PASSWORD}
     env_file:
       - .env
     restart: unless-stopped
