@@ -1,5 +1,3 @@
-import { auth } from "@/lib/auth"
-
 function setCorsHeaders(res: Response, origin: string | null) {
   if (!origin) return res
   res.headers.set("Access-Control-Allow-Origin", origin)
@@ -31,6 +29,8 @@ export const OPTIONS = async (req: Request) => {
 }
 
 async function runHandler(req: Request) {
+  // Dynamic import - only loads at runtime, not during build
+  const { auth } = await import("@/lib/auth")
   const origin = req.headers.get("origin")
   const res = await auth.handler(req)
   return setCorsHeaders(res, origin)
