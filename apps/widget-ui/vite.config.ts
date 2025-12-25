@@ -9,14 +9,14 @@ export default defineConfig({
     {
       name: 'allow-all-iframes',
       configureServer: (server) => {
-        server.middlewares.use((req, res, next) => {
+        server.middlewares.use((_, res, next) => {
           res.setHeader('X-Frame-Options', '')
           res.setHeader('Content-Security-Policy', "frame-ancestors *")
           next()
         })
       },
       configurePreviewServer: (server) => {
-        server.middlewares.use((req, res, next) => {
+        server.middlewares.use((_, res, next) => {
           res.setHeader('X-Frame-Options', '')
           res.setHeader('Content-Security-Policy', "frame-ancestors *")
           next()
