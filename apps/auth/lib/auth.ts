@@ -11,12 +11,9 @@ let client: MongoClient | null = null
 let db: any = null
 
 function getDatabase() {
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL environment variable is not set")
-  }
-  
   if (!client) {
-    client = new MongoClient(process.env.DATABASE_URL)
+    // Use empty string as fallback - will fail at runtime if not set
+    client = new MongoClient(process.env.DATABASE_URL || "")
     db = client.db()
   }
   
