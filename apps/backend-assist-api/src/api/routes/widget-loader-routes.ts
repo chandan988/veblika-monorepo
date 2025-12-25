@@ -127,6 +127,7 @@ const chatWidgetScript = `(function () {
  * @access  Public
  */
 router.get("/loader.js", (req: Request, res: Response) => {
+  // Replace placeholder with actual base URL from env vars
   const chatWidgetUrl = process.env.CHAT_WIDGET_BASE_URL!
   const loaderScript = chatWidgetScript.replace("__CHAT_WIDGET_BASE_URL__", chatWidgetUrl)
 
