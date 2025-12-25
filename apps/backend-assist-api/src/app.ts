@@ -15,11 +15,12 @@ export const createApp = async (): Promise<{
   // Initialize Socket.IO with CORS
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: config.cors?.origin || "*",
-      methods: ["GET", "POST"],
-      credentials: true,
+      allowedHeaders: ["*"],
+      origin: "*",
     },
-    transports: ["websocket", "polling"],
+    transports: ["websocket"],
+    pingTimeout: 60000,
+    pingInterval: 25000,
   })
 
   // Initialize all loaders (including Socket.IO)
