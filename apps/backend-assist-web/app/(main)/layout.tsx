@@ -2,6 +2,7 @@ import { AuthProvider } from "@/components/auth-provider"
 import { TopNavbar } from "@/components/top-navbar"
 import { Footer } from "@/components/footer"
 
+// Main layout component
 export default function MainLayout({
   children,
 }: {
