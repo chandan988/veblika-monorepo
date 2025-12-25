@@ -1,4 +1,3 @@
-# Configurable Node version
 ARG NODE_VERSION=24.11.1
 FROM node:${NODE_VERSION}-slim AS base
 
@@ -20,20 +19,15 @@ RUN turbo prune auth --docker
 # Build stage
 FROM base AS builder
 
-# Accept build arguments
+# ✅ Only NEXT_PUBLIC_ variables at build time
 ARG NEXT_PUBLIC_AUTH_URL
 ENV NEXT_PUBLIC_AUTH_URL=${NEXT_PUBLIC_AUTH_URL}
 
-ENV BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-ENV BETTER_AUTH_URL=${BETTER_AUTH_URL}
-ENV DATABASE_URL=${DATABASE_URL}
-ENV GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-ENV GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-ENV DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
-ENV SMTP_HOST=${SMTP_HOST}
-ENV SMTP_PORT=${SMTP_PORT}
-ENV SMTP_USER=${SMTP_USER}
-ENV SMTP_PASSWORD=${SMTP_PASSWORD}
+# ❌ Remove these lines - they'll be runtime env vars:
+# ENV BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+# ENV BETTER_AUTH_URL=${BETTER_AUTH_URL}
+# ENV DATABASE_URL=${DATABASE_URL}
+# etc...
 
 # Install dependencies first (better caching)
 COPY --from=prepare /app/out/json/ .
@@ -58,5 +52,12 @@ USER nextjs
 # Copy Next.js standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/.next/static ./apps/auth/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/public ./apps/auth/public
 
+# ✅ Basic Next.js configs
+EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Runtime env vars will come from docker-compose environment section
 CMD ["node", "apps/auth/server.js"]
