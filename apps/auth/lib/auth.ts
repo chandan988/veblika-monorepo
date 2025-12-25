@@ -6,6 +6,10 @@ import { resetPasswordHtml } from "./email/templates/reset-password"
 import { email } from "./email"
 import { verificationEmailHtml } from "./email/templates/verfication-email"
 
+
+console.log(process.env.DATABASE_URL)
+console.log(JSON.stringify(process.env, null, 2))
+
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is not set")
 }
