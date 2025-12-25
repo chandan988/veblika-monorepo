@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: apps/auth/Dockerfile
       args:
-        # Only this one at build time
+        # Only NEXT_PUBLIC_ at build time
         NEXT_PUBLIC_AUTH_URL: ${NEXT_PUBLIC_AUTH_URL}
     environment:
       # All these at runtime

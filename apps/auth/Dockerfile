@@ -23,12 +23,6 @@ FROM base AS builder
 ARG NEXT_PUBLIC_AUTH_URL
 ENV NEXT_PUBLIC_AUTH_URL=${NEXT_PUBLIC_AUTH_URL}
 
-# ❌ Remove these lines - they'll be runtime env vars:
-# ENV BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-# ENV BETTER_AUTH_URL=${BETTER_AUTH_URL}
-# ENV DATABASE_URL=${DATABASE_URL}
-# etc...
-
 # Install dependencies first (better caching)
 COPY --from=prepare /app/out/json/ .
 COPY --from=prepare /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
