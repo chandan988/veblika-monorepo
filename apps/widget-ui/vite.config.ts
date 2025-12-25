@@ -4,7 +4,26 @@ import path from "path"
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'allow-all-iframes',
+      configureServer: (server) => {
+        server.middlewares.use((req, res, next) => {
+          res.setHeader('X-Frame-Options', '')
+          res.setHeader('Content-Security-Policy', "frame-ancestors *")
+          next()
+        })
+      },
+      configurePreviewServer: (server) => {
+        server.middlewares.use((req, res, next) => {
+          res.setHeader('X-Frame-Options', '')
+          res.setHeader('Content-Security-Policy', "frame-ancestors *")
+          next()
+        })
+      },
+    },
+  ],
   // base: process.env.VITE_WIDGET_BASE_PATH || "/widget/",
   resolve: {
     alias: {
