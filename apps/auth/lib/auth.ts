@@ -16,7 +16,7 @@ function getDatabase() {
     client = new MongoClient(process.env.DATABASE_URL || "")
     db = client.db()
   }
-  
+
   return { client, db }
 }
 
@@ -24,9 +24,7 @@ const from = process.env.DEFAULT_FROM_EMAIL || "no-reply.Veblika.com"
 
 export const auth: ReturnType<typeof betterAuth> = betterAuth({
   trustedOrigins: [
-    "https://*.veblika.com",
-    "https://support.veblika.com",
-    "https://auth.veblika.com",
+    "https://*.desk.backendassist.com",
     "http://localhost:*",
   ],
   // advanced: {
@@ -41,7 +39,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
   advanced: {
     crossSubDomainCookies: {
       enabled: true,
-      domain: process.env.NODE_ENV === "production" ? "veblika.com" : undefined,
+      domain: process.env.NODE_ENV === "production" ? "backendassist.com" : undefined,
     },
     // defaultCookieAttributes: {
     //   secure: true,
