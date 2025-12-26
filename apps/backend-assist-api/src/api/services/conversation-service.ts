@@ -30,7 +30,16 @@ export class ConversationService {
       filter.channel = query.channel;
     }
     if (query.assignedMemberId) {
-      filter.assignedMemberId = query.assignedMemberId;
+      if (query.assignedMemberId === 'unassigned') {
+        // Filter for conversations with no assignee
+        filter.$or = [
+          { assignedMemberId: { $exists: false } },
+          { assignedMemberId: null },
+          { assignedMemberId: '' }
+        ];
+      } else {
+        filter.assignedMemberId = query.assignedMemberId;
+      }
     }
 
     const [conversations, total] = await Promise.all([

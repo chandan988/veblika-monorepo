@@ -266,6 +266,7 @@ export class RoleController {
     res.json({
       success: true,
       data: {
+        memberId: member._id,
         isOwner: member.isOwner,
         role: populatedRole
           ? {

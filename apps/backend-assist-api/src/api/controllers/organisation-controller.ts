@@ -76,7 +76,7 @@ export class OrganisationController {
             message: "Organisation retrieved successfully",
             data: {
                 ...organisation.toObject(),
-                role: membership.role,
+                role: membership.roleId,
             },
         })
     })

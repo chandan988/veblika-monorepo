@@ -25,7 +25,7 @@ export interface Conversation {
   lastMessageAt: string;
   lastMessagePreview: string;
   tags: string[];
-  assignedMemberId?: string;
+  assignedMemberId?: string | null;
   sourceMetadata?: any;
 }
 

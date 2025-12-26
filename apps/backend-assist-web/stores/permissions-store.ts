@@ -4,6 +4,7 @@ import { UserPermissions } from "@/types/permissions"
 
 interface PermissionsStore {
   // State
+  memberId: string | null
   isOwner: boolean
   role: {
     _id: string
@@ -28,6 +29,7 @@ export const usePermissionsStore = create<PermissionsStore>()(
   devtools(
     (set, get) => ({
       // Initial state
+      memberId: null,
       isOwner: false,
       role: null,
       permissions: [],
@@ -37,6 +39,7 @@ export const usePermissionsStore = create<PermissionsStore>()(
       // Actions
       setPermissions: (data) => {
         set({
+          memberId: data.memberId,
           isOwner: data.isOwner,
           role: data.role,
           permissions: data.permissions,
@@ -47,6 +50,7 @@ export const usePermissionsStore = create<PermissionsStore>()(
 
       clearPermissions: () => {
         set({
+          memberId: null,
           isOwner: false,
           role: null,
           permissions: [],

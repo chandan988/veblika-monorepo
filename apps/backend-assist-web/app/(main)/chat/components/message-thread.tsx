@@ -115,6 +115,10 @@ export function MessageThread({
     onUpdateConversation?.({ status })
   }
 
+  const handleAssignmentChange = (memberId: string | null) => {
+    onUpdateConversation?.({ assignedMemberId: memberId } as Partial<Conversation>)
+  }
+
   // Check if message is consecutive (same sender, within 5 minutes)
   const isConsecutiveMessage = (
     current: Message,
@@ -139,6 +143,7 @@ export function MessageThread({
       <ChatHeader
         conversation={conversation}
         onStatusChange={handleStatusChange}
+        onAssignmentChange={handleAssignmentChange}
       />
 
       {/* Messages Area */}

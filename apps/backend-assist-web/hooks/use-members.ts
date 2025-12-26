@@ -17,16 +17,10 @@ import {
  */
 export function useMembers() {
   const { activeOrganisation } = useOrganisationStore()
-  
-  console.log("useMembers - activeOrganisation:", activeOrganisation?._id)
 
   return useQuery({
     queryKey: ["members", activeOrganisation?._id],
-    queryFn: async () => {
-      const result = await getMembers(activeOrganisation!._id)
-      console.log("useMembers - fetched members:", result)
-      return result
-    },
+    queryFn: () => getMembers(activeOrganisation!._id),
     enabled: !!activeOrganisation?._id,
   })
 }

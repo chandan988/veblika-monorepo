@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { useConversations } from "@/hooks/use-conversations"
+import { useConversations, useUpdateConversation } from "@/hooks/use-conversations"
 import { useMessages } from "@/hooks/use-messages"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { Button } from "@workspace/ui/components/button"
@@ -33,13 +33,15 @@ import {
   TicketDetailSheet
 } from "./components"
 import { useOrganisationStore } from "@/stores/organisation-store"
+import { usePermissionsStore } from "@/stores/permissions-store"
 
 // Sidebar filter items
 const defaultFilters = [
   { id: "all", label: "All Tickets" },
-  { id: "undelivered", label: "All undelivered messages" },
-  { id: "unresolved", label: "All unresolved tickets" },
-  { id: "new-open", label: "New and my open tickets" },
+  { id: "my-tickets", label: "My Tickets" },
+  { id: "unassigned", label: "Unassigned Tickets" },
+  { id: "open", label: "Open Tickets" },
+  { id: "closed", label: "Closed Tickets" },
 ]
 
 const sharedFilters = [
@@ -52,6 +54,7 @@ const sharedFilters = [
 export default function TicketPage() {
   const { data } = useSession()
   const { activeOrganisation } = useOrganisationStore()
+  const { memberId: currentMemberId } = usePermissionsStore()
   const orgId = activeOrganisation?._id
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -76,6 +79,40 @@ export default function TicketPage() {
   const [resolvedAtFilter, setResolvedAtFilter] = useState<string>("")
   const [showFilters, setShowFilters] = useState(false)
 
+  // Compute filters based on sidebar selection and dropdown filters
+  const getConversationFilters = () => {
+    let assignedMemberId: string | undefined
+    let status: "open" | "pending" | "closed" | undefined
+
+    // Sidebar filter takes precedence
+    switch (activeFilter) {
+      case "my-tickets":
+        assignedMemberId = currentMemberId || undefined
+        break
+      case "unassigned":
+        assignedMemberId = "unassigned"
+        break
+      case "open":
+        status = "open"
+        break
+      case "closed":
+        status = "closed"
+        break
+      default:
+        // Use dropdown filter if no specific sidebar filter
+        if (agentsFilter === "me" && currentMemberId) {
+          assignedMemberId = currentMemberId
+        } else if (agentsFilter === "unassigned") {
+          assignedMemberId = "unassigned"
+        }
+        break
+    }
+
+    return { assignedMemberId, status }
+  }
+
+  const { assignedMemberId: filterAssignedMemberId, status: filterStatus } = getConversationFilters()
+
   const {
     data: conversationsData,
     isLoading,
@@ -84,7 +121,9 @@ export default function TicketPage() {
     fetchNextPage
   } = useConversations({
     orgId,
-    channel: "gmail"
+    channel: "gmail",
+    assignedMemberId: filterAssignedMemberId,
+    status: filterStatus,
   })
 
   const { loadMoreRef } = useInfiniteScroll({
@@ -107,6 +146,15 @@ export default function TicketPage() {
   const { messages = [], isLoading: messagesLoading, hasNextPage: hasNextMessagePage, isFetchingNextPage: isFetchingNextMessagePage, fetchNextPage: fetchNextMessagePage } = useMessages(selectedConversationId || "", { limit: 5 })
 
   const queryClient = useQueryClient()
+  const updateConversationMutation = useUpdateConversation()
+
+  const handleUpdateTicket = (updates: { status?: "open" | "pending" | "closed"; assignedMemberId?: string | null }) => {
+    if (!selectedConversationId) return
+    updateConversationMutation.mutate({
+      conversationId: selectedConversationId,
+      updates,
+    })
+  }
 
   const handleSelectConversation = (conversationId: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -316,6 +364,18 @@ export default function TicketPage() {
                     isChecked={checkedTickets.has(ticket._id)}
                     onSelect={() => handleSelectConversation(ticket._id)}
                     onCheck={(checked) => handleCheckTicket(ticket._id, checked)}
+                    onStatusChange={(status) => {
+                      updateConversationMutation.mutate({
+                        conversationId: ticket._id,
+                        updates: { status },
+                      })
+                    }}
+                    onAssignmentChange={(memberId) => {
+                      updateConversationMutation.mutate({
+                        conversationId: ticket._id,
+                        updates: { assignedMemberId: memberId },
+                      })
+                    }}
                     latestMessage={getLatestMessagePreview(ticket._id)}
                   />
                 ))}
@@ -343,6 +403,7 @@ export default function TicketPage() {
         messages={messages}
         messagesLoading={messagesLoading}
         onSendEmail={handleSendEmail}
+        onUpdateTicket={handleUpdateTicket}
         isSending={sendEmailMutation.isPending}
         hasNextPage={hasNextMessagePage}
         isFetchingNextPage={isFetchingNextMessagePage}

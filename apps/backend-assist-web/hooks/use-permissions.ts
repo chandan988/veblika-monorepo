@@ -12,7 +12,7 @@ import { getMyPermissions } from "@/services/role-api"
  */
 export function useLoadPermissions() {
   const { activeOrganisation } = useOrganisationStore()
-  const { setPermissions, clearPermissions, isLoaded } = usePermissionsStore()
+  const { setPermissions, clearPermissions } = usePermissionsStore()
 
   const query = useQuery({
     queryKey: ["permissions", activeOrganisation?._id],
@@ -20,21 +20,11 @@ export function useLoadPermissions() {
       if (!activeOrganisation?._id) {
         return null
       }
-      const result = await getMyPermissions(activeOrganisation._id)
-      console.log("useLoadPermissions - API result:", result)
-      return result
+      return getMyPermissions(activeOrganisation._id)
     },
     enabled: !!activeOrganisation?._id,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
-  })
-
-  console.log("useLoadPermissions - state:", {
-    activeOrgId: activeOrganisation?._id,
-    queryStatus: query.status,
-    queryData: query.data,
-    storeIsLoaded: isLoaded,
-    queryError: query.error,
   })
 
   // Sync permissions to store

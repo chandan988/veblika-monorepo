@@ -171,6 +171,7 @@ export interface Member {
 
 // User permissions response from API
 export interface UserPermissions {
+  memberId: string
   isOwner: boolean
   role: {
     _id: string

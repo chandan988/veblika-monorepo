@@ -89,9 +89,6 @@ export default function MembersPage() {
   const { data: roles = [] } = useRoles()
   const { can, isLoaded: permissionsLoaded } = usePermissions()
   
-  // Debug log
-  console.log("Members data:", { members, isLoading, error, permissionsLoaded })
-  
   // Mutation hooks
   const updateRoleMutation = useUpdateMemberRole()
   const updatePermissionsMutation = useUpdateMemberPermissions()
@@ -108,9 +105,6 @@ export default function MembersPage() {
     const query = searchQuery.toLowerCase()
     return name.includes(query) || email.includes(query)
   })
-  
-  // Debug log
-  console.log("Filtered members:", filteredMembers, "Search:", searchQuery)
 
   const getInitials = (name?: string) => {
     if (!name) return "??"

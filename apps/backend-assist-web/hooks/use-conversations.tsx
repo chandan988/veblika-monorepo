@@ -18,7 +18,7 @@ interface Conversation {
   lastMessageAt: string
   lastMessagePreview: string
   tags: string[]
-  assignedMemberId?: string
+  assignedMemberId?: string | null
   sourceMetadata?: any
 }
 
@@ -39,6 +39,7 @@ interface GetConversationsParams {
   userId?: string | undefined | null
   status?: "open" | "pending" | "closed"
   channel?: string
+  assignedMemberId?: string | null
   limit?: number
 }
 
@@ -75,7 +76,7 @@ export const useConversations = (params: GetConversationsParams) => {
 
   // Fetch conversations from API with infinite scroll
   const query = useInfiniteQuery({
-    queryKey: ["conversations", params.orgId, params.channel, params.status, params.limit],
+    queryKey: ["conversations", params.orgId, params.channel, params.status, params.assignedMemberId, params.limit],
     queryFn: async ({ pageParam = 1 }) => {
       const { data } = await api.get<ConversationsResponse>("/conversations", { 
         params: { ...params, page: pageParam, limit } 

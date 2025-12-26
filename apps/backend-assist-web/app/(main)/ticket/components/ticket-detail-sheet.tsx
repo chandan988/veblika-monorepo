@@ -35,6 +35,8 @@ import {
 import { TicketThread } from "./ticket-thread"
 import { TicketEmailComposer } from "./ticket-email-composer"
 import { useState } from "react"
+import { AssignmentDropdown } from "@/components/assignment-dropdown"
+import { StatusDropdown } from "@/components/status-dropdown"
 
 interface TicketDetailSheetProps {
   open: boolean
@@ -43,6 +45,7 @@ interface TicketDetailSheetProps {
     _id: string
     integrationId?: string
     threadId?: string
+    assignedMemberId?: string | null
     sourceMetadata?: {
       subject?: string
       from?: string
@@ -54,7 +57,7 @@ interface TicketDetailSheetProps {
       name?: string
       email?: string
     }
-    status?: string
+    status?: "open" | "pending" | "closed"
     lastMessageAt?: string
     createdAt?: string
   } | null
@@ -71,6 +74,7 @@ interface TicketDetailSheetProps {
     cc?: string
     bcc?: string
   }) => void
+  onUpdateTicket?: (updates: { status?: "open" | "pending" | "closed"; assignedMemberId?: string | null }) => void
   isSending?: boolean
   hasNextPage?: boolean
   isFetchingNextPage?: boolean
@@ -84,6 +88,7 @@ export function TicketDetailSheet({
   messages,
   messagesLoading,
   onSendEmail,
+  onUpdateTicket,
   isSending,
   hasNextPage = false,
   isFetchingNextPage = false,
@@ -169,6 +174,20 @@ export function TicketDetailSheet({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Status Dropdown */}
+            <StatusDropdown
+              status={ticket.status || "open"}
+              onStatusChange={(status) => onUpdateTicket?.({ status })}
+              variant="badge"
+            />
+
+            {/* Assignment Dropdown */}
+            <AssignmentDropdown
+              assignedMemberId={ticket.assignedMemberId}
+              onAssign={(memberId) => onUpdateTicket?.({ assignedMemberId: memberId })}
+              compact
+            />
+
             <span className="text-sm text-muted-foreground">
               {formatTime(ticket.lastMessageAt || ticket.createdAt)}
             </span>
