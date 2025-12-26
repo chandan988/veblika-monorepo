@@ -23,11 +23,11 @@ const startServer = async () => {
 
     // Graceful shutdown
     const gracefulShutdown = async (signal: string) => {
-      logger.info(`\n${signal} received, closing server gracefully...`)
+      logger.info(`\n${signal} received, closing server gracefully....`)
       
       // Close Socket.IO connections
       io.close(() => {
-        logger.info("Socket.IO closed")
+        logger.info("Socket.IO closed ")
       })
       
       httpServer.close(() => {

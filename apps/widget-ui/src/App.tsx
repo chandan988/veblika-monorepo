@@ -97,6 +97,7 @@ export default function App() {
         )
       } else {
         // Modal closed dimensions (just the floating button)
+        
         window.parent.postMessage(
           {
             type: "MYCHAT_RESIZE",

@@ -1,40 +1,26 @@
 import { APIError, betterAuth } from "better-auth"
 import { MongoClient, ObjectId } from "mongodb"
 import { mongodbAdapter } from "better-auth/adapters/mongodb"
+import { nextCookies } from "better-auth/next-js"
 import { resetPasswordHtml } from "./email/templates/reset-password"
 import { email } from "./email"
 import { verificationEmailHtml } from "./email/templates/verfication-email"
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL environment variable is not set")
+// Lazy initialization - only runs when auth is actually used at runtime
+let client: MongoClient | null = null
+let db: any = null
+
+function getDatabase() {
+  if (!client) {
+    // Use empty string as fallback - will fail at runtime if not set
+    client = new MongoClient(process.env.DATABASE_URL || "")
+    db = client.db()
+  }
+  
+  return { client, db }
 }
-
-if (!process.env.BETTER_AUTH_SECRET) {
-  throw new Error("BETTER_AUTH_SECRET environment variable is not set")
-}
-
-// Create MongoDB client
-const client = new MongoClient(process.env.DATABASE_URL)
-
-// Connect to MongoDB
-let connectionPromise: Promise<MongoClient> | null = null
 
 const from = process.env.DEFAULT_FROM_EMAIL || "no-reply.Veblika.com"
-
-async function connectToDatabase() {
-  if (!connectionPromise) {
-    connectionPromise = client.connect()
-    console.log("Connecting to MongoDB...")
-  }
-  await connectionPromise
-  console.log("MongoDB connected successfully")
-  return client
-}
-
-// Establish connection
-await connectToDatabase()
-
-const db = client.db()
 
 export const auth: ReturnType<typeof betterAuth> = betterAuth({
   trustedOrigins: [
@@ -57,14 +43,14 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
       enabled: true,
       domain: process.env.NODE_ENV === "production" ? "veblika.com" : undefined,
     },
-    defaultCookieAttributes: {
-      secure: true,
-      httpOnly: true,
-      sameSite: "none",
-    },
+    // defaultCookieAttributes: {
+    //   secure: true,
+    //   httpOnly: true,
+    //   sameSite: "none",
+    // },
   },
-  database: mongodbAdapter(db, {
-    client: client,
+  database: mongodbAdapter(getDatabase().db, {
+    client: getDatabase().client,
   }),
   user: {
     additionalFields: {
@@ -115,7 +101,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
           }
 
           const host = ctx.headers?.get("host")
-          const reseller = await db
+          const reseller = await getDatabase().db
             .collection("reseller")
             .findOne({ host: host })
           if (!reseller) {
@@ -134,4 +120,5 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     },
   },
+  plugins: [nextCookies()],
 })

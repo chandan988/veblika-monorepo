@@ -2,7 +2,7 @@ import express, { Express } from "express"
 import { Server as HTTPServer } from "http"
 import { Server as SocketIOServer } from "socket.io"
 import { initializeLoaders } from "./loaders/index"
-import { config } from "./config/index"
+// import { config } from "./config/index"
 
 export const createApp = async (): Promise<{
   app: Express
@@ -14,12 +14,14 @@ export const createApp = async (): Promise<{
 
   // Initialize Socket.IO with CORS
   const io = new SocketIOServer(httpServer, {
+    path: "/api/ws",
     cors: {
-      origin: config.cors?.origin || "*",
-      methods: ["GET", "POST"],
+      origin: true,
       credentials: true,
     },
     transports: ["websocket", "polling"],
+    pingTimeout: 60000,
+    pingInterval: 25000,
   })
 
   // Initialize all loaders (including Socket.IO)

@@ -54,10 +54,6 @@ class NodemailerEmailProvider implements EmailProvider {
         attachments,
       })
 
-      if(!result.success) {
-        console.error("Failed to send email:", result.error)
-      }
-
       return {
         success: true,
         messageId: result.messageId,

@@ -1,4 +1,3 @@
-# Configurable Node version
 ARG NODE_VERSION=24.11.1
 FROM node:${NODE_VERSION}-slim AS base
 
@@ -20,7 +19,7 @@ RUN turbo prune auth --docker
 # Build stage
 FROM base AS builder
 
-# Accept build arguments
+# ✅ Only NEXT_PUBLIC_ variables at build time
 ARG NEXT_PUBLIC_AUTH_URL
 ENV NEXT_PUBLIC_AUTH_URL=${NEXT_PUBLIC_AUTH_URL}
 
@@ -47,5 +46,12 @@ USER nextjs
 # Copy Next.js standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/.next/static ./apps/auth/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/public ./apps/auth/public
 
+# ✅ Basic Next.js configs
+EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Runtime env vars will come from docker-compose environment section
 CMD ["node", "apps/auth/server.js"]
