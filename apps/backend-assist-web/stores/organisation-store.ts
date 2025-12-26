@@ -1,6 +1,13 @@
 import { create } from "zustand"
 import { persist, devtools } from "zustand/middleware"
 
+export interface OrganisationRole {
+    _id: string
+    name: string
+    slug: string
+    permissions: string[]
+}
+
 export interface Organisation {
     _id: string
     name: string
@@ -9,8 +16,10 @@ export interface Organisation {
     metadata?: Record<string, unknown>
     createdAt: string
     updatedAt: string
-    role: "owner" | "admin" | "member"
+    role: OrganisationRole | null
+    isOwner: boolean
     memberId: string
+    extraPermissions: string[]
 }
 
 interface OrganisationStore {

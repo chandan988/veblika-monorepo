@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@casl/ability": "^6.7.5",
     "@hookform/resolvers": "^5.2.2",
     "@react-email/components": "^1.0.1",
     "compression": "^1.7.4",

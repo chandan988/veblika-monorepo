@@ -1,12 +1,27 @@
 import mongoose, { Document, Schema } from "mongoose"
 
 export interface IMember extends Document {
+  _id: mongoose.Types.ObjectId
   organizationId: Schema.Types.ObjectId
   userId: Schema.Types.ObjectId
-  role: string | string[]
+  roleId: Schema.Types.ObjectId // Reference to the Role document
+  isOwner: boolean // If true, has full access (manage all)
+  extraPermissions: string[] // Additional permissions beyond role
   invitedBy?: string
   createdAt: Date
   updatedAt: Date
+}
+
+// Populated member interface for use with CASL
+export interface IMemberPopulated extends Omit<IMember, "roleId"> {
+  roleId: {
+    _id: mongoose.Types.ObjectId
+    name: string
+    slug: string
+    permissions: string[]
+    isDefault: boolean
+    isSystem: boolean
+  } | null
 }
 
 const memberSchema = new Schema<IMember>(
@@ -23,10 +38,21 @@ const memberSchema = new Schema<IMember>(
       ref: "user",
       index: true,
     },
-    role: {
-      type: Schema.Types.Mixed,
+    roleId: {
+      type: Schema.Types.ObjectId,
+      ref: "role",
       required: true,
-      default: "member",
+      index: true,
+    },
+    isOwner: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
+    extraPermissions: {
+      type: [String],
+      required: true,
+      default: [],
     },
     invitedBy: String,
   },
@@ -38,5 +64,6 @@ const memberSchema = new Schema<IMember>(
 
 memberSchema.index({ organizationId: 1, userId: 1 }, { unique: true })
 memberSchema.index({ userId: 1 })
+memberSchema.index({ organizationId: 1, isOwner: 1 })
 
 export const Member = mongoose.model<IMember>("member", memberSchema)
