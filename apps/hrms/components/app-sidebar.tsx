@@ -6,6 +6,7 @@ import {
   FileText,
   BarChart3,
   LogOut,
+  Building2,
 } from "lucide-react"
 
 import {
@@ -41,6 +42,7 @@ import { authClient } from "@/lib/auth-client"
 const menuItems = [
   { title: "Home", icon: Home, url: "/" },
   { title: "Dashboard", icon: BarChart3, url: "/dashboard" },
+  { title: "Organisations", icon: Building2, url: "/organisation" },
   { title: "Users", icon: Users, url: "/users" },
   { title: "Documents", icon: FileText, url: "/documents" },
   { title: "Settings", icon: Settings, url: "/settings" },
