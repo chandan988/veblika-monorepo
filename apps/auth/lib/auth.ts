@@ -85,6 +85,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
           }
 
           const host = ctx.headers?.get("host")
+          console.log(host, "Host")
           const reseller = await getDatabase().db
             .collection("reseller")
             .findOne({ host: host })
