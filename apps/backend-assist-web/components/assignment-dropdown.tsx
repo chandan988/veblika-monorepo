@@ -66,8 +66,8 @@ export function AssignmentDropdown({
   // Filter members by search
   const filteredMembers = members.filter((member) => {
     if (!search) return true
-    const name = member.userId?.name?.toLowerCase() || ""
-    const email = member.userId?.email?.toLowerCase() || ""
+    const name = member.user?.name?.toLowerCase() || ""
+    const email = member.user?.email?.toLowerCase() || ""
     return name.includes(search.toLowerCase()) || email.includes(search.toLowerCase())
   })
 
@@ -86,14 +86,14 @@ export function AssignmentDropdown({
           >
             {assignedMember ? (
               <Avatar className="h-7 w-7 border border-border/50">
-                {assignedMember.userId?.image && (
+                {assignedMember.user?.image && (
                   <AvatarImage
-                    src={assignedMember.userId.image}
-                    alt={assignedMember.userId?.name || "Assigned"}
+                    src={assignedMember.user.image}
+                    alt={assignedMember.user?.name || "Assigned"}
                   />
                 )}
                 <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                  {getInitials(assignedMember.userId?.name)}
+                  {getInitials(assignedMember.user?.name)}
                 </AvatarFallback>
               </Avatar>
             ) : (
@@ -138,17 +138,17 @@ export function AssignmentDropdown({
             {assignedMember ? (
               <>
                 <Avatar className="h-5 w-5">
-                  {assignedMember.userId?.image && (
+                  {assignedMember.user?.image && (
                     <AvatarImage
-                      src={assignedMember.userId.image}
-                      alt={assignedMember.userId?.name || "Assigned"}
+                      src={assignedMember.user.image}
+                      alt={assignedMember.user?.name || "Assigned"}
                     />
                   )}
                   <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
-                    {getInitials(assignedMember.userId?.name)}
+                    {getInitials(assignedMember.user?.name)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="truncate">{assignedMember.userId?.name || "Unknown"}</span>
+                <span className="truncate">{assignedMember.user?.name || "Unknown"}</span>
               </>
             ) : (
               <>
@@ -252,22 +252,22 @@ function AssignmentList({
                 )}
               >
                 <Avatar className="h-6 w-6">
-                  {member.userId?.image && (
+                  {member.user?.image && (
                     <AvatarImage
-                      src={member.userId.image}
-                      alt={member.userId?.name || "Member"}
+                      src={member.user.image}
+                      alt={member.user?.name || "Member"}
                     />
                   )}
                   <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
-                    {getInitials(member.userId?.name)}
+                    {getInitials(member.user?.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col min-w-0 items-start">
                   <span className="truncate text-sm">
-                    {member.userId?.name || "Unknown"}
+                    {member.user?.name || "Unknown"}
                   </span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {member.userId?.email}
+                    {member.user?.email}
                   </span>
                 </div>
                 <Check

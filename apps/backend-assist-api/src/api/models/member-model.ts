@@ -24,6 +24,24 @@ export interface IMemberPopulated extends Omit<IMember, "roleId"> {
   } | null
 }
 
+// Member with user information from auth service
+export interface IMemberWithUserInfo {
+  _id: string
+  organizationId: string
+  userId:string
+  user: {
+    _id: string
+    name: string
+    email: string
+    image?: string
+  }
+  roleId: string
+  isOwner: boolean
+  extraPermissions: string[]
+  createdAt: Date
+  updatedAt: Date
+}
+
 const memberSchema = new Schema<IMember>(
   {
     organizationId: {

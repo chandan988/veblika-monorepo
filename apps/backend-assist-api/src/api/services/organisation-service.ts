@@ -1,6 +1,6 @@
 import mongoose from "mongoose"
 import { Organization, IOrganization } from "../models/organization-model"
-import { Member, IMember, IMemberPopulated } from "../models/member-model"
+import { Member, IMember, IMemberPopulated, IMemberWithUserInfo } from "../models/member-model"
 import { Role } from "../models/role-model"
 import {
     CreateOrganisationInput,
@@ -9,6 +9,7 @@ import {
     OrganisationRole,
 } from "../validators/organisation-validator"
 import { roleService } from "./role-service"
+import { fetchUsersFromAuthService } from "../../utils/auth-service"
 
 export interface OrganisationWithRole extends IOrganization {
     role: {
@@ -233,10 +234,42 @@ export class OrganisationService {
     }
 
     /**
-     * Get all members of an organisation
+     * Get all members of an organisation with user information from auth service
      */
-    async getOrganisationMembers(organisationId: string): Promise<IMember[]> {
-        return Member.find({ organizationId: organisationId })
+    async getOrganisationMembers(organisationId: string): Promise<IMemberWithUserInfo[]> {
+        // Fetch members from database
+        const members = await Member.find({ organizationId: organisationId })
+
+        // Extract unique user IDs
+        const userIds = members.map(member => member.userId.toString())
+
+        // Fetch user information from auth service
+        const userMap = await fetchUsersFromAuthService(userIds)
+        console.log("Fetched user info for members:", userMap)
+
+        // Enrich members with user data
+        const enrichedMembers: IMemberWithUserInfo[] = members.map(member => {
+            const userId = member.userId.toString()
+            const userInfo = userMap.get(userId) || {
+                _id: userId,
+                name: "Unknown User",
+                email: "",
+            }
+
+            return {
+                _id: member._id.toString(),
+                organizationId: member.organizationId.toString(),
+                userId: userId,
+                user: userInfo,
+                roleId: member.roleId.toString(),
+                isOwner: member.isOwner,
+                extraPermissions: member.extraPermissions,
+                createdAt: member.createdAt,
+                updatedAt: member.updatedAt,
+            }
+        })
+
+        return enrichedMembers
     }
 
     /**

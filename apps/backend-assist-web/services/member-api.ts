@@ -16,7 +16,8 @@ export interface MemberRole {
 
 export interface Member {
   _id: string
-  userId: MemberUser
+  userId: string
+  user: MemberUser
   role: MemberRole | null
   isOwner: boolean
   extraPermissions: string[]

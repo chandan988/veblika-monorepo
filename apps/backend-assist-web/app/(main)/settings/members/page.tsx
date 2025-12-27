@@ -100,8 +100,8 @@ export default function MembersPage() {
 
   const filteredMembers = members.filter((member) => {
     if (!searchQuery) return true
-    const name = member.userId?.name?.toLowerCase() || ""
-    const email = member.userId?.email?.toLowerCase() || ""
+    const name = member.user?.name?.toLowerCase() || ""
+    const email = member.user?.email?.toLowerCase() || ""
     const query = searchQuery.toLowerCase()
     return name.includes(query) || email.includes(query)
   })
@@ -266,16 +266,16 @@ export default function MembersPage() {
               >
                 <div className="flex items-center gap-4">
                   <Avatar className="h-10 w-10">
-                    {member.userId.image && (
-                      <AvatarImage src={member.userId.image} alt={member.userId.name} />
+                    {member.user.image && (
+                      <AvatarImage src={member.user.image} alt={member.user.name} />
                     )}
                     <AvatarFallback className="bg-primary/10 text-primary">
-                      {getInitials(member.userId.name)}
+                      {getInitials(member.user.name)}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{member.userId.name || "Unknown"}</span>
+                      <span className="font-medium">{member.user.name || "Unknown"}</span>
                       {member.isOwner && (
                         <Badge variant="default" className="text-xs">
                           Owner
@@ -287,7 +287,7 @@ export default function MembersPage() {
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">{member.userId.email}</p>
+                    <p className="text-sm text-muted-foreground">{member.user.email}</p>
                   </div>
                 </div>
 
