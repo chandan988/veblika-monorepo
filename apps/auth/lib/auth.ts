@@ -1,30 +1,16 @@
 import { APIError, betterAuth } from "better-auth"
-import { MongoClient, ObjectId } from "mongodb"
+
 import { mongodbAdapter } from "better-auth/adapters/mongodb"
 import { nextCookies } from "better-auth/next-js"
 import { resetPasswordHtml } from "./email/templates/reset-password"
 import { email } from "./email"
 import { verificationEmailHtml } from "./email/templates/verfication-email"
-
-// Lazy initialization - only runs when auth is actually used at runtime
-let client: MongoClient | null = null
-let db: any = null
-
-function getDatabase() {
-  if (!client) {
-    // Use empty string as fallback - will fail at runtime if not set
-    client = new MongoClient(process.env.DATABASE_URL || "")
-    db = client.db()
-  }
-
-  return { client, db }
-}
-
+import { getDatabase } from "./mongodb"
 const from = process.env.DEFAULT_FROM_EMAIL || "no-reply.Veblika.com"
 
 export const auth: ReturnType<typeof betterAuth> = betterAuth({
   trustedOrigins: [
-    "https://*.desk.backendassist.com",
+    "https://*.backendassist.com",
     "http://localhost:*",
   ],
   // advanced: {
