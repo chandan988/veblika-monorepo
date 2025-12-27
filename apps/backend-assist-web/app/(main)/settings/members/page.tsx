@@ -45,21 +45,21 @@ import {
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
 import { Badge } from "@workspace/ui/components/badge"
-import { 
-  MoreHorizontal, 
-  Search, 
-  UserPlus, 
-  Shield, 
-  Trash2, 
+import {
+  MoreHorizontal,
+  Search,
+  UserPlus,
+  Shield,
+  Trash2,
   Settings2,
-  Loader2 
+  Loader2
 } from "lucide-react"
 import { toast } from "sonner"
-import { 
-  useMembers, 
-  useUpdateMemberRole, 
+import {
+  useMembers,
+  useUpdateMemberRole,
   useUpdateMemberPermissions,
-  useRemoveMember 
+  useRemoveMember
 } from "@/hooks/use-members"
 import { useRoles } from "@/hooks/use-roles"
 import { usePermissions } from "@/components/ability-provider"
@@ -70,16 +70,16 @@ export default function MembersPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState("")
-  
+
   // Role change dialog
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false)
   const [selectedMember, setSelectedMember] = useState<Member | null>(null)
   const [selectedRoleId, setSelectedRoleId] = useState<string>("")
-  
+
   // Permissions dialog
   const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false)
   const [selectedExtraPermissions, setSelectedExtraPermissions] = useState<string[]>([])
-  
+
   // Remove dialog
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null)
@@ -88,7 +88,7 @@ export default function MembersPage() {
   const { data: members = [], isLoading, error } = useMembers()
   const { data: roles = [] } = useRoles()
   const { can, isLoaded: permissionsLoaded } = usePermissions()
-  
+
   // Mutation hooks
   const updateRoleMutation = useUpdateMemberRole()
   const updatePermissionsMutation = useUpdateMemberPermissions()
@@ -319,7 +319,7 @@ export default function MembersPage() {
                         {canRemoveMember && (
                           <>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="text-destructive"
                               onClick={() => handleOpenRemoveDialog(member)}
                             >
@@ -405,7 +405,7 @@ export default function MembersPage() {
             <DialogHeader>
               <DialogTitle>Change Role</DialogTitle>
               <DialogDescription>
-                Update the role for {selectedMember?.userId.name}
+                Update the role for {selectedMember?.user?.name}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -431,7 +431,7 @@ export default function MembersPage() {
               <Button variant="outline" onClick={() => setIsRoleDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleUpdateRole}
                 disabled={updateRoleMutation.isPending || !selectedRoleId}
               >
@@ -450,7 +450,7 @@ export default function MembersPage() {
             <DialogHeader>
               <DialogTitle>Extra Permissions</DialogTitle>
               <DialogDescription>
-                Grant additional permissions to {selectedMember?.userId.name} beyond their role
+                Grant additional permissions to {selectedMember?.user?.name} beyond their role
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-6 py-4">
@@ -478,7 +478,7 @@ export default function MembersPage() {
               <Button variant="outline" onClick={() => setIsPermissionsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleUpdatePermissions}
                 disabled={updatePermissionsMutation.isPending}
               >
@@ -497,7 +497,7 @@ export default function MembersPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Remove Member</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to remove {memberToRemove?.userId.name} from your organisation?
+                Are you sure you want to remove {memberToRemove?.user?.name} from your organisation?
                 This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>

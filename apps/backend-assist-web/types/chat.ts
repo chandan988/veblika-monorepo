@@ -4,6 +4,18 @@ export interface Contact {
     email?: string;
 }
 
+export interface Attachment {
+    url?: string; // S3 URL where the file is stored
+    name?: string; // Original filename
+    type?: string; // MIME type
+    size?: number; // File size in bytes
+    attachmentId?: string; // Gmail attachment ID
+    s3Key?: string; // S3 object key
+    thumbnailUrl?: string; // Thumbnail URL for images
+    isImage?: boolean; // Quick check for image type
+    isDownloaded?: boolean; // Whether attachment has been downloaded to S3
+}
+
 export interface Message {
     _id: string;
     senderType: "contact" | "agent" | "bot" | "system";
@@ -12,6 +24,7 @@ export interface Message {
         text?: string;
         html?: string;
     };
+    attachments?: Attachment[];
     createdAt?: string;
     status?: string;
 }

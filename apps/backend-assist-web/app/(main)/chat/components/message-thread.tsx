@@ -203,17 +203,7 @@ export function MessageThread({
               <div className="bg-primary/10 text-primary px-3 py-1.5 rounded text-sm font-medium">
                 Chat Completed
               </div>
-              <span className="text-sm text-muted-foreground">
-                Ended by Jatin Budhori when visitor was online
-              </span>
-              <button className="text-sm text-primary font-medium hover:underline">
-                Show details
-              </button>
             </div>
-
-            <button className="flex items-center gap-2 text-sm text-foreground hover:text-foreground/80 font-medium">
-              <span className="text-lg">✉️</span> Reply via Email
-            </button>
           </div>
         ) : (
           <MessageInput

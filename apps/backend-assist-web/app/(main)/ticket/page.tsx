@@ -27,6 +27,7 @@ import { useSession } from "@/hooks/useSession"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/services/api"
 import { cn } from "@workspace/ui/lib/utils"
+import { toast } from "sonner"
 import {
   TicketListItem,
   TicketListSkeleton,
@@ -72,7 +73,6 @@ export default function TicketPage() {
 
   // Filter states
   const [agentsFilter, setAgentsFilter] = useState<string>("")
-  const [groupsFilter, setGroupsFilter] = useState<string[]>(["my-groups"])
   const [sentimentFilter, setSentimentFilter] = useState<string>("")
   const [createdFilter, setCreatedFilter] = useState<string>("")
   const [closedAtFilter, setClosedAtFilter] = useState<string>("")
@@ -207,18 +207,29 @@ export default function TicketPage() {
       bcc?: string
     }) => {
       if (!selectedConversation?.integrationId) throw new Error('No integration found')
-      return api.post(`/integrations/gmail/${selectedConversation.integrationId}/send`, payload)
+      // Handle both string and object integrationId
+      const integrationId = typeof selectedConversation.integrationId === 'object'
+        ? (selectedConversation.integrationId as any)?._id
+        : selectedConversation.integrationId
+
+      if (!integrationId) throw new Error('Invalid integration ID')
+
+      return api.post(`/integrations/gmail/${integrationId}/send`, payload)
     },
     onSuccess: () => {
+      toast.success("Email sent successfully!", {
+        description: "Your email has been delivered",
+      })
       queryClient.invalidateQueries({ queryKey: ["messages", selectedConversationId] })
       queryClient.invalidateQueries({ queryKey: ["conversations"] })
     },
+    onError: (error: any) => {
+      toast.error("Failed to send email", {
+        description: error?.response?.data?.error || error.message || "Please try again",
+      })
+    },
   })
 
-  const handleSend = () => {
-    if (!selectedConversationId || !replyText.trim()) return
-    sendMutation.mutate({ text: replyText })
-  }
 
   const handleSendEmail = (data: {
     to: string
@@ -234,11 +245,6 @@ export default function TicketPage() {
     sendEmailMutation.mutate(data)
   }
 
-  const removeGroupFilter = (group: string) => {
-    setGroupsFilter(groupsFilter.filter(g => g !== group))
-  }
-
-  const hasActiveFilters = agentsFilter || groupsFilter.length > 0 || sentimentFilter || createdFilter || closedAtFilter || resolvedAtFilter
 
   const showAppliedFilters = () => {
     setShowFilters(!showFilters)
@@ -247,7 +253,6 @@ export default function TicketPage() {
   const applyFilters = () => {
     console.log("Applying filters:", {
       agentsFilter,
-      groupsFilter,
       sentimentFilter,
       createdFilter,
       closedAtFilter,
@@ -453,31 +458,6 @@ export default function TicketPage() {
                   <SelectItem value="unassigned">Unassigned</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* Groups Include */}
-            <div className="space-y-2">
-              <label className="text-sm text-foreground flex items-center gap-1">
-                Groups include
-                <ChevronDown className="h-3 w-3 text-muted-foreground" />
-              </label>
-              <div className="flex flex-wrap gap-2 p-2 border border-border rounded-md bg-background min-h-[38px]">
-                {groupsFilter.map((group) => (
-                  <Badge
-                    key={group}
-                    variant="secondary"
-                    className="flex items-center gap-1 bg-accent text-accent-foreground"
-                  >
-                    My Groups
-                    <button
-                      onClick={() => removeGroupFilter(group)}
-                      className="ml-1 hover:bg-muted rounded-full"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
             </div>
 
             {/* Sentiment */}

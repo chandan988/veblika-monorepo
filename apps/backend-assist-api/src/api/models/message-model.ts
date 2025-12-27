@@ -15,11 +15,15 @@ export type MessageContentType = "text" | "html" | "markdown"
 export type MessageStatus = "sent" | "delivered" | "read" | "failed" | "pending"
 
 export interface IAttachment {
-  url?: string
-  name?: string
-  type?: string
-  size?: number
-  attachmentId?: string
+  url?: string // S3 URL where the file is stored
+  name?: string // Original filename
+  type?: string // MIME type
+  size?: number // File size in bytes
+  attachmentId?: string // Gmail attachment ID (for downloading if needed)
+  s3Key?: string // S3 object key for direct access
+  thumbnailUrl?: string // Thumbnail URL for images
+  isImage?: boolean // Quick check for image type
+  isDownloaded?: boolean // Whether attachment has been downloaded to S3
 }
 
 export interface IMessage extends Document {
@@ -66,6 +70,20 @@ const attachmentSchema = new Schema<IAttachment>(
     },
     attachmentId: {
       type: String,
+    },
+    s3Key: {
+      type: String,
+    },
+    thumbnailUrl: {
+      type: String,
+    },
+    isImage: {
+      type: Boolean,
+      default: false,
+    },
+    isDownloaded: {
+      type: Boolean,
+      default: false,
     },
   },
   { _id: false }

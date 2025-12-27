@@ -31,6 +31,7 @@ import {
   Monitor,
   ChevronDown,
   Loader2,
+  Paperclip,
 } from "lucide-react"
 import { TicketThread } from "./ticket-thread"
 import { TicketEmailComposer } from "./ticket-email-composer"
@@ -92,7 +93,7 @@ export function TicketDetailSheet({
   isSending,
   hasNextPage = false,
   isFetchingNextPage = false,
-  fetchNextPage = () => {},
+  fetchNextPage = () => { },
 }: TicketDetailSheetProps) {
   const [activeTab, setActiveTab] = useState("conversation")
   const [showComposer, setShowComposer] = useState(false)
@@ -130,6 +131,13 @@ export function TicketDetailSheet({
   const openComposer = (mode: "reply" | "replyAll" | "forward") => {
     setComposerMode(mode)
     setShowComposer(true)
+  }
+
+  // Format file size helper
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
   if (!ticket) return null
@@ -292,8 +300,8 @@ export function TicketDetailSheet({
             value="conversation"
             className="flex-1 m-0 overflow-hidden"
           >
-            <TicketThread 
-              messages={messages} 
+            <TicketThread
+              messages={messages}
               isLoading={messagesLoading}
               hasNextPage={hasNextPage}
               isFetchingNextPage={isFetchingNextPage}
@@ -314,9 +322,92 @@ export function TicketDetailSheet({
           </TabsContent>
 
           <TabsContent value="attachment" className="flex-1 m-0 p-4">
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              No attachments found
-            </div>
+            {(() => {
+              // Extract all attachments from messages
+              const allAttachments = messages
+                .filter(m => m.attachments && m.attachments.length > 0)
+                .flatMap((m, msgIdx) =>
+                  (m.attachments || []).map((att: any, attIdx: number) => ({
+                    ...att,
+                    messageId: m._id,
+                    messageDate: m.createdAt,
+                    key: `${msgIdx}-${attIdx}`
+                  }))
+                )
+
+              if (allAttachments.length === 0) {
+                return (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    No attachments found
+                  </div>
+                )
+              }
+
+              return (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-foreground">
+                    {allAttachments.length} Attachment{allAttachments.length !== 1 ? 's' : ''}
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {allAttachments.map((attachment) => {
+                      const isImage = attachment.type?.startsWith('image/')
+                      const hasUrl = !!attachment.url
+
+                      if (isImage && hasUrl) {
+                        return (
+                          <a
+                            key={attachment.key}
+                            href={attachment.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="relative group overflow-hidden rounded-lg border border-border hover:border-primary/50 transition-colors"
+                          >
+                            <img
+                              src={attachment.url}
+                              alt={attachment.name || "Image"}
+                              className="w-full h-40 object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                              <span className="text-white text-sm opacity-0 group-hover:opacity-100 font-medium">
+                                Click to view full size
+                              </span>
+                            </div>
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white p-2">
+                              <p className="text-xs truncate">{attachment.name}</p>
+                            </div>
+                          </a>
+                        )
+                      }
+
+                      return (
+                        <a
+                          key={attachment.key}
+                          href={hasUrl ? attachment.url : "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={attachment.name}
+                          className={`flex items-center gap-3 p-3 bg-muted rounded-lg transition-colors ${hasUrl ? 'hover:bg-accent cursor-pointer' : 'cursor-not-allowed opacity-60'
+                            }`}
+                        >
+                          <div className="p-2 bg-background rounded">
+                            <Paperclip className="h-5 w-5 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {attachment.name || "Unnamed file"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {attachment.size ? formatFileSize(attachment.size) : "Unknown size"}
+                              {!hasUrl && " • Not available"}
+                            </p>
+                          </div>
+                        </a>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
           </TabsContent>
 
           <TabsContent value="activity" className="flex-1 m-0 p-4">
@@ -331,29 +422,6 @@ export function TicketDetailSheet({
             </div>
           </TabsContent>
         </Tabs>
-
-        {/* Footer Actions */}
-        <div className="border-t border-border p-4 shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Settings2 className="h-4 w-4" />
-                Apply Macro
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Monitor className="h-4 w-4" />
-                Remote Assist
-              </Button>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-            >
-              Remote Assist
-            </Button>
-          </div>
-        </div>
       </SheetContent>
     </Sheet>
   )

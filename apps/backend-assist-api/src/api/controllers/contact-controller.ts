@@ -59,30 +59,60 @@ export const contactController = {
    */
   createContact: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { orgId, name, email, phone, slackId, whatsappId, source } = req.body
+      const { orgId, name, email, phone, source } = req.body
 
+      // Validate required fields
       if (!orgId) {
         return res.status(400).json({
           success: false,
-          message: "orgId is required",
+          message: "Organization ID is required",
         })
       }
 
-      if (!email) {
+      if (!email || !email.trim()) {
         return res.status(400).json({
           success: false,
-          message: "email is required",
+          message: "Email is required",
         })
       }
 
-      if (!phone) {
+      if (!phone || !phone.trim()) {
         return res.status(400).json({
           success: false,
-          message: "phone is required",
+          message: "Phone number is required",
         })
       }
 
-      const existingContact = await Contact.findOne({ orgId, email })
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      const trimmedEmail = email.toLowerCase().trim()
+      if (!emailRegex.test(trimmedEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid email format",
+        })
+      }
+
+      // Validate phone format (basic validation)
+      const trimmedPhone = phone.trim()
+      if (trimmedPhone.length < 10) {
+        return res.status(400).json({
+          success: false,
+          message: "Phone number must be at least 10 characters",
+        })
+      }
+
+      // Validate source if provided
+      const validSources = ["gmail", "webchat"]
+      if (source && !validSources.includes(source.toLowerCase())) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid source. Valid sources are: gmail, webchat",
+        })
+      }
+
+      // Check for existing contact
+      const existingContact = await Contact.findOne({ orgId, email: trimmedEmail })
       if (existingContact) {
         return res.status(409).json({
           success: false,
@@ -90,14 +120,13 @@ export const contactController = {
         })
       }
 
+      // Create contact
       const contact = await Contact.create({
         orgId,
-        name: name?.trim(),
-        email: email.toLowerCase().trim(),
-        phone: phone.trim(),
-        slackId: slackId?.trim(),
-        whatsappId: whatsappId?.trim(),
-        source: source?.trim(),
+        name: name?.trim() || "",
+        email: trimmedEmail,
+        phone: trimmedPhone,
+        source: source?.toLowerCase().trim() || "",
       })
 
       logger.info(`Contact created: ${contact._id} for org: ${orgId}`)
@@ -127,7 +156,7 @@ export const contactController = {
   updateContact: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params
-      const { name, email, phone, slackId, whatsappId, source } = req.body
+      const { name, email, phone, source } = req.body
 
       const contact = await Contact.findById(id)
       if (!contact) {
@@ -137,12 +166,60 @@ export const contactController = {
         })
       }
 
+      // Validate email format if provided
+      if (email !== undefined) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        const trimmedEmail = email.toLowerCase().trim()
+        
+        if (!emailRegex.test(trimmedEmail)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid email format",
+          })
+        }
+
+        // Check if email is already used by another contact in the same org
+        const existingContact = await Contact.findOne({ 
+          orgId: contact.orgId, 
+          email: trimmedEmail,
+          _id: { $ne: id }
+        })
+        
+        if (existingContact) {
+          return res.status(409).json({
+            success: false,
+            message: "A contact with this email already exists in your organization",
+          })
+        }
+        
+        contact.email = trimmedEmail
+      }
+
+      // Validate phone if provided
+      if (phone !== undefined) {
+        const trimmedPhone = phone.trim()
+        if (trimmedPhone.length < 10) {
+          return res.status(400).json({
+            success: false,
+            message: "Phone number must be at least 10 characters",
+          })
+        }
+        contact.phone = trimmedPhone
+      }
+
+      // Validate source if provided
+      if (source !== undefined) {
+        const validSources = ["gmail", "webchat"]
+        if (source && !validSources.includes(source.toLowerCase())) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid source. Valid sources are: gmail, webchat",
+          })
+        }
+        contact.source = source.toLowerCase().trim()
+      }
+
       if (name !== undefined) contact.name = name.trim()
-      if (email !== undefined) contact.email = email.toLowerCase().trim()
-      if (phone !== undefined) contact.phone = phone.trim()
-      if (slackId !== undefined) contact.slackId = slackId.trim()
-      if (whatsappId !== undefined) contact.whatsappId = whatsappId.trim()
-      if (source !== undefined) contact.source = source.trim()
 
       await contact.save()
 
