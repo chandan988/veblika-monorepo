@@ -246,30 +246,66 @@ export function TicketThread({
                 {/* Attachments */}
                 {message.attachments && message.attachments.length > 0 && (
                   <div className="mt-4 space-y-2">
-                    <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                    <p className="text-xs text-muted-foreground font-medium flex items-center gap-1 mb-2">
                       <Paperclip className="h-3 w-3" />
                       Attachments ({message.attachments.length})
                     </p>
-                    <div className="flex flex-wrap gap-2">
-                      {message.attachments.map((attachment, idx) => (
-                        <a
-                          key={idx}
-                          href={attachment.url || "#"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted hover:bg-accent rounded-md text-xs text-foreground transition-colors"
-                        >
-                          <Paperclip className="h-3 w-3" />
-                          <span className="truncate max-w-[150px]">
-                            {attachment.name || "Attachment"}
-                          </span>
-                          {attachment.size && (
-                            <span className="text-muted-foreground">
-                              ({formatFileSize(attachment.size)})
-                            </span>
-                          )}
-                        </a>
-                      ))}
+                    <div className="grid grid-cols-2 gap-2">
+                      {message.attachments.map((attachment, idx) => {
+                        const isImage = attachment.type?.startsWith('image/')
+                        const hasUrl = !!attachment.url
+                        
+                        // Image attachment with preview
+                        if (isImage && hasUrl) {
+                          return (
+                            <a
+                              key={idx}
+                              href={attachment.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="relative group overflow-hidden rounded-lg border border-border hover:border-primary/50 transition-colors"
+                            >
+                              <img
+                                src={attachment.url}
+                                alt={attachment.name || "Image"}
+                                className="w-full h-32 object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                <span className="text-white text-xs opacity-0 group-hover:opacity-100 font-medium">
+                                  Click to view
+                                </span>
+                              </div>
+                            </a>
+                          )
+                        }
+                        
+                        // File attachment
+                        return (
+                          <a
+                            key={idx}
+                            href={hasUrl ? attachment.url : "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download={attachment.name}
+                            className={`inline-flex items-center gap-2 px-3 py-2 bg-muted rounded-lg text-xs text-foreground transition-colors ${
+                              hasUrl ? 'hover:bg-accent cursor-pointer' : 'cursor-not-allowed opacity-60'
+                            }`}
+                          >
+                            <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="truncate font-medium">
+                                {attachment.name || "Attachment"}
+                              </p>
+                              {attachment.size && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  {formatFileSize(attachment.size)}
+                                  {!hasUrl && " • Not available"}
+                                </p>
+                              )}
+                            </div>
+                          </a>
+                        )
+                      })}
                     </div>
                   </div>
                 )}

@@ -42,7 +42,7 @@ export function OrganisationSwitcher() {
             .slice(0, 2)
     }
 
-    const getRoleBadgeColor = (role: string) => {
+    const getRoleBadgeColor = (role?: string) => {
         switch (role) {
             case "owner":
                 return "bg-amber-500/10 text-amber-500"
@@ -122,10 +122,10 @@ export function OrganisationSwitcher() {
                             <div className="flex items-center gap-2">
                                 <span
                                     className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize ${getRoleBadgeColor(
-                                        org.role
+                                        org.isOwner ? "owner" : org.role?.slug
                                     )}`}
                                 >
-                                    {org.role}
+                                    {org.isOwner ? "Owner" : org.role?.name || "Member"}
                                 </span>
                                 {activeOrganisation?._id === org._id && (
                                     <Check className="h-4 w-4 text-primary" />

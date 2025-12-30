@@ -6,6 +6,8 @@ const startServer = async () => {
   try {
     const {httpServer, io } = await createApp()
 
+    console.log(config)
+
     httpServer.listen(config.port, () => {
       logger.info(`
 ╔════════════════════════════════════════════════════════╗

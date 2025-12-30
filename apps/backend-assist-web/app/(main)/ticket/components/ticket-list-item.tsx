@@ -1,6 +1,6 @@
 "use client"
 
-import { Avatar, AvatarFallback } from "@workspace/ui/components/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@workspace/ui/components/avatar"
 import { Badge } from "@workspace/ui/components/badge"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Button } from "@workspace/ui/components/button"
@@ -18,6 +18,8 @@ import {
     ChevronDown,
 } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
+import { StatusDropdown } from "@/components/status-dropdown"
+import { AssignmentDropdown } from "@/components/assignment-dropdown"
 
 interface TicketListItemProps {
     ticket: {
@@ -29,7 +31,8 @@ interface TicketListItemProps {
             name?: string
             email?: string
         }
-        status?: string
+        status?: "open" | "pending" | "closed"
+        assignedMemberId?: string | null
         lastMessageAt?: string
         createdAt?: string
     }
@@ -37,6 +40,8 @@ interface TicketListItemProps {
     isChecked?: boolean
     onSelect: () => void
     onCheck?: (checked: boolean) => void
+    onStatusChange?: (status: "open" | "pending" | "closed") => void
+    onAssignmentChange?: (memberId: string | null) => void
     latestMessage?: string
 }
 
@@ -46,6 +51,8 @@ export function TicketListItem({
     isChecked,
     onSelect,
     onCheck,
+    onStatusChange,
+    onAssignmentChange,
     latestMessage,
 }: TicketListItemProps) {
     const formatTime = (dateString?: string) => {
@@ -137,47 +144,27 @@ export function TicketListItem({
                     {/* Right side - Always visible */}
                     <div className="flex items-center gap-3 shrink-0">
                         {/* Status Badge */}
-                        <Badge
-                            variant="outline"
-                            className={cn(
-                                "text-xs cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap",
-                                ticket.status === "open" && "border-primary text-primary bg-primary/10",
-                                ticket.status === "pending" && "border-yellow-500 text-yellow-600 bg-yellow-50 dark:bg-yellow-500/10",
-                                ticket.status === "closed" && "border-muted text-muted-foreground"
-                            )}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {ticket.status || "Open"}
-                            <ChevronDown className="h-3 w-3" />
-                        </Badge>
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <StatusDropdown
+                                status={ticket.status || "open"}
+                                onStatusChange={(status) => onStatusChange?.(status)}
+                                variant="badge"
+                            />
+                        </div>
 
-                        {/* Comment Icons */}
-                        <div className="flex items-center gap-1 text-muted-foreground shrink-0">
-                            <button
-                                className="p-1 hover:bg-accent rounded transition-colors"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <Copy className="h-4 w-4" />
-                            </button>
-                            <button
-                                className="p-1 hover:bg-accent rounded transition-colors"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <MessageSquare className="h-4 w-4" />
-                            </button>
+                        {/* Assignment */}
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <AssignmentDropdown
+                                assignedMemberId={ticket.assignedMemberId}
+                                onAssign={(memberId) => onAssignmentChange?.(memberId)}
+                                compact
+                            />
                         </div>
 
                         {/* Time */}
                         <span className="text-xs text-muted-foreground whitespace-nowrap min-w-[60px] text-right">
                             {formatTime(ticket.lastMessageAt)}
                         </span>
-
-                        {/* Right Avatar */}
-                        <Avatar className="h-8 w-8 bg-muted shrink-0">
-                            <AvatarFallback className="bg-muted text-muted-foreground text-xs">
-                                {ticket.contactId?.name?.[0]?.toUpperCase() || "U"}
-                            </AvatarFallback>
-                        </Avatar>
                     </div>
                 </div>
             </HoverCardTrigger>

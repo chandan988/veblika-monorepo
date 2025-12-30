@@ -5,8 +5,6 @@ export interface IContact extends Document {
   name?: string
   email: string
   phone: string
-  slackId: string
-  whatsappId?: string
   source?: string
 }
 
@@ -31,15 +29,11 @@ const contactSchema = new Schema<IContact>(
       type: String,
       trim: true,
     },
-    slackId: {
-      type: String,
-    },
-    whatsappId: {
-      type: String,
-    },
     source: {
       type: String,
       trim: true,
+      lowercase: true,
+      enum: ["gmail", "webchat", ""],
     },
   },
   {

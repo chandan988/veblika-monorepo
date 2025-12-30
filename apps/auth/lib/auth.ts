@@ -1,34 +1,16 @@
-import { APIError, betterAuth } from "better-auth"
-import { MongoClient, ObjectId } from "mongodb"
+import { betterAuth } from "better-auth"
+import { createAuthMiddleware, APIError } from "better-auth/api"
+
 import { mongodbAdapter } from "better-auth/adapters/mongodb"
 import { nextCookies } from "better-auth/next-js"
 import { resetPasswordHtml } from "./email/templates/reset-password"
 import { email } from "./email"
 import { verificationEmailHtml } from "./email/templates/verfication-email"
-
-// Lazy initialization - only runs when auth is actually used at runtime
-let client: MongoClient | null = null
-let db: any = null
-
-function getDatabase() {
-  if (!client) {
-    // Use empty string as fallback - will fail at runtime if not set
-    client = new MongoClient(process.env.DATABASE_URL || "")
-    db = client.db()
-  }
-  
-  return { client, db }
-}
-
+import { getDatabase } from "./mongodb"
 const from = process.env.DEFAULT_FROM_EMAIL || "no-reply.Veblika.com"
 
 export const auth: ReturnType<typeof betterAuth> = betterAuth({
-  trustedOrigins: [
-    "https://*.veblika.com",
-    "https://support.veblika.com",
-    "https://auth.veblika.com",
-    "http://localhost:*",
-  ],
+  trustedOrigins: ["https://*.backendassist.com", "http://localhost:*"],
   // advanced: {
   //   crossSubDomainCookies: {
   //           enabled: true,
@@ -41,7 +23,8 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
   advanced: {
     crossSubDomainCookies: {
       enabled: true,
-      domain: process.env.NODE_ENV === "production" ? "veblika.com" : undefined,
+      domain:
+        process.env.NODE_ENV === "production" ? "backendassist.com" : undefined,
     },
     // defaultCookieAttributes: {
     //   secure: true,
@@ -61,7 +44,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
       role: {
         type: "string",
         required: true,
-        defaultValue: "user",
+        defaultValue: "admin",
       },
     },
   },
@@ -69,7 +52,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
     enabled: true,
     minPasswordLength: 4,
     maxPasswordLength: 20,
-    requireEmailVerification: true,
+    requireEmailVerification: false,
     sendResetPassword: async ({ user, url }) => {
       await email.sendEmail({
         from,
@@ -90,6 +73,33 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
       })
     },
   },
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/sign-up/email") {
+        return
+      }
+      const host = ctx.headers?.get("host")
+      console.log(host, "Host manual sign-up")
+      const reseller = await getDatabase()
+        .db.collection("reseller")
+        .findOne({ host: host })
+      if (!reseller) {
+        throw new APIError("NOT_ACCEPTABLE", {
+          message: "Reseller not found for the given host",
+        })
+      }
+      return {
+        context: {
+          ...ctx,
+          body: {
+            ...ctx.body,
+            resellerId: reseller._id.toString(),
+          },
+        },
+      }
+    }),
+  },
+
   databaseHooks: {
     user: {
       create: {
@@ -101,8 +111,9 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
           }
 
           const host = ctx.headers?.get("host")
-          const reseller = await getDatabase().db
-            .collection("reseller")
+          console.log(host, "Host")
+          const reseller = await getDatabase()
+            .db.collection("reseller")
             .findOne({ host: host })
           if (!reseller) {
             throw new APIError("NOT_ACCEPTABLE", {

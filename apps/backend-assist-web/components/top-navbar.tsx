@@ -28,6 +28,7 @@ const menuItems = [
   { name: "Contacts", href: "/contacts" },
   { name: "Integrations", href: "/integrations" },
   { name: "Knowledge Base", href: "/knowledge-base" },
+  { name: "Settings", href: "/settings" },
 ]
 
 const LOGO =

@@ -131,8 +131,10 @@ export const useCreateOrganisation = () => {
         onSuccess: (data) => {
             const orgWithRole: Organisation = {
                 ...data.organisation,
-                role: data.member.role as "owner" | "admin" | "member",
+                role: null, // Will be populated on next fetch
+                isOwner: data.member.role === "owner",
                 memberId: data.member._id,
+                extraPermissions: [],
             }
             addOrganisation(orgWithRole)
             setActiveOrganisation(orgWithRole)

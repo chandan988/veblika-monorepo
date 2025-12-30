@@ -12,12 +12,16 @@ import integrationGmailRoutes from "../api/routes/integration-gmail-routes"
 import gmailWebhookRoutes from "../api/routes/gmail-webhook-routes"
 import contactRoutes from "../api/routes/contact-routes"
 import organisationRoutes from "../api/routes/organisation-routes"
+import roleRoutes from "../api/routes/role-routes"
+import memberRoutes from "../api/routes/member-routes"
 
 export const routesLoader = (app: Express): void => {
   const router = Router()
 
   // API routes
   router.use("/organisations", organisationRoutes)
+  router.use("/organisations/:organisationId/roles", roleRoutes)
+  router.use("/organisations/:organisationId/members", memberRoutes)
   router.use("/integrations", integrationRoutes)
   router.use("/integrations/gmail", integrationGmailRoutes)
   router.use("/widget", widgetRoutes)

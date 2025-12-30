@@ -22,16 +22,19 @@ import {
 } from "lucide-react"
 import type { Conversation } from "@/types/chat"
 import { cn } from "@workspace/ui/lib/utils"
+import { AssignmentDropdown } from "@/components/assignment-dropdown"
 
 interface ChatHeaderProps {
-  conversation: Conversation
+  conversation: Conversation & { assignedMemberId?: string | null }
   onStatusChange?: (status: "open" | "pending" | "closed") => void
+  onAssignmentChange?: (memberId: string | null) => void
   onClose?: () => void
 }
 
 export function ChatHeader({
   conversation,
   onStatusChange,
+  onAssignmentChange,
   onClose,
 }: ChatHeaderProps) {
   const getStatusStyles = (status: string) => {
@@ -80,16 +83,12 @@ export function ChatHeader({
       </div>
 
       <div className="flex items-center gap-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden md:block">
-            <p className="text-xs font-medium text-foreground">Sanchit Ratra</p>
-          </div>
-          <Avatar className="h-8 w-8 shrink-0 border border-border/50">
-            <AvatarFallback className="bg-muted text-muted-foreground text-xs">
-              SR
-            </AvatarFallback>
-          </Avatar>
-        </div>
+        {/* Assignment Dropdown */}
+        <AssignmentDropdown
+          assignedMemberId={conversation.assignedMemberId}
+          onAssign={(memberId) => onAssignmentChange?.(memberId)}
+          compact
+        />
 
         {/* More options dropdown */}
         <DropdownMenu>
