@@ -3,55 +3,51 @@ import mongoose, { Document, Schema } from "mongoose"
 export type InvitationStatus = "pending" | "accepted" | "rejected" | "expired"
 
 export interface IInvitation extends Document {
-  organizationId: string
-  teamId?: string
   email: string
-  role: string | string[]
-  status: InvitationStatus
-  inviterId: string
+  orgId: mongoose.Types.ObjectId
+  roleId: string
+  invitedBy: mongoose.Types.ObjectId // memberId
+  status: "pending" | "accepted" | "expired"
+  userExists: boolean
   expiresAt: Date
   createdAt: Date
-  updatedAt: Date
+  acceptedAt?: Date
 }
 
 const invitationSchema = new Schema<IInvitation>(
   {
-    organizationId: {
-      type: String,
+    orgId: {
+      type: Schema.Types.ObjectId,
       required: true,
       ref: "organization",
-      index: true,
-    },
-    teamId: {
-      type: String,
     },
     email: {
       type: String,
       required: true,
       lowercase: true,
       trim: true,
-      index: true,
     },
-    role: {
-      type: Schema.Types.Mixed,
+    roleId: {
+      type: String,
       required: true,
-      default: "member",
+    },
+    invitedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "member",
+      required: true,
     },
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected", "expired"],
-      default: "pending",
-      index: true,
     },
-    inviterId: {
-      type: String,
-      required: true,
-      ref: "user",
+    userExists: {
+      type: Boolean,
     },
     expiresAt: {
       type: Date,
       required: true,
-      index: true,
+    },
+    acceptedAt: {
+      type: Date,
     },
   },
   {
@@ -60,8 +56,7 @@ const invitationSchema = new Schema<IInvitation>(
   }
 )
 
-invitationSchema.index({ organizationId: 1, email: 1, status: 1 })
-invitationSchema.index({ email: 1, status: 1 })
-invitationSchema.index({ expiresAt: 1 })
-
-export const Invitation = mongoose.model<IInvitation>("invitation", invitationSchema)
+export const Invitation = mongoose.model<IInvitation>(
+  "invitation",
+  invitationSchema
+)
