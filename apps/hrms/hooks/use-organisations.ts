@@ -23,7 +23,9 @@ async function fetchOrganisations(params: OrganisationParams) {
 }
 
 async function fetchOrganisationById(id: string) {
+  console.log("Fetching organisation with ID:", id);
   const res = await fetch(`/api/organisation/${id}`);
+  console.log("Response status:", res.status);
   if (!res.ok) throw new Error("Failed to fetch organisation");
   return res.json();
 }
@@ -86,6 +88,7 @@ export function useOrganisations(params: OrganisationParams = {}) {
 }
 
 export function useOrganisation(id: string) {
+  console.log("useOrganisation ID:", id);
   return useQuery({
     queryKey: ["organisation", id],
     queryFn: () => fetchOrganisationById(id),

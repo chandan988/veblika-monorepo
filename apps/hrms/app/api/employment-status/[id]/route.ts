@@ -1,101 +1,84 @@
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
-import Organisation from "@/app/models/organisation";
+import connectDB from "@/lib/db";
+import EmploymentStatus from "@/app/models/employmentStatus";
 
-// GET - Get a single organisation by ID
+// GET - Get a single employmentStatus by ID
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await connectDB();
         const { id } = await params;
-      
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return NextResponse.json(
-                { success: false, error: "Invalid organisation ID" },
+                { success: false, error: "Invalid employment Status ID" },
                 { status: 400 }
             );
         }
 
-        const organisation = await Organisation.findById(id);
+        const employmentStatus = await EmploymentStatus.findById(id);
 
-        if (!organisation) {
+        if (!employmentStatus) {
             return NextResponse.json(
-                { success: false, error: "Organisation not found" },
+                { success: false, error: "Employment Status not found" },
                 { status: 404 }
             );
         }
 
         return NextResponse.json({
             success: true,
-            data: organisation,
+            data: employmentStatus,
         });
     } catch (error: any) {
+        console.error("Error fetching employment Status:", error);
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to fetch organisation" },
+            { success: false, error: error.message || "Failed to fetch employmentStatus" },
             { status: 500 }
         );
     }
 }
 
-// PATCH - Update an organisation
+// PATCH - Update a employmentStatus
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await connectDB();
         const { id } = await params;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return NextResponse.json(
-                { success: false, error: "Invalid organisation ID" },
+                { success: false, error: "Invalid employment Status ID" },
                 { status: 400 }
             );
         }
 
         const body = await request.json();
 
-        // Check if email is being updated and if it already exists
-        if (body.email) {
-            const existingOrg = await Organisation.findOne({
-                _id: { $ne: id },
-            });
-
-            if (existingOrg) {
-                return NextResponse.json(
-                    { success: false, error: "Organisation  already exists" },
-                    { status: 400 }
-                );
-            }
-        }
-
-        const organisation = await Organisation.findByIdAndUpdate(
+        const employmentStatus = await EmploymentStatus.findByIdAndUpdate(
             id,
             { $set: body },
             { new: true, runValidators: true }
         ).select("-__v");
 
-        if (!organisation) {
+        if (!employmentStatus) {
             return NextResponse.json(
-                { success: false, error: "Organisation not found" },
+                { success: false, error: "Employment Status not found" },
                 { status: 404 }
             );
         }
 
         return NextResponse.json({
             success: true,
-            data: organisation,
-            message: "Organisation updated successfully",
+            data: employmentStatus,
+            message: "Employment Status updated successfully",
         });
     } catch (error: any) {
-
-        if (error.code === 11000) {
-            return NextResponse.json(
-                { success: false, error: "Organisation with this email already exists" },
-                { status: 400 }
-            );
-        }
+        console.error("Error updating employmentStatus:", error);
 
         if (error.name === "ValidationError") {
             return NextResponse.json(
@@ -105,44 +88,46 @@ export async function PATCH(
         }
 
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to update organisation" },
+            { success: false, error: error.message || "Failed to update employment Status" },
             { status: 500 }
         );
     }
 }
 
-// DELETE - Delete an organisation
+// DELETE - Delete a employmentStatus
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await connectDB();
         const { id } = await params;
         
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return NextResponse.json(
-                { success: false, error: "Invalid organisation ID" },
+                { success: false, error: "Invalid employment Status ID" },
                 { status: 400 }
             );
         }
 
-        const organisation = await Organisation.findByIdAndDelete(id);
+        const employmentStatus = await EmploymentStatus.findByIdAndDelete(id);
 
-        if (!organisation) {
+        if (!employmentStatus) {
             return NextResponse.json(
-                { success: false, error: "Organisation not found" },
+                { success: false, error: "Employment Status not found" },
                 { status: 404 }
             );
         }
 
         return NextResponse.json({
             success: true,
-            message: "Organisation deleted successfully",
-            data: organisation,
+            message: "Employment Status deleted successfully",
+            data: employmentStatus,
         });
     } catch (error: any) {
+        console.error("Error deleting employment Status:", error);
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to delete organisation" },
+            { success: false, error: error.message || "Failed to delete employment Status" },
             { status: 500 }
         );
     }

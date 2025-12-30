@@ -1,101 +1,84 @@
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
-import Organisation from "@/app/models/organisation";
+import connectDB from "@/lib/db";
+import Designation from "@/app/models/designation";
 
-// GET - Get a single organisation by ID
+// GET - Get a single designation by ID
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await connectDB();
         const { id } = await params;
-      
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return NextResponse.json(
-                { success: false, error: "Invalid organisation ID" },
+                { success: false, error: "Invalid designation ID" },
                 { status: 400 }
             );
         }
 
-        const organisation = await Organisation.findById(id);
+        const designation = await Designation.findById(id);
 
-        if (!organisation) {
+        if (!designation) {
             return NextResponse.json(
-                { success: false, error: "Organisation not found" },
+                { success: false, error: "Designation not found" },
                 { status: 404 }
             );
         }
 
         return NextResponse.json({
             success: true,
-            data: organisation,
+            data: designation,
         });
     } catch (error: any) {
+        console.error("Error fetching designation:", error);
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to fetch organisation" },
+            { success: false, error: error.message || "Failed to fetch designation" },
             { status: 500 }
         );
     }
 }
 
-// PATCH - Update an organisation
+// PATCH - Update a designation
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await connectDB();
         const { id } = await params;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return NextResponse.json(
-                { success: false, error: "Invalid organisation ID" },
+                { success: false, error: "Invalid designation ID" },
                 { status: 400 }
             );
         }
 
         const body = await request.json();
 
-        // Check if email is being updated and if it already exists
-        if (body.email) {
-            const existingOrg = await Organisation.findOne({
-                _id: { $ne: id },
-            });
-
-            if (existingOrg) {
-                return NextResponse.json(
-                    { success: false, error: "Organisation  already exists" },
-                    { status: 400 }
-                );
-            }
-        }
-
-        const organisation = await Organisation.findByIdAndUpdate(
+        const designation = await Designation.findByIdAndUpdate(
             id,
             { $set: body },
             { new: true, runValidators: true }
         ).select("-__v");
 
-        if (!organisation) {
+        if (!designation) {
             return NextResponse.json(
-                { success: false, error: "Organisation not found" },
+                { success: false, error: "Designation not found" },
                 { status: 404 }
             );
         }
 
         return NextResponse.json({
             success: true,
-            data: organisation,
-            message: "Organisation updated successfully",
+            data: designation,
+            message: "Designation updated successfully",
         });
     } catch (error: any) {
-
-        if (error.code === 11000) {
-            return NextResponse.json(
-                { success: false, error: "Organisation with this email already exists" },
-                { status: 400 }
-            );
-        }
+        console.error("Error updating designation:", error);
 
         if (error.name === "ValidationError") {
             return NextResponse.json(
@@ -105,44 +88,46 @@ export async function PATCH(
         }
 
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to update organisation" },
+            { success: false, error: error.message || "Failed to update designation" },
             { status: 500 }
         );
     }
 }
 
-// DELETE - Delete an organisation
+// DELETE - Delete a designation
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await connectDB();
         const { id } = await params;
         
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return NextResponse.json(
-                { success: false, error: "Invalid organisation ID" },
+                { success: false, error: "Invalid designation ID" },
                 { status: 400 }
             );
         }
 
-        const organisation = await Organisation.findByIdAndDelete(id);
+        const designation = await Designation.findByIdAndDelete(id);
 
-        if (!organisation) {
+        if (!designation) {
             return NextResponse.json(
-                { success: false, error: "Organisation not found" },
+                { success: false, error: "Designation not found" },
                 { status: 404 }
             );
         }
 
         return NextResponse.json({
             success: true,
-            message: "Organisation deleted successfully",
-            data: organisation,
+            message: "Designation deleted successfully",
+            data: designation,
         });
     } catch (error: any) {
+        console.error("Error deleting designation:", error);
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to delete organisation" },
+            { success: false, error: error.message || "Failed to delete designation" },
             { status: 500 }
         );
     }

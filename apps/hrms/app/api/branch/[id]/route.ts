@@ -1,98 +1,103 @@
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
-import Organisation from "@/app/models/organisation";
+import connectDB from "@/lib/db";
+import Branch from "@/app/models/branch";
 
-// GET - Get a single organisation by ID
+// GET - Get a single branch by ID
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await connectDB();
         const { id } = await params;
-      
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return NextResponse.json(
-                { success: false, error: "Invalid organisation ID" },
+                { success: false, error: "Invalid branch ID" },
                 { status: 400 }
             );
         }
 
-        const organisation = await Organisation.findById(id);
+        const branch = await Branch.findById(id);
 
-        if (!organisation) {
+        if (!branch) {
             return NextResponse.json(
-                { success: false, error: "Organisation not found" },
+                { success: false, error: "Branch not found" },
                 { status: 404 }
             );
         }
 
         return NextResponse.json({
             success: true,
-            data: organisation,
+            data: branch,
         });
     } catch (error: any) {
+        console.error("Error fetching branch:", error);
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to fetch organisation" },
+            { success: false, error: error.message || "Failed to fetch branch" },
             { status: 500 }
         );
     }
 }
 
-// PATCH - Update an organisation
+// PATCH - Update a branch
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await connectDB();
         const { id } = await params;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return NextResponse.json(
-                { success: false, error: "Invalid organisation ID" },
+                { success: false, error: "Invalid branch ID" },
                 { status: 400 }
             );
         }
 
         const body = await request.json();
 
-        // Check if email is being updated and if it already exists
-        if (body.email) {
-            const existingOrg = await Organisation.findOne({
+        // Check if code is being updated and if it already exists
+        if (body.code) {
+            const existingBranch = await Branch.findOne({
+                code: body.code,
                 _id: { $ne: id },
             });
 
-            if (existingOrg) {
+            if (existingBranch) {
                 return NextResponse.json(
-                    { success: false, error: "Organisation  already exists" },
+                    { success: false, error: "Branch code already exists" },
                     { status: 400 }
                 );
             }
         }
 
-        const organisation = await Organisation.findByIdAndUpdate(
+        const branch = await Branch.findByIdAndUpdate(
             id,
             { $set: body },
             { new: true, runValidators: true }
         ).select("-__v");
 
-        if (!organisation) {
+        if (!branch) {
             return NextResponse.json(
-                { success: false, error: "Organisation not found" },
+                { success: false, error: "Branch not found" },
                 { status: 404 }
             );
         }
 
         return NextResponse.json({
             success: true,
-            data: organisation,
-            message: "Organisation updated successfully",
+            data: branch,
+            message: "Branch updated successfully",
         });
     } catch (error: any) {
+        console.error("Error updating branch:", error);
 
         if (error.code === 11000) {
             return NextResponse.json(
-                { success: false, error: "Organisation with this email already exists" },
+                { success: false, error: "Branch code already exists" },
                 { status: 400 }
             );
         }
@@ -105,44 +110,46 @@ export async function PATCH(
         }
 
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to update organisation" },
+            { success: false, error: error.message || "Failed to update branch" },
             { status: 500 }
         );
     }
 }
 
-// DELETE - Delete an organisation
+// DELETE - Delete a branch
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await connectDB();
         const { id } = await params;
         
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return NextResponse.json(
-                { success: false, error: "Invalid organisation ID" },
+                { success: false, error: "Invalid branch ID" },
                 { status: 400 }
             );
         }
 
-        const organisation = await Organisation.findByIdAndDelete(id);
+        const branch = await Branch.findByIdAndDelete(id);
 
-        if (!organisation) {
+        if (!branch) {
             return NextResponse.json(
-                { success: false, error: "Organisation not found" },
+                { success: false, error: "Branch not found" },
                 { status: 404 }
             );
         }
 
         return NextResponse.json({
             success: true,
-            message: "Organisation deleted successfully",
-            data: organisation,
+            message: "Branch deleted successfully",
+            data: branch,
         });
     } catch (error: any) {
+        console.error("Error deleting branch:", error);
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to delete organisation" },
+            { success: false, error: error.message || "Failed to delete branch" },
             { status: 500 }
         );
     }

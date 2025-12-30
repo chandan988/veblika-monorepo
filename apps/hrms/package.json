@@ -14,7 +14,10 @@
   "dependencies": {
     "@tanstack/react-query": "^5.90.12",
     "@workspace/ui": "workspace:*",
+    "axios": "^1.13.2",
     "better-auth": "^1.4.1",
+    "country-state-city": "^3.2.1",
+    "dayjs": "^1.11.19",
     "dotenv": "^17.2.3",
     "lucide-react": "^0.555.0",
     "mongoose": "^9.0.2",

@@ -26,13 +26,13 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 import { Badge } from "@workspace/ui/components/badge";
-import { OrganisationDialog } from "@/components/organisation/organisation-dialog";
+import { OrganisationDrawer } from "@/components/organisation/organisation-drawer";
 import { useOrganisations } from "@/hooks/use-organisations";
 import { toast } from "sonner";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 
 export default function OrganisationPage() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -44,7 +44,7 @@ export default function OrganisationPage() {
 
   const handleEdit = (org: any) => {
     setSelectedOrg(org);
-    setIsDialogOpen(true);
+    setIsDrawerOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -60,7 +60,7 @@ export default function OrganisationPage() {
 
   const handleCreateNew = () => {
     setSelectedOrg(null);
-    setIsDialogOpen(true);
+    setIsDrawerOpen(true);
   };
 
   return (
@@ -110,9 +110,10 @@ export default function OrganisationPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Location</TableHead>
+                  <TableHead>Industry</TableHead>
+                  <TableHead>Website</TableHead>
+                  <TableHead>Country</TableHead>
+                  <TableHead>Currency</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -136,18 +137,26 @@ export default function OrganisationPage() {
                         <div>
                           <p className="font-medium">{org.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {org.displayName || org.orgType}
+                            {org.timeZone || "Asia/Kolkata"}
                           </p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{org.email}</TableCell>
-                    <TableCell>{org.phone || "-"}</TableCell>
+                    <TableCell>{org.industry || "-"}</TableCell>
                     <TableCell>
-                      {org.address?.city && org.address?.country
-                        ? `${org.address.city}, ${org.address.country}`
-                        : "-"}
+                      {org.website ? (
+                        <a 
+                          href={org.website} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          Visit
+                        </a>
+                      ) : "-"}
                     </TableCell>
+                    <TableCell>{org.country || "India"}</TableCell>
+                    <TableCell>{org.settings?.currency || "INR"}</TableCell>
                     <TableCell>
                       <Badge
                         variant={org.isActive ? "default" : "secondary"}
@@ -205,9 +214,9 @@ export default function OrganisationPage() {
         </CardContent>
       </Card>
 
-      <OrganisationDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+      <OrganisationDrawer
+        open={isDrawerOpen}
+        onOpenChange={setIsDrawerOpen}
         organisation={selectedOrg}
       />
     </div>

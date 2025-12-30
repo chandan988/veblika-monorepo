@@ -1,98 +1,103 @@
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
-import Organisation from "@/app/models/organisation";
+import connectDB from "@/lib/db";
+import Department from "@/app/models/department";
 
-// GET - Get a single organisation by ID
+// GET - Get a single department by ID
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await connectDB();
         const { id } = await params;
-      
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return NextResponse.json(
-                { success: false, error: "Invalid organisation ID" },
+                { success: false, error: "Invalid department ID" },
                 { status: 400 }
             );
         }
 
-        const organisation = await Organisation.findById(id);
+        const department = await Department.findById(id);
 
-        if (!organisation) {
+        if (!department) {
             return NextResponse.json(
-                { success: false, error: "Organisation not found" },
+                { success: false, error: "Department not found" },
                 { status: 404 }
             );
         }
 
         return NextResponse.json({
             success: true,
-            data: organisation,
+            data: department,
         });
     } catch (error: any) {
+        console.error("Error fetching department:", error);
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to fetch organisation" },
+            { success: false, error: error.message || "Failed to fetch department" },
             { status: 500 }
         );
     }
 }
 
-// PATCH - Update an organisation
+// PATCH - Update a department
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await connectDB();
         const { id } = await params;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return NextResponse.json(
-                { success: false, error: "Invalid organisation ID" },
+                { success: false, error: "Invalid department ID" },
                 { status: 400 }
             );
         }
 
         const body = await request.json();
 
-        // Check if email is being updated and if it already exists
-        if (body.email) {
-            const existingOrg = await Organisation.findOne({
+        // Check if code is being updated and if it already exists
+        if (body.code) {
+            const existingDepartment = await Department.findOne({
+                code: body.code,
                 _id: { $ne: id },
             });
 
-            if (existingOrg) {
+            if (existingDepartment) {
                 return NextResponse.json(
-                    { success: false, error: "Organisation  already exists" },
+                    { success: false, error: "Department code already exists" },
                     { status: 400 }
                 );
             }
         }
 
-        const organisation = await Organisation.findByIdAndUpdate(
+        const department = await Department.findByIdAndUpdate(
             id,
             { $set: body },
             { new: true, runValidators: true }
         ).select("-__v");
 
-        if (!organisation) {
+        if (!department) {
             return NextResponse.json(
-                { success: false, error: "Organisation not found" },
+                { success: false, error: "Department not found" },
                 { status: 404 }
             );
         }
 
         return NextResponse.json({
             success: true,
-            data: organisation,
-            message: "Organisation updated successfully",
+            data: department,
+            message: "Department updated successfully",
         });
     } catch (error: any) {
+        console.error("Error updating department:", error);
 
         if (error.code === 11000) {
             return NextResponse.json(
-                { success: false, error: "Organisation with this email already exists" },
+                { success: false, error: "Department code already exists" },
                 { status: 400 }
             );
         }
@@ -105,44 +110,46 @@ export async function PATCH(
         }
 
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to update organisation" },
+            { success: false, error: error.message || "Failed to update department" },
             { status: 500 }
         );
     }
 }
 
-// DELETE - Delete an organisation
+// DELETE - Delete a department
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await connectDB();
         const { id } = await params;
         
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return NextResponse.json(
-                { success: false, error: "Invalid organisation ID" },
+                { success: false, error: "Invalid department ID" },
                 { status: 400 }
             );
         }
 
-        const organisation = await Organisation.findByIdAndDelete(id);
+        const department = await Department.findByIdAndDelete(id);
 
-        if (!organisation) {
+        if (!department) {
             return NextResponse.json(
-                { success: false, error: "Organisation not found" },
+                { success: false, error: "Department not found" },
                 { status: 404 }
             );
         }
 
         return NextResponse.json({
             success: true,
-            message: "Organisation deleted successfully",
-            data: organisation,
+            message: "Department deleted successfully",
+            data: department,
         });
     } catch (error: any) {
+        console.error("Error deleting department:", error);
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to delete organisation" },
+            { success: false, error: error.message || "Failed to delete department" },
             { status: 500 }
         );
     }

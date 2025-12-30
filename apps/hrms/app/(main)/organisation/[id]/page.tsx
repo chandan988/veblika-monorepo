@@ -27,6 +27,7 @@ import { Separator } from "@workspace/ui/components/separator";
 export default function OrganisationDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  console.log("OrganisationDetailPage ID:", id);
   const { data, isLoading } = useOrganisation(id);
 
   if (isLoading) {

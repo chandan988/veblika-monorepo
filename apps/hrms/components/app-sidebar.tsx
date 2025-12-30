@@ -7,6 +7,13 @@ import {
   BarChart3,
   LogOut,
   Building2,
+  GitBranch,
+  Briefcase,
+  Award,
+  ChevronRight,
+  UserCheck,
+  UserPlus,
+  CheckCircle,
 } from "lucide-react"
 
 import {
@@ -20,7 +27,15 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@workspace/ui/components/sidebar"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@workspace/ui/components/collapsible"
 import {
   Avatar,
   AvatarFallback,
@@ -43,9 +58,18 @@ const menuItems = [
   { title: "Home", icon: Home, url: "/" },
   { title: "Dashboard", icon: BarChart3, url: "/dashboard" },
   { title: "Organisations", icon: Building2, url: "/organisation" },
+  { title: "Employees", icon: UserCheck, url: "/employee" },
   { title: "Users", icon: Users, url: "/users" },
   { title: "Documents", icon: FileText, url: "/documents" },
-  { title: "Settings", icon: Settings, url: "/settings" },
+]
+
+// Settings submenu items
+const settingsItems = [
+  { title: "Branch", icon: GitBranch, url: "/settings/branch" },
+  { title: "Department", icon: Briefcase, url: "/settings/department" },
+  { title: "Designation", icon: Award, url: "/settings/designation" },
+  { title: "Hiring Source", icon: UserPlus, url: "/settings/hiring-source" },
+  { title: "Employment Status", icon: CheckCircle, url: "/settings/employment-status" },
 ]
 
 export function AppSidebar() {
@@ -85,6 +109,33 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              
+              {/* Settings with submenu */}
+              <Collapsible asChild defaultOpen={false} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="Settings">
+                      <Settings className="h-4 w-4" />
+                      <span>Settings</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {settingsItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild>
+                            <a href={item.url}>
+                              <item.icon className="h-4 w-4" />
+                              <span>{item.title}</span>
+                            </a>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

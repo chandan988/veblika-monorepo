@@ -1,29 +1,39 @@
-const mongoose = require("mongoose");
+import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI!;
-console.log("MongoDB URI:", MONGODB_URI);
 
-export async function connectDB() {
+export async function GET() {
   try {
+    // Check if already connected
+    if (mongoose.connection.readyState === 1) {
+      return NextResponse.json({ 
+        success: true, 
+        message: 'MongoDB already connected!',
+        database: mongoose.connection.db?.databaseName || 'unknown',
+        host: mongoose.connection.host
+      });
+    }
+
+    // Connect to MongoDB
     const connection = await mongoose.connect(MONGODB_URI);
     console.log(`✅ MongoDB Connected: ${connection.connection.host}`);
 
-    mongoose.connection.on("error", () => {
-      console.error("❌ MongoDB connection error:");
+    return NextResponse.json({ 
+      success: true, 
+      message: 'MongoDB connected successfully with Mongoose!',
+      database: mongoose.connection.db?.databaseName || 'unknown',
+      host: connection.connection.host
     });
-    mongoose.connection.on("disconnected", () => {
-      console.warn("⚠️ MongoDB disconnected");
-    });
-    process.on("SIGINT", async () => {
-      await mongoose.connection.close();
-      console.log("🛑 MongoDB connection closed through app termination");
-      process.exit(0);
-    })
 
   } catch (error) {
     console.error("❌ Error connecting to MongoDB:", error);
-    process.exit(1);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    return NextResponse.json({ 
+      success: false, 
+      message: 'Failed to connect to MongoDB',
+      error: errorMessage 
+    }, { status: 500 });
   }
 }
-
-await connectDB();

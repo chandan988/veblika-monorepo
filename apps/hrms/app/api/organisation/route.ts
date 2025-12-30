@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Organisation } from "@/app/models/organisation.model";
+import connectDB from "@/lib/db";
+import Organisation from "@/app/models/organisation";
+import mongoose from "mongoose";
+
+// Import OrganisationMember with proper model handling
+const getOrganisationMemberModel = () => {
+    if (mongoose.models.organisationMember) {
+        return mongoose.models.organisationMember;
+    }
+    // If not exists, import and return
+    const { OrganisationMember } = require("@/app/models/organisationMember");
+    return OrganisationMember;
+};
 
 // GET - Get all organisations
 export async function GET(request: NextRequest) {
+
     try {
-       
+        console.log("Fetching organisations...");
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get("page") || "1");
         const limit = parseInt(searchParams.get("limit") || "10");
@@ -55,51 +68,35 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// POST - Create a new organisation
-export async function POST(request: NextRequest) {
-    try {
+export async function POST(req: Request) {
+    //   const session = await auth.api.getSession({
+    //     headers: req.headers,
+    //   });
 
-        const body = await request.json();
+    //   if (!session) {
+    //     return NextResponse.json({ error: "Unauthorized" }, {status: 401 });
+    // }
 
-        // Check if organisation with same email already exists
-        const existingOrg = await Organisation.findOne({ email: body.email });
-        if (existingOrg) {
-            return NextResponse.json(
-                { success: false, error: "Organisation with this email already exists" },
-                { status: 400 }
-            );
-        }
 
-        const organisation = await Organisation.create(body);
 
-        return NextResponse.json(
-            {
-                success: true,
-                data: organisation,
-                message: "Organisation created successfully",
-            },
-            { status: 201 }
-        );
-    } catch (error: any) {
-        console.error("Error creating organisation:", error);
-        
-        if (error.code === 11000) {
-            return NextResponse.json(
-                { success: false, error: "Organisation with this email already exists" },
-                { status: 400 }
-            );
-        }
+    const body=await req.json();
 
-        if (error.name === "ValidationError") {
-            return NextResponse.json(
-                { success: false, error: error.message },
-                { status: 400 }
-            );
-        }
+    await connectDB();
+    const organisation = await Organisation.create({
+        ...body,
+        ownerId: "6944ff331fa8459b5926c7c8", // Replace with session user ID when auth is implemented
+    });
+ // Get OrganisationMember model safely
+        const OrganisationMember = getOrganisationMemberModel();
 
-        return NextResponse.json(
-            { success: false, error: error.message || "Failed to create organisation" },
-            { status: 500 }
-        );
-    }
+    // Make creator ORG_ADMIN
+    await OrganisationMember.create({
+        userId: "6944ff331fa8459b5926c7c8",
+        organisationId: organisation._id,
+        role: "ORG_ADMIN",
+    });
+
+    return NextResponse.json({ success: true /*, data: organisation */ });
+
 }
+
