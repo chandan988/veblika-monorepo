@@ -23,7 +23,7 @@ import {
   X,
   Loader2,
 } from "lucide-react"
-import { useSession } from "@/hooks/useSession"
+import { useSession } from "@/hooks/use-session"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/services/api"
 import { cn } from "@workspace/ui/lib/utils"

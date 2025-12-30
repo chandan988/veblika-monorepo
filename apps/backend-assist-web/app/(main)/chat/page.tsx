@@ -9,7 +9,7 @@ import {
 import { useMessages, useSendMessage } from "@/hooks/use-messages"
 import { MessageSquare } from "lucide-react"
 import type { Conversation } from "@/types/chat"
-import { useSession } from "@/hooks/useSession"
+import { useSession } from "@/hooks/use-session"
 import { useOrganisationStore } from "@/stores/organisation-store"
 
 export default function ChatPage() {

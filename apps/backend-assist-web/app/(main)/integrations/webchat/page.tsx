@@ -34,7 +34,7 @@ import {
 } from "@/hooks/use-integrations"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Badge } from "@workspace/ui/components/badge"
-import { useSession } from "@/hooks/useSession"
+import { useSession } from "@/hooks/use-session"
 import { useOrganisationStore } from "@/stores/organisation-store"
 
 export default function WebchatIntegrations() {
