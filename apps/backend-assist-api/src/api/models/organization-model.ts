@@ -43,6 +43,4 @@ const organizationSchema = new Schema<IOrganization>(
   }
 )
 
-organizationSchema.index({ slug: 1 })
-
 export const Organization = mongoose.model<IOrganization>("organization", organizationSchema)

@@ -48,19 +48,16 @@ const memberSchema = new Schema<IMember>(
       type: Schema.Types.ObjectId,
       required: true,
       ref: "organization",
-      index: true,
     },
     userId: {
       type: Schema.Types.ObjectId,
       required: true,
       ref: "user",
-      index: true,
     },
     roleId: {
       type: Schema.Types.ObjectId,
       ref: "role",
       required: true,
-      index: true,
     },
     isOwner: {
       type: Boolean,
@@ -85,3 +82,5 @@ memberSchema.index({ userId: 1 })
 memberSchema.index({ organizationId: 1, isOwner: 1 })
 
 export const Member = mongoose.model<IMember>("member", memberSchema)
+
+

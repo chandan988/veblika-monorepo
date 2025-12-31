@@ -19,6 +19,7 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { authClient } from "@/lib/auth-client"
 import Image from "next/image"
 import { OrganisationSwitcher } from "./organisation-switcher"
+import { useLogout } from "@/hooks/use-session"
 
 const menuItems = [
   { name: "Dashboard", href: "/" },
@@ -39,14 +40,7 @@ export function TopNavbar() {
     queryKey: ["session"],
     queryFn: () => authClient.getSession(),
   })
-  const mutation = useMutation({
-    mutationFn: async () => {
-      await authClient.signOut()
-    },
-    onSuccess: () => {
-      window.location.href = "/sign-in"
-    },
-  })
+  const mutation = useLogout()
   const user = data?.data?.user
   const session = data?.data?.session
   const error = data?.error
@@ -57,9 +51,8 @@ export function TopNavbar() {
       <div className=" h-9 flex justify-between items-center">
         <div className="flex gap-4 items-center justify-center">
           <img src={LOGO} alt="Logo" width={30} height={30} />
-          <span >|</span>
+          <span>|</span>
           <OrganisationSwitcher />
-
         </div>
         <div className="flex items-center gap-3">
           {user && (
@@ -115,10 +108,11 @@ export function TopNavbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${isActive
-                  ? "text-foreground bg-accent"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                  }`}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  isActive
+                    ? "text-foreground bg-accent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                }`}
               >
                 {item.name}
               </Link>

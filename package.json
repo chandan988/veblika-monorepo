@@ -6,6 +6,7 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
+    "clean": "find . -name node_modules -type d -prune -exec rm -rf '{}' + && pnpm install",
     "dev:ba": "turbo run dev --filter=auth... --filter=backend-assist-api... --filter=backend-assist-web... --filter=widget-ui...",
     "dev:sm": "turbo run dev --filter=auth... --filter=social-media-api... --filter=social-media-web...",
     "dev:hrms": "turbo run dev --filter=hrms... --filter=auth...",
