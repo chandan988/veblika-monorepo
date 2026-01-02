@@ -14,6 +14,12 @@ import {
   UserCheck,
   UserPlus,
   CheckCircle,
+  Factory,
+  ToggleLeft,
+  Clock,
+  DollarSign,
+  Briefcase as BriefcaseAlt,
+  FileCheck,
 } from "lucide-react"
 
 import {
@@ -72,6 +78,15 @@ const settingsItems = [
   { title: "Employment Status", icon: CheckCircle, url: "/settings/employment-status" },
 ]
 
+// ATS submenu items
+const atsSettingsItems = [
+  { title: "Industry", icon: Factory, url: "/ats/settings/industry" },
+  { title: "Job Opening Status", icon: ToggleLeft, url: "/ats/settings/job-opening-status" },
+  { title: "Job Type", icon: BriefcaseAlt, url: "/ats/settings/job-type" },
+  { title: "Salary", icon: DollarSign, url: "/ats/settings/salary" },
+  { title: "Work Experience", icon: Clock, url: "/ats/settings/work-experience" },
+]
+
 export function AppSidebar() {
   const { data: session } = authClient.useSession()
   const handleLogout = async () => {
@@ -109,6 +124,59 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              
+              {/* ATS with submenu */}
+              <Collapsible asChild defaultOpen={false} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="ATS">
+                      <UserCheck className="h-4 w-4" />
+                      <span>ATS</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {/* Job Opening menu item */}
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild>
+                          <a href="/ats/job-opening">
+                            <FileCheck className="h-4 w-4" />
+                            <span>Job Openings</span>
+                          </a>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      
+                      {/* Settings nested submenu */}
+                      <Collapsible asChild defaultOpen={false} className="group/nested">
+                        <SidebarMenuSubItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuSubButton>
+                              <Settings className="h-4 w-4" />
+                              <span>Settings</span>
+                              <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/nested:rotate-90" />
+                            </SidebarMenuSubButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <SidebarMenuSub>
+                              {atsSettingsItems.map((item) => (
+                                <SidebarMenuSubItem key={item.title}>
+                                  <SidebarMenuSubButton asChild>
+                                    <a href={item.url} className="pl-6">
+                                      <item.icon className="h-4 w-4" />
+                                      <span>{item.title}</span>
+                                    </a>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
+                        </SidebarMenuSubItem>
+                      </Collapsible>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
               
               {/* Settings with submenu */}
               <Collapsible asChild defaultOpen={false} className="group/collapsible">

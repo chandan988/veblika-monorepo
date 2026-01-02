@@ -112,8 +112,7 @@ const organisation=await Organisation.findOne({
             ...body.workInformation,
             organisation: organisation?.name || "",
           },
-         
-            userId: "6944ff331fa8459b5926c7c8", // Replace with session user ID when auth is implemented
+            userId: "6944ff331fa8459b5926c7c8", // Replace with session user ID when auth is implemented;
         });
 
         return NextResponse.json({ 
