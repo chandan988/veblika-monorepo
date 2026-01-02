@@ -1,80 +1,248 @@
 "use client";
 
 import React, { useState } from "react";
-import { useGetOverviewAnalytics } from "@/lib/queries/analytics/use-get-overview-analytics";
-import { useGetPosts } from "@/lib/queries/analytics/use-get-posts";
-import { useGetPostAnalytics } from "@/lib/queries/analytics/use-get-post-analytics";
+import { useQuery } from "@tanstack/react-query";
+import api from "@/utils/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { YouTubeAnalyticsCard } from "@/components/analytics/youtube-analytics-card";
-import { InstagramReelAnalyticsCard } from "@/components/analytics/instagram-reel-analytics-card";
-import { InstagramPostAnalyticsCard } from "@/components/analytics/instagram-post-analytics-card";
-import { FacebookVideoAnalyticsCard } from "@/components/analytics/facebook-video-analytics-card";
-import { FacebookPostAnalyticsCard } from "@/components/analytics/facebook-post-analytics-card";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Heart,
+  MessageCircle,
+  Share2,
+  Eye,
+  RefreshCw,
+  Play,
+  Clock,
+  TrendingUp,
+  Users,
+  BarChart3,
+  Bookmark,
+  ThumbsUp,
+  MousePointer,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
+// Platform configuration
+const PLATFORMS = [
+  { id: "all", name: "All", icon: null, color: "bg-gray-500" },
+  { id: "INSTAGRAM", name: "Instagram", icon: "/icons/instagram.png", color: "bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500" },
+  { id: "FACEBOOK", name: "Facebook", icon: "/icons/facebook.png", color: "bg-blue-600" },
+  { id: "YOUTUBE", name: "YouTube", icon: "/icons/youtube.png", color: "bg-red-600" },
+  { id: "LINKEDIN", name: "LinkedIn", icon: "/icons/linkedin.png", color: "bg-blue-700" },
+];
 
-function Analytics() {
-  const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d">("30d");
-  const [selectedPlatform, setSelectedPlatform] = useState<string>("");
+const COLORS = ["#8b5cf6", "#3b82f6", "#ef4444", "#0077b5", "#22c55e"];
 
-  const getDateRange = () => {
-    const end = new Date();
-    const start = new Date();
-    switch (dateRange) {
-      case "7d":
-        start.setDate(start.getDate() - 7);
-        break;
-      case "30d":
-        start.setDate(start.getDate() - 30);
-        break;
-      case "90d":
-        start.setDate(start.getDate() - 90);
-        break;
-    }
-    // Set start to beginning of day and end to end of day to include all posts
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-    
-    return {
-      startDate: start.toISOString().split("T")[0],
-      endDate: end.toISOString().split("T")[0],
+interface Post {
+  _id: string;
+  postId: string;
+  platform: string;
+  content?: string;
+  caption?: string;
+  title?: string;
+  description?: string;
+  mediaUrl?: string;
+  thumbnailUrl?: string;
+  postType: string;
+  publishedAt: string;
+  analytics: {
+    likes: number;
+    comments: number;
+    shares: number;
+    views: number;
+    plays?: number;
+    saves?: number;
+    reach?: number;
+    impressions?: number;
+    engagedUsers?: number;
+    videoCompleteViews?: number;
+    averageWatchTime?: number;
+    estimatedMinutesWatched?: number;
+    averageViewDuration?: number;
+    averageViewPercentage?: number;
+    subscribersGained?: number;
+    subscribersLost?: number;
+    clicks?: number;
+  };
+}
+
+export default function AnalyticsPage() {
+  const [selectedPlatform, setSelectedPlatform] = useState("all");
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Fetch all posts
+  const {
+    data: postsData,
+    isLoading: isLoadingPosts,
+    refetch: refetchPosts,
+  } = useQuery({
+    queryKey: ["analytics-posts", selectedPlatform],
+    queryFn: async () => {
+      const params: any = { limit: 500 }; // Get all posts
+      if (selectedPlatform !== "all") {
+        params.platform = selectedPlatform;
+      }
+      const res = await api.get("/engage/posts", { params });
+      return res.data;
+    },
+    refetchOnWindowFocus: false,
+  });
+
+  const posts: Post[] = postsData?.data || [];
+
+  // Calculate overview stats
+  const overviewStats = React.useMemo(() => {
+    const stats = {
+      totalPosts: posts.length,
+      totalViews: 0,
+      totalLikes: 0,
+      totalComments: 0,
+      totalShares: 0,
+      totalReach: 0,
+      totalImpressions: 0,
+      platformStats: {} as Record<string, { posts: number; engagement: number; views: number }>,
     };
+
+    posts.forEach((post) => {
+      stats.totalViews += post.analytics?.views || post.analytics?.plays || 0;
+      stats.totalLikes += post.analytics?.likes || 0;
+      stats.totalComments += post.analytics?.comments || 0;
+      stats.totalShares += post.analytics?.shares || 0;
+      stats.totalReach += post.analytics?.reach || 0;
+      stats.totalImpressions += post.analytics?.impressions || 0;
+
+      const platform = post.platform;
+      if (!stats.platformStats[platform]) {
+        stats.platformStats[platform] = { posts: 0, engagement: 0, views: 0 };
+      }
+      stats.platformStats[platform].posts++;
+      stats.platformStats[platform].engagement += 
+        (post.analytics?.likes || 0) + 
+        (post.analytics?.comments || 0) + 
+        (post.analytics?.shares || 0);
+      stats.platformStats[platform].views += post.analytics?.views || post.analytics?.plays || 0;
+    });
+
+    return stats;
+  }, [posts]);
+
+  // Format numbers
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num?.toString() || "0";
   };
 
-  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  // Format duration
+  const formatDuration = (seconds: number) => {
+    if (!seconds) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 
-  const { startDate, endDate } = getDateRange();
-  const { data: overviewData, isLoading: overviewLoading } = useGetOverviewAnalytics(startDate, endDate);
-  const { data: postsData, isLoading: postsLoading } = useGetPosts({
-    platform: selectedPlatform || undefined,
-    startDate,
-    endDate,
-    limit: 50,
-  });
-  const { data: postAnalyticsData, isLoading: postAnalyticsLoading } = useGetPostAnalytics(
-    selectedPostId || ""
+  // Handle post click
+  const handlePostClick = (post: Post) => {
+    setSelectedPost(post);
+    setSheetOpen(true);
+  };
+
+  // Get platform icon
+  const getPlatformIcon = (platform: string) => {
+    const platformConfig = PLATFORMS.find(
+      (p) => p.id.toUpperCase() === platform.toUpperCase()
+    );
+    return platformConfig?.icon || null;
+  };
+
+  // Get platform badge style
+  const getPlatformBadgeStyle = (platform: string, postType?: string) => {
+    switch (platform.toUpperCase()) {
+      case "YOUTUBE":
+        return "bg-red-600 text-white";
+      case "INSTAGRAM":
+        if (postType === "reel") {
+          return "bg-gradient-to-r from-purple-500 to-pink-500 text-white";
+        }
+        return "bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white";
+      case "FACEBOOK":
+        return "bg-blue-600 text-white";
+      case "LINKEDIN":
+        return "bg-blue-700 text-white";
+      default:
+        return "bg-gray-500 text-white";
+    }
+  };
+
+  // Get post card style
+  const getPostCardStyle = (platform: string, postType?: string) => {
+    switch (platform.toUpperCase()) {
+      case "YOUTUBE":
+        return "border-red-200 bg-red-50/50 hover:bg-red-50";
+      case "INSTAGRAM":
+        if (postType === "reel") {
+          return "border-purple-200 bg-gradient-to-r from-purple-50/50 to-pink-50/50 hover:from-purple-50 hover:to-pink-50";
+        }
+        return "border-pink-200 bg-pink-50/50 hover:bg-pink-50";
+      case "FACEBOOK":
+        return "border-blue-200 bg-blue-50/50 hover:bg-blue-50";
+      case "LINKEDIN":
+        return "border-blue-300 bg-blue-50/50 hover:bg-blue-100/50";
+      default:
+        return "border-gray-200 bg-gray-50/50 hover:bg-gray-50";
+    }
+  };
+
+  // Get post display name
+  const getPostDisplayName = (post: Post) => {
+    if (post.platform === "YOUTUBE") {
+      return post.title || "Untitled Video";
+    }
+    if (post.platform === "INSTAGRAM" && post.postType === "reel") {
+      return "Instagram Reel";
+    }
+    return post.content || post.caption || "Untitled Post";
+  };
+
+  // Platform comparison data for pie chart
+  const platformComparisonData = Object.entries(overviewStats.platformStats).map(
+    ([platform, stats], index) => ({
+      name: platform,
+      value: stats.engagement,
+      posts: stats.posts,
+      views: stats.views,
+      color: COLORS[index % COLORS.length],
+    })
   );
 
-  const overview = overviewData?.data?.overview;
-  const bestPosts = overviewData?.data?.bestPosts || [];
-  const platformStats = overviewData?.data?.platformStats || {};
-  const growthData = overviewData?.data?.growthData || [];
-  const allPosts = postsData?.data?.posts || [];
-
-  // Debug: Log data to see what we're getting
-  React.useEffect(() => {
-    console.log("📊 Analytics Data:", {
-      overview,
-      bestPostsCount: bestPosts.length,
-      bestPosts: bestPosts,
-      allPostsCount: allPosts.length,
-      allPosts: allPosts,
-      selectedPlatform,
-    });
-  }, [overview, bestPosts, allPosts, selectedPlatform]);
-
-  if (overviewLoading || postsLoading) {
+  if (isLoadingPosts) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Spinner />
@@ -82,807 +250,690 @@ function Analytics() {
     );
   }
 
-  // Format numbers
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
-  };
-
-  // Platform comparison data for pie chart
-  const platformComparison = Object.entries(platformStats).map(([platform, stats]) => ({
-    name: platform,
-    value: stats.engagement,
-    posts: stats.posts,
-    reach: stats.reach,
-  }));
-
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Analytics Dashboard</h1>
-          <p className="text-gray-600">Track your social media performance across all platforms</p>
-        </div>
-
-        {/* Date Range & Platform Filters */}
-        <div className="mb-6 flex gap-4 items-center">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setDateRange("7d")}
-              className={`px-4 py-2 rounded-lg ${
-                dateRange === "7d" ? "bg-blue-600 text-white" : "bg-white text-gray-700"
-              }`}
-            >
-              Last 7 days
-            </button>
-            <button
-              onClick={() => setDateRange("30d")}
-              className={`px-4 py-2 rounded-lg ${
-                dateRange === "30d" ? "bg-blue-600 text-white" : "bg-white text-gray-700"
-              }`}
-            >
-              Last 30 days
-            </button>
-            <button
-              onClick={() => setDateRange("90d")}
-              className={`px-4 py-2 rounded-lg ${
-                dateRange === "90d" ? "bg-blue-600 text-white" : "bg-white text-gray-700"
-              }`}
-            >
-              Last 90 days
-            </button>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
+            <p className="text-slate-600 mt-1">
+              Track performance across all your social media posts
+            </p>
           </div>
-          <select
-            value={selectedPlatform}
-            onChange={(e) => setSelectedPlatform(e.target.value)}
-            className="px-4 py-2 rounded-lg border border-gray-300 bg-white"
+          <Button
+            onClick={() => refetchPosts()}
+            variant="outline"
+            className="gap-2"
           >
-            <option value="">All Platforms</option>
-            <option value="FACEBOOK">Facebook</option>
-            <option value="INSTAGRAM">Instagram</option>
-            <option value="YOUTUBE">YouTube</option>
-            <option value="LINKEDIN">LinkedIn</option>
-          </select>
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
         </div>
 
-        {/* Overview Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-gray-600 text-sm mb-2">Total Reach</div>
-            <div className="text-3xl font-bold text-gray-900">{formatNumber(overview?.totalReach || 0)}</div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-gray-600 text-sm mb-2">Total Impressions</div>
-            <div className="text-3xl font-bold text-gray-900">{formatNumber(overview?.totalImpressions || 0)}</div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-gray-600 text-sm mb-2">Total Engagement</div>
-            <div className="text-3xl font-bold text-gray-900">{formatNumber(overview?.totalEngagement || 0)}</div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-gray-600 text-sm mb-2">Total Posts</div>
-            <div className="text-3xl font-bold text-gray-900">{overview?.totalPosts || 0}</div>
-          </div>
+        {/* Overview Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <Card className="bg-white/80 backdrop-blur">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-slate-600 text-sm mb-1">
+                <BarChart3 className="w-4 h-4" />
+                Total Posts
+              </div>
+              <div className="text-2xl font-bold text-slate-900">
+                {formatNumber(overviewStats.totalPosts)}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-white/80 backdrop-blur">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-slate-600 text-sm mb-1">
+                <Eye className="w-4 h-4" />
+                Total Views
+              </div>
+              <div className="text-2xl font-bold text-slate-900">
+                {formatNumber(overviewStats.totalViews)}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-white/80 backdrop-blur">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-slate-600 text-sm mb-1">
+                <Heart className="w-4 h-4" />
+                Total Likes
+              </div>
+              <div className="text-2xl font-bold text-slate-900">
+                {formatNumber(overviewStats.totalLikes)}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-white/80 backdrop-blur">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-slate-600 text-sm mb-1">
+                <MessageCircle className="w-4 h-4" />
+                Total Comments
+              </div>
+              <div className="text-2xl font-bold text-slate-900">
+                {formatNumber(overviewStats.totalComments)}
+              </div>
+            </CardContent>
+          </Card>
+          {/* <Card className="bg-white/80 backdrop-blur">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-slate-600 text-sm mb-1">
+                <Share2 className="w-4 h-4" />
+                Total Shares
+              </div>
+              <div className="text-2xl font-bold text-slate-900">
+                {formatNumber(overviewStats.totalShares)}
+              </div>
+            </CardContent>
+          </Card> */}
+          <Card className="bg-white/80 backdrop-blur">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-slate-600 text-sm mb-1">
+                <TrendingUp className="w-4 h-4" />
+                Total Engagement
+              </div>
+              <div className="text-2xl font-bold text-slate-900">
+                {formatNumber(
+                  overviewStats.totalLikes +
+                    overviewStats.totalComments +
+                    overviewStats.totalShares
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Followers */}
-        {overview?.followers && Object.keys(overview.followers).length > 0 && (
-          <div className="bg-white rounded-lg shadow p-6 mb-8">
-            <h2 className="text-xl font-semibold mb-4">Followers</h2>
-            <div className="grid grid-cols-3 gap-4">
-              {overview.followers.instagram && (
-                <div>
-                  <div className="text-gray-600 text-sm">Instagram</div>
-                  <div className="text-2xl font-bold">{formatNumber(overview.followers.instagram)}</div>
-                </div>
-              )}
-              {overview.followers.facebook && (
-                <div>
-                  <div className="text-gray-600 text-sm">Facebook</div>
-                  <div className="text-2xl font-bold">{formatNumber(overview.followers.facebook)}</div>
-                </div>
-              )}
-              {overview.followers.youtube && (
-                <div>
-                  <div className="text-gray-600 text-sm">YouTube</div>
-                  <div className="text-2xl font-bold">{formatNumber(overview.followers.youtube)}</div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {/* Platform Filter Tabs */}
+        <Tabs value={selectedPlatform} onValueChange={setSelectedPlatform}>
+          <TabsList className="bg-white/80 backdrop-blur p-1 h-auto flex-wrap">
+            {PLATFORMS.map((platform) => (
+              <TabsTrigger
+                key={platform.id}
+                value={platform.id}
+                className="gap-2 data-[state=active]:bg-slate-900 data-[state=active]:text-white"
+              >
+                {platform.icon && (
+                  <img
+                    src={platform.icon}
+                    alt={platform.name}
+                    className="w-4 h-4"
+                  />
+                )}
+                {platform.name}
+                {platform.id !== "all" && overviewStats.platformStats[platform.id] && (
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {overviewStats.platformStats[platform.id]?.posts || 0}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
-        {/* Growth Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Engagement Growth</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={growthData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="engagement" stroke="#8884d8" name="Engagement" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Reach & Impressions</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={growthData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="reach" stroke="#82ca9d" name="Reach" />
-                <Line type="monotone" dataKey="impressions" stroke="#ffc658" name="Impressions" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Platform Comparison */}
-        {platformComparison.length > 0 && (
-          <div className="bg-white rounded-lg shadow p-6 mb-8">
-            <h2 className="text-xl font-semibold mb-4">Platform-by-Platform Comparison</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={platformComparison}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${percent ? (percent * 100).toFixed(0) : 0}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {platformComparison.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div>
-                <h3 className="font-semibold mb-4">Platform Statistics</h3>
+        {/* Platform Comparison Chart */}
+        {platformComparisonData.length > 0 && selectedPlatform === "all" && (
+          <Card className="bg-white/80 backdrop-blur">
+            <CardHeader>
+              <CardTitle className="text-lg">Platform Comparison</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={platformComparisonData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) =>
+                        `${name} ${((percent || 0) * 100).toFixed(0)}%`
+                      }
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {platformComparisonData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
                 <div className="space-y-3">
-                  {platformComparison.map((platform, index) => (
-                    <div key={platform.name} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                      <div className="flex items-center gap-2">
+                  {platformComparisonData.map((platform, index) => (
+                    <div
+                      key={platform.name || `platform-${index}`}
+                      className="flex items-center justify-between  bg-slate-50 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
                         <div
                           className="w-4 h-4 rounded"
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                          style={{ backgroundColor: platform.color }}
+                        />
+                        <img
+                          src={getPlatformIcon(platform.name) || ""}
+                          alt={platform.name}
+                          className=" h-5"
                         />
                         <span className="font-medium">{platform.name}</span>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold">{formatNumber(platform.value)} engagement</div>
-                        <div className="text-sm text-gray-600">{platform.posts} posts</div>
+                        <div className="font-semibold">
+                          {formatNumber(platform.value)} engagement
+                        </div>
+                        <div className="text-sm text-slate-600">
+                          {platform.posts} posts • {formatNumber(platform.views)} views
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Debug Info - Remove in production */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-          <h3 className="font-semibold mb-2">Debug Info:</h3>
-          <div className="text-sm space-y-1">
-            <div>Total Posts: {overview?.totalPosts || 0}</div>
-            <div>Best Posts Count: {bestPosts.length}</div>
-            <div>All Posts Count: {allPosts.length}</div>
-            <div>Platforms: {Object.keys(platformStats).join(", ") || "None"}</div>
-            {bestPosts.length > 0 && (
-              <div className="mt-2">
-                <div>First Post Platform: {bestPosts[0]?.platform}</div>
-                <div>First Post Has Title: {bestPosts[0]?.title ? "Yes" : "No"}</div>
-                <div>First Post Has Thumbnail: {bestPosts[0]?.thumbnailUrl ? "Yes" : "No"}</div>
+        {/* Posts List */}
+        <Card className="bg-white/80 backdrop-blur">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg">
+              All Posts ({posts.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {posts.length === 0 ? (
+              <div className="text-center py-12 text-slate-500">
+                <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No posts found</p>
+                <p className="text-sm mt-1">
+                  Go to Social Media → Post to create your first post
+                </p>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Best Performing Posts */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">
-            Best Performing Posts {bestPosts.length > 0 && `(${bestPosts.length})`}
-          </h2>
-          <div className="space-y-4">
-            {bestPosts.length > 0 ? (
-              bestPosts.map((post) => {
-                // Show YouTube-specific card for YouTube posts
-                console.log("🎬 Rendering post:", { platform: post.platform, title: post.title, hasThumbnail: !!post.thumbnailUrl });
-                if (post.platform === "YOUTUBE") {
-                  return (
-                    <div
-                      key={post._id}
-                      onClick={() => setSelectedPostId(post.postId)}
-                      className="border border-gray-200 rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
-                    >
-                      <div className="p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm font-medium">
-                            YOUTUBE
-                          </span>
-                          <span className="text-sm text-gray-600">
-                            {new Date(post.publishedAt || Date.now()).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div className="flex gap-4">
-                          {post.thumbnailUrl && (
-                            <img
-                              src={post.thumbnailUrl}
-                              alt={post.title || "Video thumbnail"}
-                              className="w-32 h-20 object-cover rounded"
-                            />
-                          )}
-                          <div className="flex-1">
-                            <h3 className="font-semibold mb-1">{post.title || "Untitled Video"}</h3>
-                            {post.description && (
-                              <p className="text-sm text-gray-600 line-clamp-2 mb-2">
-                                {post.description}
-                              </p>
-                            )}
-                            <div className="flex gap-6 text-sm">
-                              <div>
-                                <span className="text-gray-600">Views: </span>
-                                <span className="font-semibold">
-                                  {post.analytics?.views?.toLocaleString() || 0}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Likes: </span>
-                                <span className="font-semibold">{post.analytics?.likes || 0}</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Comments: </span>
-                                <span className="font-semibold">{post.analytics?.comments || 0}</span>
-                              </div>
-                              {post.analytics?.estimatedMinutesWatched && (
-                                <div>
-                                  <span className="text-gray-600">Watch Time: </span>
-                                  <span className="font-semibold">
-                                    {Math.floor(post.analytics.estimatedMinutesWatched)} min
-                                  </span>
-                                </div>
-                              )}
-                              {post.analytics?.averageViewPercentage && (
-                                <div>
-                                  <span className="text-gray-600">Avg View: </span>
-                                  <span className="font-semibold">
-                                    {post.analytics.averageViewPercentage.toFixed(1)}%
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="mt-2 text-xs text-blue-600">Click to view detailed analytics →</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Instagram Reel card (clickable)
-                const isInstagramReel = post.platform === "INSTAGRAM" && post.postType === "reel";
-                if (isInstagramReel) {
-                  return (
-                    <div
-                      key={post._id}
-                      onClick={() => setSelectedPostId(post.postId)}
-                      className="border border-purple-200 rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow bg-gradient-to-r from-purple-50 to-pink-50"
-                    >
-                      <div className="p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="px-2 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded text-sm font-medium">
-                            INSTAGRAM REEL
-                          </span>
-                          <span className="text-sm text-gray-600">
-                            {new Date(post.publishedAt || Date.now()).toLocaleDateString()}
-                          </span>
-                        </div>
-                        {post.mediaUrl && (
-                          <img
-                            src={post.mediaUrl}
-                            alt={post.caption || "Reel"}
-                            className="w-full h-48 object-cover rounded mb-3"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <p className="text-gray-800 mb-3 line-clamp-2">
-                            {post.caption || post.content || "No caption"}
-                          </p>
-                          <div className="flex gap-6 text-sm">
-                            <div>
-                              <span className="text-gray-600">▶️ Plays: </span>
-                              <span className="font-semibold">{post.analytics?.plays?.toLocaleString() || 0}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">❤️ Likes: </span>
-                              <span className="font-semibold">{post.analytics?.likes || 0}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">💬 Comments: </span>
-                              <span className="font-semibold">{post.analytics?.comments || 0}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">📤 Shares: </span>
-                              <span className="font-semibold">{post.analytics?.shares || 0}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">💾 Saves: </span>
-                              <span className="font-semibold">{post.analytics?.saves || 0}</span>
-                            </div>
-                            {post.analytics?.engagement && (
-                              <div>
-                                <span className="text-gray-600">Total Engagement: </span>
-                                <span className="font-semibold text-purple-600">{post.analytics.engagement}</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="mt-2 text-xs text-purple-600">Click to view detailed Instagram Reel analytics →</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Instagram Post card (clickable)
-                const isInstagramPost = post.platform === "INSTAGRAM" && post.postType === "post";
-                if (isInstagramPost) {
-                  return (
-                    <div
-                      key={post._id}
-                      onClick={() => setSelectedPostId(post.postId)}
-                      className="border border-pink-200 rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow bg-pink-50"
-                    >
-                      <div className="p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="px-2 py-1 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white rounded text-sm font-medium">
-                            INSTAGRAM POST
-                          </span>
-                          <span className="text-sm text-gray-600">
-                            {new Date(post.publishedAt || Date.now()).toLocaleDateString()}
-                          </span>
-                        </div>
-                        {post.mediaUrl && (
-                          <img
-                            src={post.mediaUrl}
-                            alt={post.caption || "Post"}
-                            className="w-full h-48 object-cover rounded mb-3"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <p className="text-gray-800 mb-3 line-clamp-2">
-                            {post.caption || post.content || "No caption"}
-                          </p>
-                          <div className="flex gap-6 text-sm">
-                            <div>
-                              <span className="text-gray-600">❤️ Likes: </span>
-                              <span className="font-semibold">{post.analytics?.likes || 0}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">💬 Comments: </span>
-                              <span className="font-semibold">{post.analytics?.comments || 0}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">💾 Saves: </span>
-                              <span className="font-semibold">{post.analytics?.saves || 0}</span>
-                            </div>
-                            {post.analytics?.reach && (
-                              <div>
-                                <span className="text-gray-600">👁️ Reach: </span>
-                                <span className="font-semibold">{post.analytics.reach.toLocaleString()}</span>
-                              </div>
-                            )}
-                            {post.analytics?.impressions && (
-                              <div>
-                                <span className="text-gray-600">📊 Impressions: </span>
-                                <span className="font-semibold">{post.analytics.impressions.toLocaleString()}</span>
-                              </div>
-                            )}
-                            {post.analytics?.engagement && (
-                              <div>
-                                <span className="text-gray-600">Total Engagement: </span>
-                                <span className="font-semibold text-pink-600">{post.analytics.engagement}</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="mt-2 text-xs text-pink-600">Click to view detailed Instagram Post analytics →</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Facebook Video card (clickable)
-                const isFacebookVideo = post.platform === "FACEBOOK" && post.postType === "video";
-                if (isFacebookVideo) {
-                  return (
-                    <div
-                      key={post._id}
-                      onClick={() => setSelectedPostId(post.postId)}
-                      className="border border-blue-200 rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow bg-blue-50"
-                    >
-                      <div className="p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="px-2 py-1 bg-blue-600 text-white rounded text-sm font-medium">
-                            FACEBOOK VIDEO
-                          </span>
-                          <span className="text-sm text-gray-600">
-                            {new Date(post.publishedAt || Date.now()).toLocaleDateString()}
-                          </span>
-                        </div>
-                        {post.mediaUrl && (
-                          <img
-                            src={post.mediaUrl}
-                            alt={post.content || "Video"}
-                            className="w-full h-48 object-cover rounded mb-3"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <p className="text-gray-800 mb-3 line-clamp-2">
-                            {post.content || post.caption || "No content"}
-                          </p>
-                          <div className="flex gap-6 text-sm">
-                            <div>
-                              <span className="text-gray-600">▶️ Views: </span>
-                              <span className="font-semibold">{post.analytics?.views?.toLocaleString() || 0}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">❤️ Likes: </span>
-                              <span className="font-semibold">{post.analytics?.likes || 0}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">💬 Comments: </span>
-                              <span className="font-semibold">{post.analytics?.comments || 0}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">📤 Shares: </span>
-                              <span className="font-semibold">{post.analytics?.shares || 0}</span>
-                            </div>
-                            {post.analytics?.videoCompleteViews && (
-                              <div>
-                                <span className="text-gray-600">✅ Complete: </span>
-                                <span className="font-semibold">{post.analytics.videoCompleteViews.toLocaleString()}</span>
-                              </div>
-                            )}
-                            {post.analytics?.engagement && (
-                              <div>
-                                <span className="text-gray-600">Total Engagement: </span>
-                                <span className="font-semibold text-blue-600">{post.analytics.engagement}</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="mt-2 text-xs text-blue-600">Click to view detailed Facebook Video analytics →</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Facebook Post card (clickable) - for image/photo posts
-                const isFacebookPost = post.platform === "FACEBOOK" && post.postType === "post";
-                if (isFacebookPost) {
-                  return (
-                    <div
-                      key={post._id}
-                      onClick={() => setSelectedPostId(post.postId)}
-                      className="border border-blue-200 rounded-lg overflow-hidden cursor-pointer hover:shadow-md transition-shadow bg-blue-50"
-                    >
-                      <div className="p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="px-2 py-1 bg-blue-600 text-white rounded text-sm font-medium">
-                            FACEBOOK POST
-                          </span>
-                          <span className="text-sm text-gray-600">
-                            {new Date(post.publishedAt || Date.now()).toLocaleDateString()}
-                          </span>
-                        </div>
-                        {post.mediaUrl && (
-                          <img
-                            src={post.mediaUrl}
-                            alt={post.content || "Post"}
-                            className="w-full h-48 object-cover rounded mb-3"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <p className="text-gray-800 mb-3 line-clamp-2">
-                            {post.content || post.caption || "No content"}
-                          </p>
-                          <div className="flex gap-6 text-sm">
-                            <div>
-                              <span className="text-gray-600">❤️ Likes: </span>
-                              <span className="font-semibold">{post.analytics?.likes || 0}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">💬 Comments: </span>
-                              <span className="font-semibold">{post.analytics?.comments || 0}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">📤 Shares: </span>
-                              <span className="font-semibold">{post.analytics?.shares || 0}</span>
-                            </div>
-                            {post.analytics?.engagedUsers && (
-                              <div>
-                                <span className="text-gray-600">👥 Engaged: </span>
-                                <span className="font-semibold">{post.analytics.engagedUsers.toLocaleString()}</span>
-                              </div>
-                            )}
-                            {post.analytics?.reach && (
-                              <div>
-                                <span className="text-gray-600">👁️ Reach: </span>
-                                <span className="font-semibold">{post.analytics.reach.toLocaleString()}</span>
-                              </div>
-                            )}
-                            {post.analytics?.engagement && (
-                              <div>
-                                <span className="text-gray-600">Total Engagement: </span>
-                                <span className="font-semibold text-blue-600">{post.analytics.engagement}</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="mt-2 text-xs text-blue-600">Click to view detailed Facebook Post analytics →</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Default card for other platforms
-                return (
-                  <div
-                    key={post._id}
-                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm font-medium">
-                            {post.platform}
-                          </span>
-                          <span className="text-sm text-gray-600">
-                            {new Date(post.publishedAt || Date.now()).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <p className="text-gray-800 mb-3 line-clamp-2">
-                          {post.content || post.caption || post.title || "No content"}
-                        </p>
-                        <div className="flex gap-6 text-sm">
-                          <div>
-                            <span className="text-gray-600">Likes: </span>
-                            <span className="font-semibold">{post.analytics?.likes || 0}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Comments: </span>
-                            <span className="font-semibold">{post.analytics?.comments || 0}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Shares: </span>
-                            <span className="font-semibold">{post.analytics?.shares || 0}</span>
-                          </div>
-                          {post.analytics?.views && (
-                            <div>
-                              <span className="text-gray-600">Views: </span>
-                              <span className="font-semibold">{post.analytics.views}</span>
-                            </div>
-                          )}
-                          {post.analytics?.engagement && (
-                            <div>
-                              <span className="text-gray-600">Total Engagement: </span>
-                              <span className="font-semibold text-blue-600">{post.analytics.engagement}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
             ) : (
-              <div className="text-center py-8 text-gray-500">No posts found in this date range</div>
-            )}
-          </div>
-        </div>
-
-        {/* YouTube Post Details */}
-        {selectedPostId && (
-          <div className="mt-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Post Analytics Details</h2>
-              <button
-                onClick={() => setSelectedPostId(null)}
-                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-              >
-                Close
-              </button>
-            </div>
-            {postAnalyticsLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Spinner />
-              </div>
-            ) : postAnalyticsData?.data?.post ? (
-              postAnalyticsData.data.post.platform === "YOUTUBE" ? (
-                <YouTubeAnalyticsCard post={postAnalyticsData.data.post} />
-              ) : postAnalyticsData.data.post.platform === "INSTAGRAM" && 
-                   postAnalyticsData.data.post.postType === "reel" ? (
-                <InstagramReelAnalyticsCard post={postAnalyticsData.data.post} />
-              ) : postAnalyticsData.data.post.platform === "INSTAGRAM" && 
-                   postAnalyticsData.data.post.postType === "post" ? (
-                <InstagramPostAnalyticsCard post={postAnalyticsData.data.post} />
-              ) : postAnalyticsData.data.post.platform === "FACEBOOK" && 
-                   postAnalyticsData.data.post.postType === "video" ? (
-                <FacebookVideoAnalyticsCard post={postAnalyticsData.data.post} />
-              ) : postAnalyticsData.data.post.platform === "FACEBOOK" && 
-                   postAnalyticsData.data.post.postType === "post" ? (
-                <FacebookPostAnalyticsCard post={postAnalyticsData.data.post} />
-              ) : (
-                <div className="bg-white rounded-lg shadow p-6">
-                  <p className="text-gray-600">Detailed analytics for this platform coming soon...</p>
-                </div>
-              )
-            ) : null}
-          </div>
-        )}
-
-        {/* All Posts List - Clickable */}
-        <div className="mt-8 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">All Posts ({allPosts.length})</h2>
-          {allPosts.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <p>No posts found. Post a video to YouTube to see analytics here!</p>
-              <p className="text-sm mt-2">Go to Social Media → Post to create your first post.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {allPosts.map((post) => {
-                const isYouTube = post.platform === "YOUTUBE";
-                const isInstagramReel = post.platform === "INSTAGRAM" && post.postType === "reel";
-                const isInstagramPost = post.platform === "INSTAGRAM" && post.postType === "post";
-                const isFacebookVideo = post.platform === "FACEBOOK" && post.postType === "video";
-                const isFacebookPost = post.platform === "FACEBOOK" && post.postType === "post";
-                const isClickable = isYouTube || isInstagramReel || isInstagramPost || isFacebookVideo || isFacebookPost;
-                
-                return (
+              <div className="space-y-3">
+                {posts.map((post, index) => (
                   <div
-                    key={post._id}
-                    onClick={() => isClickable && setSelectedPostId(post.postId)}
-                    className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${
-                      isClickable ? "cursor-pointer" : ""
-                    } ${
-                      isYouTube 
-                        ? "border-red-200 bg-red-50" 
-                        : isInstagramReel
-                        ? "border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50"
-                        : isInstagramPost
-                        ? "border-pink-200 bg-pink-50"
-                        : isFacebookVideo
-                        ? "border-blue-200 bg-blue-50"
-                        : "border-gray-200"
-                    }`}
+                    key={post._id || `post-${index}`}
+                    onClick={() => handlePostClick(post)}
+                    className={`border rounded-xl p-4 cursor-pointer transition-all duration-200 ${getPostCardStyle(
+                      post.platform,
+                      post.postType
+                    )}`}
                   >
-                    <div className="flex items-center gap-3">
-                      {isYouTube && post.thumbnailUrl && (
-                        <img
-                          src={post.thumbnailUrl}
-                          alt={post.title || "Thumbnail"}
-                          className="w-32 h-20 object-cover rounded"
-                        />
+                    <div className="flex gap-4">
+                      {/* Thumbnail */}
+                      {(post.thumbnailUrl || post.mediaUrl) && (
+                        <div className="flex-shrink-0">
+                          <img
+                            src={post.thumbnailUrl || post.mediaUrl}
+                            alt={getPostDisplayName(post)}
+                            className="w-32 h-20 object-cover rounded-lg"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                "/placeholder-image.png";
+                            }}
+                          />
+                        </div>
                       )}
-                      {(isInstagramReel || isInstagramPost || isFacebookVideo) && post.mediaUrl && (
-                        <img
-                          src={post.mediaUrl}
-                          alt={post.caption || post.content || "Media"}
-                          className="w-32 h-20 object-cover rounded"
-                        />
+                      {!post.thumbnailUrl && !post.mediaUrl && (
+                        <div className="flex-shrink-0 w-32 h-20 bg-slate-200 rounded-lg flex items-center justify-center">
+                          <BarChart3 className="w-8 h-8 text-slate-400" />
+                        </div>
                       )}
-                      {!isYouTube && !isInstagramReel && !isInstagramPost && !isFacebookVideo && post.mediaUrl && (
-                        <img
-                          src={post.mediaUrl}
-                          alt="Media"
-                          className="w-32 h-20 object-cover rounded"
-                        />
-                      )}
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${
-                              isYouTube
-                                ? "bg-red-100 text-red-800"
-                                : isInstagramReel
-                                ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
-                                : isInstagramPost
-                                ? "bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white"
-                                : isFacebookVideo
-                                ? "bg-blue-600 text-white"
-                                : post.platform === "INSTAGRAM"
-                                ? "bg-pink-100 text-pink-800"
-                                : post.platform === "FACEBOOK"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge
+                            className={`${getPlatformBadgeStyle(
+                              post.platform,
+                              post.postType
+                            )} text-xs`}
                           >
-                            {isInstagramReel ? "INSTAGRAM REEL" : isInstagramPost ? "INSTAGRAM POST" : isFacebookVideo ? "FACEBOOK VIDEO" : post.platform}
-                          </span>
-                          <span className="text-sm text-gray-600">
-                            {new Date(post.publishedAt).toLocaleDateString()}
+                            {post.platform === "INSTAGRAM" && post.postType === "reel"
+                              ? "REEL"
+                              : post.platform}
+                          </Badge>
+                          <span className="text-sm text-slate-500">
+                            {formatDistanceToNow(new Date(post.publishedAt), {
+                              addSuffix: true,
+                            })}
                           </span>
                         </div>
-                        <h3 className="font-semibold mb-1 text-lg">
-                          {isYouTube ? post.title : post.content || post.caption || "Untitled"}
+
+                        <h3 className="font-semibold text-slate-900 mb-2 line-clamp-1">
+                          {getPostDisplayName(post)}
                         </h3>
-                        {isYouTube && post.description && (
-                          <p className="text-sm text-gray-600 line-clamp-2 mb-2">{post.description}</p>
+
+                        {post.description && post.platform === "YOUTUBE" && (
+                          <p className="text-sm text-slate-600 line-clamp-1 mb-2">
+                            {post.description}
+                          </p>
                         )}
-                        <div className="flex gap-4 text-sm">
-                          {/* Show plays for Instagram Reels, views for YouTube and Facebook Videos */}
-                          {isInstagramReel ? (
-                            <span className="font-medium">▶️ {post.analytics?.plays?.toLocaleString() || 0} plays</span>
+
+                        {/* Analytics Summary */}
+                        <div className="flex flex-wrap gap-4 text-sm">
+                          {post.platform === "INSTAGRAM" && post.postType === "reel" ? (
+                            <span className="flex items-center gap-1 text-slate-600">
+                              <Play className="w-4 h-4" />
+                              {formatNumber(post.analytics?.plays || 0)} plays
+                            </span>
                           ) : (
-                            <span className="font-medium">👁️ {post.analytics?.views?.toLocaleString() || 0} views</span>
-                          )}
-                          <span>👍 {post.analytics?.likes || 0}</span>
-                          <span>💬 {post.analytics?.comments || 0}</span>
-                          {isInstagramReel && (
-                            <span>📤 {post.analytics?.shares || 0}</span>
-                          )}
-                          {(isInstagramReel || isInstagramPost) && (
-                            <span className="text-purple-600 font-medium">
-                              💾 {post.analytics?.saves || 0} saves
+                            <span className="flex items-center gap-1 text-slate-600">
+                              <Eye className="w-4 h-4" />
+                              {formatNumber(post.analytics?.views || 0)} views
                             </span>
                           )}
-                          {!isInstagramReel && (
-                            <span>📤 {post.analytics?.shares || 0}</span>
-                          )}
-                          {isFacebookVideo && post.analytics?.videoCompleteViews && (
-                            <span className="text-green-600 font-medium">
-                              ✅ {post.analytics.videoCompleteViews.toLocaleString()} complete
+                          <span className="flex items-center gap-1 text-slate-600">
+                            <Heart className="w-4 h-4" />
+                            {formatNumber(post.analytics?.likes || 0)}
+                          </span>
+                          <span className="flex items-center gap-1 text-slate-600">
+                            <MessageCircle className="w-4 h-4" />
+                            {formatNumber(post.analytics?.comments || 0)}
+                          </span>
+                          <span className="flex items-center gap-1 text-slate-600">
+                            <Share2 className="w-4 h-4" />
+                            {formatNumber(post.analytics?.shares || 0)}
+                          </span>
+                          {(post.platform === "INSTAGRAM") && (
+                            <span className="flex items-center gap-1 text-purple-600 font-medium">
+                              <Bookmark className="w-4 h-4" />
+                              {formatNumber(post.analytics?.saves || 0)} saves
                             </span>
                           )}
-                          {isYouTube && post.analytics?.estimatedMinutesWatched && (
-                            <span className="text-blue-600 font-medium">
-                              ⏱️ {Math.floor(post.analytics.estimatedMinutesWatched)} min
-                            </span>
-                          )}
-                          {isYouTube && post.analytics?.averageViewPercentage && (
-                            <span className="text-green-600 font-medium">
-                              📊 {post.analytics.averageViewPercentage.toFixed(1)}% avg view
+                          {post.platform === "YOUTUBE" && post.analytics?.estimatedMinutesWatched && (
+                            <span className="flex items-center gap-1 text-red-600 font-medium">
+                              <Clock className="w-4 h-4" />
+                              {Math.floor(post.analytics.estimatedMinutesWatched)} min
                             </span>
                           )}
                         </div>
-                        {isClickable && (
-                          <div className="mt-2 text-xs text-blue-600">
-                            Click to view detailed {
-                              isYouTube ? "YouTube" : 
-                              isInstagramReel ? "Instagram Reel" : 
-                              isInstagramPost ? "Instagram Post" : 
-                              isFacebookVideo ? "Facebook Video" : 
-                              isFacebookPost ? "Facebook Post" : 
-                              ""
-                            } analytics →
-                          </div>
-                        )}
+
+                        <div className="mt-2 text-xs text-blue-600 font-medium">
+                          Click to view detailed analytics →
+                        </div>
                       </div>
                     </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Analytics Detail Sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              {selectedPost && (
+                <>
+                  <img
+                    src={getPlatformIcon(selectedPost.platform) || ""}
+                    alt={selectedPost.platform}
+                    className="w-5 h-5"
+                  />
+                  Post Analytics
+                </>
+              )}
+            </SheetTitle>
+          </SheetHeader>
+
+          {selectedPost && (
+            <div className="mt-6 space-y-6">
+              {/* Post Preview */}
+              <div className="rounded-xl overflow-hidden border">
+                {(selectedPost.thumbnailUrl || selectedPost.mediaUrl) && (
+                  <img
+                    src={selectedPost.thumbnailUrl || selectedPost.mediaUrl}
+                    alt={getPostDisplayName(selectedPost)}
+                    className="w-full h-48 object-cover"
+                  />
+                )}
+                <div className="p-4 bg-slate-50">
+                  <Badge
+                    className={`${getPlatformBadgeStyle(
+                      selectedPost.platform,
+                      selectedPost.postType
+                    )} mb-2`}
+                  >
+                    {selectedPost.platform === "INSTAGRAM" && selectedPost.postType === "reel"
+                      ? "INSTAGRAM REEL"
+                      : selectedPost.platform === "FACEBOOK" && selectedPost.postType === "video"
+                      ? "FACEBOOK VIDEO"
+                      : selectedPost.platform}
+                  </Badge>
+                  <h3 className="font-semibold text-lg">
+                    {getPostDisplayName(selectedPost)}
+                  </h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Published {formatDistanceToNow(new Date(selectedPost.publishedAt), { addSuffix: true })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Main Analytics */}
+              <div>
+                <h4 className="font-semibold mb-3 text-slate-900">Performance</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Views/Plays */}
+                  <Card className="bg-slate-50">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2 text-slate-600 text-sm mb-1">
+                        {selectedPost.platform === "INSTAGRAM" && selectedPost.postType === "reel" ? (
+                          <Play className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                        {selectedPost.platform === "INSTAGRAM" && selectedPost.postType === "reel"
+                          ? "Plays"
+                          : "Views"}
+                      </div>
+                      <div className="text-xl font-bold">
+                        {formatNumber(
+                          selectedPost.platform === "INSTAGRAM" && selectedPost.postType === "reel"
+                            ? selectedPost.analytics?.plays || 0
+                            : selectedPost.analytics?.views || 0
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Likes */}
+                  <Card className="bg-slate-50">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2 text-slate-600 text-sm mb-1">
+                        <Heart className="w-4 h-4" />
+                        Likes
+                      </div>
+                      <div className="text-xl font-bold">
+                        {formatNumber(selectedPost.analytics?.likes || 0)}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Comments */}
+                  <Card className="bg-slate-50">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2 text-slate-600 text-sm mb-1">
+                        <MessageCircle className="w-4 h-4" />
+                        Comments
+                      </div>
+                      <div className="text-xl font-bold">
+                        {formatNumber(selectedPost.analytics?.comments || 0)}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Shares */}
+                  <Card className="bg-slate-50">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2 text-slate-600 text-sm mb-1">
+                        <Share2 className="w-4 h-4" />
+                        Shares
+                      </div>
+                      <div className="text-xl font-bold">
+                        {formatNumber(selectedPost.analytics?.shares || 0)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+              {/* Platform-Specific Analytics */}
+              {selectedPost.platform === "INSTAGRAM" && (
+                <div>
+                  <h4 className="font-semibold mb-3 text-slate-900">Instagram Metrics</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Card className="bg-purple-50">
+                      <CardContent className="pt-4">
+                        <div className="flex items-center gap-2 text-purple-600 text-sm mb-1">
+                          <Bookmark className="w-4 h-4" />
+                          Saves
+                        </div>
+                        <div className="text-xl font-bold text-purple-700">
+                          {formatNumber(selectedPost.analytics?.saves || 0)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    {selectedPost.analytics?.reach && (
+                      <Card className="bg-purple-50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-purple-600 text-sm mb-1">
+                            <Users className="w-4 h-4" />
+                            Reach
+                          </div>
+                          <div className="text-xl font-bold text-purple-700">
+                            {formatNumber(selectedPost.analytics.reach)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {selectedPost.analytics?.impressions && (
+                      <Card className="bg-purple-50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-purple-600 text-sm mb-1">
+                            <Eye className="w-4 h-4" />
+                            Impressions
+                          </div>
+                          <div className="text-xl font-bold text-purple-700">
+                            {formatNumber(selectedPost.analytics.impressions)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedPost.platform === "YOUTUBE" && (
+                <div>
+                  <h4 className="font-semibold mb-3 text-slate-900">YouTube Metrics</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {selectedPost.analytics?.estimatedMinutesWatched !== undefined && (
+                      <Card className="bg-red-50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-red-600 text-sm mb-1">
+                            <Clock className="w-4 h-4" />
+                            Watch Time
+                          </div>
+                          <div className="text-xl font-bold text-red-700">
+                            {Math.floor(selectedPost.analytics.estimatedMinutesWatched)} min
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {selectedPost.analytics?.averageViewDuration !== undefined && (
+                      <Card className="bg-red-50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-red-600 text-sm mb-1">
+                            <Clock className="w-4 h-4" />
+                            Avg Duration
+                          </div>
+                          <div className="text-xl font-bold text-red-700">
+                            {formatDuration(selectedPost.analytics.averageViewDuration)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {selectedPost.analytics?.averageViewPercentage !== undefined && (
+                      <Card className="bg-red-50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-red-600 text-sm mb-1">
+                            <TrendingUp className="w-4 h-4" />
+                            Avg View %
+                          </div>
+                          <div className="text-xl font-bold text-red-700">
+                            {selectedPost.analytics.averageViewPercentage.toFixed(1)}%
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {selectedPost.analytics?.subscribersGained !== undefined && (
+                      <Card className="bg-green-50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-green-600 text-sm mb-1">
+                            <Users className="w-4 h-4" />
+                            Subs Gained
+                          </div>
+                          <div className="text-xl font-bold text-green-700">
+                            +{formatNumber(selectedPost.analytics.subscribersGained)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {selectedPost.analytics?.subscribersLost !== undefined && selectedPost.analytics.subscribersLost > 0 && (
+                      <Card className="bg-orange-50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-orange-600 text-sm mb-1">
+                            <Users className="w-4 h-4" />
+                            Subs Lost
+                          </div>
+                          <div className="text-xl font-bold text-orange-700">
+                            -{formatNumber(selectedPost.analytics.subscribersLost)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedPost.platform === "FACEBOOK" && (
+                <div>
+                  <h4 className="font-semibold mb-3 text-slate-900">Facebook Metrics</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {selectedPost.analytics?.reach && (
+                      <Card className="bg-blue-50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-blue-600 text-sm mb-1">
+                            <Users className="w-4 h-4" />
+                            Reach
+                          </div>
+                          <div className="text-xl font-bold text-blue-700">
+                            {formatNumber(selectedPost.analytics.reach)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {selectedPost.analytics?.impressions && (
+                      <Card className="bg-blue-50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-blue-600 text-sm mb-1">
+                            <Eye className="w-4 h-4" />
+                            Impressions
+                          </div>
+                          <div className="text-xl font-bold text-blue-700">
+                            {formatNumber(selectedPost.analytics.impressions)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {selectedPost.analytics?.engagedUsers && (
+                      <Card className="bg-blue-50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-blue-600 text-sm mb-1">
+                            <ThumbsUp className="w-4 h-4" />
+                            Engaged Users
+                          </div>
+                          <div className="text-xl font-bold text-blue-700">
+                            {formatNumber(selectedPost.analytics.engagedUsers)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {selectedPost.analytics?.clicks && (
+                      <Card className="bg-blue-50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-blue-600 text-sm mb-1">
+                            <MousePointer className="w-4 h-4" />
+                            Clicks
+                          </div>
+                          <div className="text-xl font-bold text-blue-700">
+                            {formatNumber(selectedPost.analytics.clicks)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {selectedPost.postType === "video" && selectedPost.analytics?.videoCompleteViews && (
+                      <Card className="bg-green-50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-green-600 text-sm mb-1">
+                            <Eye className="w-4 h-4" />
+                            Complete Views
+                          </div>
+                          <div className="text-xl font-bold text-green-700">
+                            {formatNumber(selectedPost.analytics.videoCompleteViews)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {selectedPost.postType === "video" && selectedPost.analytics?.averageWatchTime && (
+                      <Card className="bg-green-50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center gap-2 text-green-600 text-sm mb-1">
+                            <Clock className="w-4 h-4" />
+                            Avg Watch Time
+                          </div>
+                          <div className="text-xl font-bold text-green-700">
+                            {formatDuration(selectedPost.analytics.averageWatchTime)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Engagement Summary */}
+              <div>
+                <h4 className="font-semibold mb-3 text-slate-900">Engagement Summary</h4>
+                <Card className="bg-gradient-to-r from-slate-50 to-slate-100">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm text-slate-600">Total Engagement</div>
+                        <div className="text-2xl font-bold text-slate-900">
+                          {formatNumber(
+                            (selectedPost.analytics?.likes || 0) +
+                              (selectedPost.analytics?.comments || 0) +
+                              (selectedPost.analytics?.shares || 0) +
+                              (selectedPost.analytics?.saves || 0)
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-slate-600">Engagement Rate</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          {(
+                            ((
+                              (selectedPost.analytics?.likes || 0) +
+                              (selectedPost.analytics?.comments || 0) +
+                              (selectedPost.analytics?.shares || 0)
+                            ) /
+                              Math.max(
+                                selectedPost.analytics?.views ||
+                                  selectedPost.analytics?.plays ||
+                                  1,
+                                1
+                              )) *
+                            100
+                          ).toFixed(2)}
+                          %
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           )}
-        </div>
-      </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
-
-export default Analytics;

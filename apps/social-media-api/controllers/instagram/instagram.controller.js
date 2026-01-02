@@ -1,6 +1,7 @@
 import axios from "axios";
 import AppCredentials from "../../models/appcredentials.model.js";
 import UserModel from "../../models/user.model.js";
+import { getAppConfig } from "../../utils/getAppConfig.js";
 
 // 1️⃣ Redirect user to Instagram Business Login OAuth
 export const redirectToFB = async (req, res) => {
@@ -63,25 +64,31 @@ export const redirectToFB = async (req, res) => {
     console.log("[Instagram Auth] Setting state with userId:", mongoUserId);
   }
 
-  // Use Instagram app ID and secret (or fallback to META_APP_ID if not set)
-  const instagramAppId = process.env.INSTAGRAM_APP_ID || process.env.META_APP_ID;
+  // Get Instagram app config from database (with fallback to env)
+  let instagramConfig;
+  try {
+    instagramConfig = await getAppConfig(mongoUserId || "default", "app/instagram");
+  } catch (error) {
+    console.error("[Instagram Auth] Error getting app config:", error.message);
+    return res.status(500).json({ error: "Instagram app configuration not found. Please configure it first." });
+  }
   
-  if (!instagramAppId) {
-    return res.status(500).json({ error: "Instagram app ID not configured" });
+  if (!instagramConfig.appClientId || !instagramConfig.redirectUrl) {
+    return res.status(500).json({ error: "Instagram app ID or redirect URI not configured" });
   }
 
   // Instagram Business Login - Use Instagram's OAuth endpoint directly
   // This redirects to instagram.com for authentication
   const loginUrl =
     `https://www.instagram.com/oauth/authorize` +
-    `?client_id=${instagramAppId}` +
-    `&redirect_uri=${encodeURIComponent(process.env.INSTAGRAM_REDIRECT_URI)}` +
+    `?client_id=${instagramConfig.appClientId}` +
+    `&redirect_uri=${encodeURIComponent(instagramConfig.redirectUrl)}` +
     `&scope=${scopes.join(",")}` +
     `&response_type=code` +
     `&state=${encodeURIComponent(state)}` +
     `&force_reauth=true`; // Force re-authentication
 
-  console.log("[Instagram Business Login] Redirecting to Instagram OAuth:", loginUrl);
+  console.log("[Instagram Business Login] Redirecting to Instagram OAuth (config source:", instagramConfig.source + "):", loginUrl);
   return res.redirect(loginUrl);
 };
 
@@ -161,11 +168,18 @@ export const instagramCallback = async (req, res) => {
   }
 
   try {
-    // Use Instagram app ID and secret (or fallback to META_APP_ID if not set)
-    const instagramAppId = process.env.INSTAGRAM_APP_ID || process.env.META_APP_ID;
-    const instagramAppSecret = process.env.INSTAGRAM_APP_SECRET || process.env.META_APP_SECRET;
+    // Get Instagram app config from database (with fallback to env)
+    let instagramConfig;
+    try {
+      instagramConfig = await getAppConfig(userId, "app/instagram");
+    } catch (error) {
+      console.error("[Instagram Callback] Error getting app config:", error.message);
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/integrations/instagram?error=config_error`
+      );
+    }
 
-    if (!instagramAppId || !instagramAppSecret) {
+    if (!instagramConfig.appClientId || !instagramConfig.appClientSecret || !instagramConfig.redirectUrl) {
       console.error("Instagram app credentials not configured");
       return res.redirect(
         `${process.env.FRONTEND_URL}/integrations/instagram?error=config_error`
@@ -176,17 +190,18 @@ export const instagramCallback = async (req, res) => {
     // According to Instagram Business Login docs, use POST to api.instagram.com/oauth/access_token
     console.log("[Instagram Callback] Exchanging code for token...");
     console.log("[Instagram Callback] Code:", code);
-    console.log("[Instagram Callback] Redirect URI:", process.env.INSTAGRAM_REDIRECT_URI);
-    console.log("[Instagram Callback] App ID:", instagramAppId);
+    console.log("[Instagram Callback] Redirect URI:", instagramConfig.redirectUrl);
+    console.log("[Instagram Callback] App ID:", instagramConfig.appClientId);
+    console.log("[Instagram Callback] Config source:", instagramConfig.source);
     
     // Use Instagram's token endpoint as per documentation
     const shortToken = await axios.post(
       "https://api.instagram.com/oauth/access_token",
       new URLSearchParams({
-        client_id: instagramAppId,
-        client_secret: instagramAppSecret,
+        client_id: instagramConfig.appClientId,
+        client_secret: instagramConfig.appClientSecret,
         grant_type: "authorization_code",
-        redirect_uri: process.env.INSTAGRAM_REDIRECT_URI,
+        redirect_uri: instagramConfig.redirectUrl,
         code,
       }),
       {
@@ -241,7 +256,7 @@ export const instagramCallback = async (req, res) => {
           {
             params: {
               grant_type: "ig_exchange_token",
-              client_secret: instagramAppSecret,
+              client_secret: instagramConfig.appClientSecret,
               access_token: shortLivedToken,
             },
           }
@@ -264,7 +279,7 @@ export const instagramCallback = async (req, res) => {
           "https://graph.instagram.com/access_token",
           new URLSearchParams({
             grant_type: "ig_exchange_token",
-            client_secret: instagramAppSecret,
+            client_secret: instagramConfig.appClientSecret,
             access_token: shortLivedToken,
           }),
           {
@@ -447,34 +462,95 @@ export const instagramCallback = async (req, res) => {
       has_token: !!credentials.instagram_user_access_token,
     });
 
-    const savedCredential = await AppCredentials.findOneAndUpdate(
-      {
-        userId,
-        platform: "INSTAGRAM",
-      },
-      {
-        userId,
-        platform: "INSTAGRAM",
-        credentials,
-        createdBy: req.user?._id || null,
-      },
-      { upsert: true, new: true }
-    );
+    try {
+      const savedCredential = await AppCredentials.findOneAndUpdate(
+        {
+          userId: String(userId),
+          platform: "INSTAGRAM",
+        },
+        {
+          userId: String(userId),
+          platform: "INSTAGRAM",
+          credentials,
+          createdBy: req.user?._id || null,
+        },
+        { upsert: true, new: true, runValidators: true }
+      );
 
-    console.log("[Instagram Callback] Credentials saved successfully:", {
-      _id: savedCredential._id,
-      userId: savedCredential.userId,
-      platform: savedCredential.platform,
-      has_credentials: !!savedCredential.credentials,
-    });
+      if (!savedCredential) {
+        throw new Error("Failed to save credentials - findOneAndUpdate returned null");
+      }
 
-    return res.redirect(
-      `${process.env.FRONTEND_URL}/integrations/instagram?connected=1`
-    );
+      console.log("[Instagram Callback] ✅ Credentials saved successfully:", {
+        _id: savedCredential._id,
+        userId: savedCredential.userId,
+        platform: savedCredential.platform,
+        has_credentials: !!savedCredential.credentials,
+        instagram_account_id: savedCredential.credentials?.instagram_account_id,
+        instagram_username: savedCredential.credentials?.instagram_username,
+      });
+
+      // Verify credentials were actually saved by querying the database
+      const verifyCredential = await AppCredentials.findOne({
+        userId: String(userId),
+        platform: "INSTAGRAM",
+      }).lean();
+
+      if (!verifyCredential) {
+        console.error("[Instagram Callback] ❌ Verification failed - credential not found in database after save");
+        throw new Error("Credentials were not saved to database");
+      }
+
+      console.log("[Instagram Callback] ✅ Verification passed - credential exists in database");
+
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/integrations/instagram?connected=1`
+      );
+    } catch (dbError) {
+      console.error("[Instagram Callback] ❌ Database error saving credentials:", {
+        error: dbError.message,
+        name: dbError.name,
+        code: dbError.code,
+        codeName: dbError.codeName,
+        userId: userId,
+        platform: "INSTAGRAM",
+        stack: dbError.stack,
+      });
+
+      // Check for specific database errors
+      if (dbError.code === 11000 || dbError.codeName === 'DuplicateKey') {
+        console.error("[Instagram Callback] Duplicate key error - credential already exists");
+        // Try to update existing credential
+        try {
+          const existingCredential = await AppCredentials.findOneAndUpdate(
+            { userId: String(userId), platform: "INSTAGRAM" },
+            { credentials, updatedAt: new Date() },
+            { new: true }
+          );
+          if (existingCredential) {
+            console.log("[Instagram Callback] ✅ Updated existing credential");
+            return res.redirect(
+              `${process.env.FRONTEND_URL}/integrations/instagram?connected=1`
+            );
+          }
+        } catch (updateError) {
+          console.error("[Instagram Callback] Failed to update existing credential:", updateError.message);
+        }
+      }
+
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/integrations/instagram?error=database_error&details=${encodeURIComponent(dbError.message)}`
+      );
+    }
   } catch (err) {
-    console.log("Instagram OAuth error: ", err.response?.data || err);
+    console.error("[Instagram Callback] ❌ OAuth error:", {
+      message: err.message,
+      name: err.name,
+      response: err.response?.data,
+      stack: err.stack,
+    });
     return res.redirect(
-      `${process.env.FRONTEND_URL}/integrations/instagram?error=oauth_failed`
+      `${process.env.FRONTEND_URL}/integrations/instagram?error=oauth_failed&details=${encodeURIComponent(err.message)}`
     );
   }
 };

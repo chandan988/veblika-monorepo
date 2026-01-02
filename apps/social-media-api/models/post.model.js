@@ -27,7 +27,7 @@ const postSchema = new mongoose.Schema(
     videoId: { 
       type: String, 
       required: function() {
-        return this.platform === "YOUTUBE";
+        return this && this.platform === "YOUTUBE";
       },
       index: true,
       sparse: true
@@ -36,7 +36,7 @@ const postSchema = new mongoose.Schema(
     channelId: { 
       type: String,
       required: function() {
-        return this.platform === "YOUTUBE";
+        return this && this.platform === "YOUTUBE";
       },
       index: true,
       sparse: true
@@ -46,14 +46,14 @@ const postSchema = new mongoose.Schema(
     title: { 
       type: String,
       required: function() {
-        return this.platform === "YOUTUBE";
+        return this && this.platform === "YOUTUBE";
       }
     },
     
     description: { 
       type: String,
       required: function() {
-        return this.platform === "YOUTUBE";
+        return this && this.platform === "YOUTUBE";
       }
     },
     
@@ -88,6 +88,8 @@ const postSchema = new mongoose.Schema(
         message: "Invalid post type for platform"
       },
       default: function() {
+        // Handle case where 'this' is null (happens during findOneAndUpdate with upsert)
+        if (!this || !this.platform) return "post";
         if (this.platform === "YOUTUBE") return "upload";
         if (this.platform === "INSTAGRAM") return "post";
         if (this.platform === "FACEBOOK") return "post";
@@ -237,36 +239,49 @@ postSchema.pre("save", function(next) {
 
 // Pre-update hook for findOneAndUpdate, updateOne, etc.
 postSchema.pre(["findOneAndUpdate", "updateOne", "updateMany"], function(next) {
-  const update = this.getUpdate();
-  
-  // Handle $set operations
-  if (update.$set && update.$set.analytics && this._conditions.platform) {
-    try {
-      const platform = this._conditions.platform;
-      const postType = update.$set.postType || this._conditions.postType;
-      update.$set.analytics = cleanAnalyticsForPlatform(
-        platform,
-        update.$set.analytics,
-        postType
-      );
-    } catch (error) {
-      console.error("[Post Model] Error cleaning analytics in update:", error);
+  try {
+    const update = this.getUpdate();
+    if (!update) {
+      return next();
     }
-  }
-  
-  // Handle direct analytics update
-  if (update.analytics && this._conditions.platform) {
-    try {
-      const platform = this._conditions.platform;
-      const postType = update.postType || this._conditions.postType;
-      update.analytics = cleanAnalyticsForPlatform(
-        platform,
-        update.analytics,
-        postType
-      );
-    } catch (error) {
-      console.error("[Post Model] Error cleaning analytics in update:", error);
+    
+    // Get platform from update object or conditions
+    const platform = update.platform || update.$set?.platform || this._conditions?.platform;
+    
+    if (!platform) {
+      // No platform available, skip analytics cleaning
+      return next();
     }
+    
+    // Handle $set operations
+    if (update.$set && update.$set.analytics) {
+      try {
+        const postType = update.$set.postType || update.postType || this._conditions?.postType;
+        update.$set.analytics = cleanAnalyticsForPlatform(
+          platform,
+          update.$set.analytics,
+          postType
+        );
+      } catch (error) {
+        console.error("[Post Model] Error cleaning analytics in $set update:", error);
+      }
+    }
+    
+    // Handle direct analytics update (non-$set)
+    if (update.analytics && !update.$set) {
+      try {
+        const postType = update.postType || this._conditions?.postType;
+        update.analytics = cleanAnalyticsForPlatform(
+          platform,
+          update.analytics,
+          postType
+        );
+      } catch (error) {
+        console.error("[Post Model] Error cleaning analytics in direct update:", error);
+      }
+    }
+  } catch (error) {
+    console.error("[Post Model] Error in pre-update hook:", error);
   }
   
   next();

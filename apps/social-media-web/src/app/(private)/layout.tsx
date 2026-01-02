@@ -21,8 +21,6 @@ import { useAuthSession } from "@/hooks/use-auth-session";
 
 
 function Layout({ children }: { children: React.ReactNode }) {
-  // Initialize auth session at layout level to ensure token is always set for API requests
-  // This ensures axios interceptor always has access to token and userId
   useAuthSession();
 
   return (
@@ -36,7 +34,7 @@ function Layout({ children }: { children: React.ReactNode }) {
               orientation="vertical"
               className="mr-2 data-[orientation=vertical]:h-4"
             />
-            {/* <Breadcrumb>
+             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem className="hidden md:block">
                   <BreadcrumbLink href="#">
@@ -48,7 +46,7 @@ function Layout({ children }: { children: React.ReactNode }) {
                   <BreadcrumbPage>Data Fetching</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
-            </Breadcrumb> */}
+            </Breadcrumb>
           </div>
           <div>
            
