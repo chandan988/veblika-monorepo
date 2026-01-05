@@ -18,32 +18,52 @@ export const appSaveConfigController = async (req, res) => {
         .json({ message: "Authentication required", status: false });
     }
 
-    const userFinder = await UserModel.findById(req.user._id).lean();
-    if (!userFinder) {
-      return res.status(404).json({ message: "User not found", status: false });
+    // Use better-auth userId directly - don't require MongoDB user lookup
+    // User might be in a different database
+    const userId = String(req.user._id);
+    const userEmail = req.headers["x-user-email"];
+    
+    // Optionally try to find MongoDB user for createdBy field, but don't require it
+    let createdBy = userId; // Default to better-auth userId
+    try {
+      const userFinder = await UserModel.findById(userId).lean();
+      if (userFinder) {
+        createdBy = userFinder._id;
+        console.log("MongoDB user found for createdBy:", userFinder._id);
+      } else if (userEmail) {
+        // Try by email as fallback
+        const userByEmail = await UserModel.findOne({ email: userEmail }).lean();
+        if (userByEmail) {
+          createdBy = userByEmail._id;
+          console.log("MongoDB user found by email for createdBy:", userByEmail._id);
+        } else {
+          console.log("MongoDB user not found, using better-auth userId for createdBy");
+        }
+      }
+    } catch (error) {
+      // Ignore MongoDB lookup errors - user might be in different database
+      console.log("MongoDB lookup skipped (user may be in different database), using better-auth userId");
     }
 
-    console.log("userFinder", userFinder);
-
     const savingObj = {
-      userId: String(userFinder._id),
+      userId: userId, // Use better-auth userId directly
       appName: appname,
       appClientId,
       appClientSecret,
       redirectUrl,
-      createdBy: userFinder._id,
+      createdBy: createdBy, // Use MongoDB _id if found, otherwise better-auth userId
     };
 
     console.log("savingObj", savingObj);
 
     const appConfigFinder = await AppConfig.findOne({
-      userId: String(userFinder._id),
+      userId: userId,
       appName: appname,
     });
 
     if (appConfigFinder) {
       const updatedAppConfig = await AppConfig.findOneAndUpdate(
-        { userId: String(userFinder._id), appName: appname },
+        { userId: userId, appName: appname },
         { appClientId, appClientSecret, redirectUrl },
         { new: true }
       );
@@ -140,9 +160,9 @@ export const getAppsArry = async (req, res) => {
       },
       {
         id: 2,
-        name: "Facebook Pages",
+        name: "Facebook Page",
         appname: "app/facebook",
-        icon: "/icons/facebook.svg",
+        icon: "/icons/facebook.png",
         description:
           "Manage Meta pages, publish carousels, and track engagement insights without leaving the dashboard.",
       },
@@ -150,7 +170,7 @@ export const getAppsArry = async (req, res) => {
         id: 3,
         name: "LinkedIn",
         appname: "app/linkedin",
-        icon: "https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png",
+        icon: "icons/linkedin.png",
         description:
           "Share professional content, engage with your network, and grow your business presence on LinkedIn.",
       },
@@ -158,7 +178,7 @@ export const getAppsArry = async (req, res) => {
         id: 4,
         name: "YouTube",
         appname: "app/youtube",
-        icon: "https://upload.wikimedia.org/wikipedia/commons/4/42/YouTube_icon_%282013-2017%29.png",
+        icon: "icons/youtube.png",
         description:
           "Upload videos, manage your channel, and engage with your audience on the world's largest video platform.",
       },

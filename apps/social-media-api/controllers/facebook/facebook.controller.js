@@ -1,6 +1,7 @@
 import axios from "axios";
 import AppCredentials from "../../models/appcredentials.model.js";
 import UserModel from "../../models/user.model.js";
+import { getAppConfig } from "../../utils/getAppConfig.js";
 
 // Redirect user to Facebook OAuth
 export const redirectToFacebook = async (req, res) => {
@@ -16,12 +17,21 @@ export const redirectToFacebook = async (req, res) => {
       "pages_manage_metadata",
     ];
 
-    const clientId = process.env.FACEBOOK_APP_ID || process.env.META_APP_ID;
-    const redirectUri = process.env.FACEBOOK_REDIRECT_URI || process.env.INSTAGRAM_REDIRECT_URI;
+    // Get Facebook app config from database (with fallback to env)
+    let facebookConfig;
+    try {
+      facebookConfig = await getAppConfig(mongoUserId || "default", "app/facebook");
+    } catch (error) {
+      console.error("[Facebook Auth] Error getting app config:", error.message);
+      return res.status(500).json({ message: "Facebook OAuth not configured. Please configure it first." });
+    }
 
-    if (!clientId || !redirectUri) {
+    if (!facebookConfig.appClientId || !facebookConfig.redirectUrl) {
       return res.status(500).json({ message: "Facebook OAuth not configured" });
     }
+    
+    const clientId = facebookConfig.appClientId;
+    const redirectUri = facebookConfig.redirectUrl;
 
     // Get userId from query parameter (passed from frontend) or from req.user
     let userIdToUse = null;
@@ -163,9 +173,29 @@ export const facebookCallback = async (req, res) => {
   }
 
   try {
-    const clientId = process.env.FACEBOOK_APP_ID || process.env.META_APP_ID;
-    const clientSecret = process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET;
-    const redirectUri = process.env.FACEBOOK_REDIRECT_URI || process.env.INSTAGRAM_REDIRECT_URI;
+    // Get Facebook app config from database (with fallback to env)
+    let facebookConfig;
+    try {
+      facebookConfig = await getAppConfig(userId, "app/facebook");
+    } catch (error) {
+      console.error("[Facebook Callback] Error getting app config:", error.message);
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/integrations/facebook?error=config_error`
+      );
+    }
+
+    if (!facebookConfig.appClientId || !facebookConfig.appClientSecret || !facebookConfig.redirectUrl) {
+      console.error("[Facebook Callback] Facebook app credentials not configured");
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/integrations/facebook?error=config_error`
+      );
+    }
+
+    const clientId = facebookConfig.appClientId;
+    const clientSecret = facebookConfig.appClientSecret;
+    const redirectUri = facebookConfig.redirectUrl;
+
+    console.log("[Facebook Callback] Using config from:", facebookConfig.source);
 
     // Step 1: Exchange code → short-lived access token
     const shortToken = await axios.get(
@@ -208,11 +238,14 @@ export const facebookCallback = async (req, res) => {
       }
     );
 
-    // Step 4: Get pages
+    // Step 4: Get pages with profile pictures
     const pagesRes = await axios.get(
       "https://graph.facebook.com/v20.0/me/accounts",
       {
-        params: { access_token: longLivedToken },
+        params: { 
+          access_token: longLivedToken,
+          fields: "id,name,access_token,picture.type(large)"
+        },
       }
     );
 
@@ -223,6 +256,7 @@ export const facebookCallback = async (req, res) => {
       pageId: page.id,
       pageName: page.name,
       page_access_token: page.access_token,
+      picture: page.picture?.data?.url || null, // Extract profile picture URL
     }));
 
     const credentials = {

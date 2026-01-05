@@ -23,49 +23,35 @@ export const isAuth = async (req, res, next) => {
     
     const token = bearerToken || authToken;
     
-    // If we have a token and userId from headers (better-auth), look up MongoDB user
+    // If we have a token and userId from headers (better-auth), use it directly
+    // Don't require MongoDB lookup - user might be in a different database
     if (token && betterAuthUserId) {
       console.log("Better-auth token found in headers, userId:", betterAuthUserId);
       
-      // Look up MongoDB user by better-auth userId (better-auth userId should match MongoDB _id)
-      try {
-        let mongoUser = await UserModel.findById(betterAuthUserId).lean();
-        
-        // If not found by _id, try to find by email from headers
-        if (!mongoUser) {
-          const userEmail = req.headers["x-user-email"];
-          if (userEmail) {
-            console.log("MongoDB user not found by _id, trying by email:", userEmail);
-            mongoUser = await UserModel.findOne({ email: userEmail }).lean();
+      // Use better-auth userId directly - this is the authenticated user ID
+      // We don't need to look up in MongoDB since user might be in different database
+      req.user = {
+        _id: betterAuthUserId,
+        userId: betterAuthUserId,
+      };
+      
+      // Optionally try to find MongoDB user for additional info, but don't require it
+      const userEmail = req.headers["x-user-email"];
+      if (userEmail) {
+        try {
+          const mongoUser = await UserModel.findOne({ email: userEmail }).lean();
+          if (mongoUser) {
+            console.log("MongoDB user found by email, but using better-auth userId:", betterAuthUserId);
+            // Keep using better-auth userId for consistency
           }
+        } catch (userLookupError) {
+          // Ignore MongoDB lookup errors - user might be in different database
+          console.log("MongoDB lookup skipped (user may be in different database)");
         }
-        
-        if (mongoUser) {
-          // Use MongoDB user _id (this is the correct userId to use for queries)
-          req.user = {
-            _id: String(mongoUser._id),
-            userId: String(mongoUser._id),
-          };
-          console.log("MongoDB user found, using _id:", mongoUser._id);
-          return next();
-        } else {
-          console.log("MongoDB user not found for better-auth userId:", betterAuthUserId);
-          // Fallback: use better-auth userId directly (in case it's the same)
-          req.user = {
-            _id: betterAuthUserId,
-            userId: betterAuthUserId,
-          };
-          return next();
-        }
-      } catch (userLookupError) {
-        console.log("Error looking up user:", userLookupError.message);
-        // Fallback: use better-auth userId directly
-        req.user = {
-          _id: betterAuthUserId,
-          userId: betterAuthUserId,
-        };
-        return next();
       }
+      
+      console.log("Using better-auth userId for authentication:", betterAuthUserId);
+      return next();
     }
     
     // Check for old JWT token (automation cookie)

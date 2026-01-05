@@ -1,16 +1,26 @@
 import axios from "axios";
 import AppCredentials from "../../models/appcredentials.model.js";
 import UserModel from "../../models/user.model.js";
+import { getAppConfig } from "../../utils/getAppConfig.js";
 
 // Redirect user to LinkedIn OAuth
 export const redirectToLinkedIn = async (req, res) => {
   try {
-    const clientId = process.env.LINKEDIN_CLIENT_ID;
-    const redirectUri = process.env.LINKEDIN_REDIRECT_URI;
+    // Get LinkedIn app config from database (with fallback to env)
+    let linkedinConfig;
+    try {
+      linkedinConfig = await getAppConfig(mongoUserId || "default", "app/linkedin");
+    } catch (error) {
+      console.error("[LinkedIn Auth] Error getting app config:", error.message);
+      return res.status(500).json({ message: "LinkedIn OAuth not configured. Please configure it first." });
+    }
 
-    if (!clientId || !redirectUri) {
+    if (!linkedinConfig.appClientId || !linkedinConfig.redirectUrl) {
       return res.status(500).json({ message: "LinkedIn OAuth not configured" });
     }
+    
+    const clientId = linkedinConfig.appClientId;
+    const redirectUri = linkedinConfig.redirectUrl;
 
     // LinkedIn OpenID Connect scopes (required for OIDC)
     const scopes = [
@@ -151,9 +161,29 @@ export const linkedinCallback = async (req, res) => {
   }
 
   try {
-    const clientId = process.env.LINKEDIN_CLIENT_ID;
-    const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
-    const redirectUri = process.env.LINKEDIN_REDIRECT_URI;
+    // Get LinkedIn app config from database (with fallback to env)
+    let linkedinConfig;
+    try {
+      linkedinConfig = await getAppConfig(userId, "app/linkedin");
+    } catch (error) {
+      console.error("[LinkedIn Callback] Error getting app config:", error.message);
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/integrations/linkedin?error=config_error`
+      );
+    }
+
+    if (!linkedinConfig.appClientId || !linkedinConfig.appClientSecret || !linkedinConfig.redirectUrl) {
+      console.error("[LinkedIn Callback] LinkedIn app credentials not configured");
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/integrations/linkedin?error=config_error`
+      );
+    }
+
+    const clientId = linkedinConfig.appClientId;
+    const clientSecret = linkedinConfig.appClientSecret;
+    const redirectUri = linkedinConfig.redirectUrl;
+
+    console.log("[LinkedIn Callback] Using config from:", linkedinConfig.source);
 
     // Step 1: Exchange code for access token
     const tokenRes = await axios.post(

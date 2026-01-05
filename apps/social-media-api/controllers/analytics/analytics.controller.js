@@ -2,6 +2,7 @@ import Post from "../../models/post.model.js";
 import AppCredentials from "../../models/appcredentials.model.js";
 import axios from "axios";
 import { cleanAnalyticsForPlatform, calculateEngagement } from "../../utils/analytics-validator.js";
+import { getAppConfig } from "../../utils/getAppConfig.js";
 
 // Get overview analytics dashboard data
 export const getOverviewAnalytics = async (req, res) => {
@@ -660,10 +661,19 @@ async function fetchYouTubeVideoAnalytics(appCredential, videoId, accountId) {
 
     // Check if token is still valid (with 1 minute buffer)
     if (!tokens.expiry || now >= tokens.expiry - 60000) {
+      // Get YouTube/Google app config from database (with fallback to env)
+      let youtubeConfig;
+      try {
+        youtubeConfig = await getAppConfig(appCredential.userId, "app/youtube");
+      } catch (error) {
+        console.error("[YouTube Analytics] Error getting app config:", error.message);
+        throw new Error("YouTube app configuration not found");
+      }
+
       // Refresh token
       const refreshRes = await axios.post("https://oauth2.googleapis.com/token", {
-        client_id: process.env.GOOGLE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        client_id: youtubeConfig.appClientId,
+        client_secret: youtubeConfig.appClientSecret,
         refresh_token: tokens.refresh_token,
         grant_type: "refresh_token",
       });

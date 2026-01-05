@@ -11,6 +11,7 @@ import {
   CreditCard,
   Frame,
   GalleryVerticalEnd,
+  Key,
   LayoutPanelTop,
   Map,
   MessageCircle,
@@ -35,6 +36,9 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { Separator } from "@radix-ui/react-separator";
+import { useAuthSession } from "@/hooks/use-auth-session";
+import { authClient } from "@/lib/auth.client";
+import { useRouter } from "next/navigation";
 
 // This is sample data.
 const data = {
@@ -197,10 +201,34 @@ const data = {
       url: "/settings/organization",
       icon: Building2,
     },
+    {
+      name: "Manage",
+      url: "/settings/credentials",
+      icon: Key,
+    },
   ],
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user, isLoading } = useAuthSession();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await authClient.signOut();
+      router.push("/login");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
+
+  // Get user data with fallbacks
+  const userData = {
+    avatar: user?.image || "https://i.pinimg.com/736x/4a/94/7f/4a947f329636ebfb8505fb16ca5ae25c.jpg",
+    name: user?.name || "User",
+    email: user?.email || "",
+  };
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -213,14 +241,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavProjects heading="Settings" projects={data.settings} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser
-          user={{
-            avatar:
-              "https://i.pinimg.com/736x/4a/94/7f/4a947f329636ebfb8505fb16ca5ae25c.jpg",
-            name: "Ghanisht khurana",
-            email: "ghanishtkhurana9@gmail.com",
-          }}
-        />
+        {!isLoading && (
+          <NavUser
+            user={userData}
+            onLogout={handleLogout}
+          />
+        )}
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

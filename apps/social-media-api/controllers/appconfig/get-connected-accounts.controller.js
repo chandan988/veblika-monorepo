@@ -113,14 +113,16 @@ export const getConnectedAccounts = async (req, res) => {
         }
       } else if (platform.platform === "FACEBOOK") {
         // Mark as connected if credentials exist, even if no pages
+        const firstPage = credentials.pages && credentials.pages.length > 0 ? credentials.pages[0] : null;
         accounts["app/facebook"] = {
           connected: true,
-          accountName: credentials.pages && credentials.pages.length > 0 
-            ? credentials.pages[0].pageName 
+          accountName: firstPage 
+            ? firstPage.pageName 
             : credentials.user_name || "Facebook Account",
-          accountId: credentials.pages && credentials.pages.length > 0 
-            ? credentials.pages[0].pageId 
+          accountId: firstPage 
+            ? firstPage.pageId 
             : credentials.user_id,
+          profilePicture: firstPage?.picture || null, // Use page profile picture if available
           pages: credentials.pages || [],
         };
       } else if (platform.platform === "LINKEDIN") {
@@ -129,6 +131,7 @@ export const getConnectedAccounts = async (req, res) => {
           accountName: credentials.user_name,
           accountEmail: credentials.user_email,
           accountId: credentials.user_id, // LinkedIn user ID (sub from OIDC)
+          profile_picture: credentials.profile_picture, // LinkedIn profile picture
           pages: credentials.pages || [],
         };
       } else if (platform.platform === "YOUTUBE") {

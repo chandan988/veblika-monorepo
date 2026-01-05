@@ -3,6 +3,7 @@ import axios from "axios";
 import path from "path";
 import AppCredentials from "../../models/appcredentials.model.js";
 import UserModel from "../../models/user.model.js";
+import { getAppConfig } from "../../utils/getAppConfig.js";
 
 // Redirect user to Google OAuth
 export const redirectToGoogle = async (req, res) => {
@@ -56,16 +57,30 @@ export const redirectToGoogle = async (req, res) => {
       console.log("[YouTube Auth] Setting state with userId:", mongoUserId);
     }
 
+    // Get YouTube/Google app config from database (with fallback to env)
+    let youtubeConfig;
+    try {
+      youtubeConfig = await getAppConfig(mongoUserId || "default", "app/youtube");
+    } catch (error) {
+      console.error("[YouTube Auth] Error getting app config:", error.message);
+      return res.status(500).json({ message: "YouTube OAuth not configured. Please configure it first." });
+    }
+
+    if (!youtubeConfig.appClientId || !youtubeConfig.redirectUrl) {
+      return res.status(500).json({ message: "YouTube OAuth not configured" });
+    }
+
     const authUrl =
       `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${process.env.GOOGLE_CLIENT_ID}` +
-      `&redirect_uri=${encodeURIComponent(process.env.GOOGLE_REDIRECT_URI)}` +
+      `client_id=${youtubeConfig.appClientId}` +
+      `&redirect_uri=${encodeURIComponent(youtubeConfig.redirectUrl)}` +
       `&response_type=code` +
       `&scope=${encodeURIComponent(scope)}` +
       `&access_type=offline` +
       `&prompt=consent` +
       `&state=${encodeURIComponent(state)}`;
 
+    console.log("[YouTube Auth] Using config from:", youtubeConfig.source);
     return res.redirect(authUrl);
   } catch (err) {
     console.log(err);
@@ -143,11 +158,31 @@ export const youtubeCallback = async (req, res) => {
     }
   
     try {
+      // Get YouTube/Google app config from database (with fallback to env)
+      let youtubeConfig;
+      try {
+        youtubeConfig = await getAppConfig(userId, "app/youtube");
+      } catch (error) {
+        console.error("[YouTube Callback] Error getting app config:", error.message);
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/integrations/youtube?error=config_error`
+        );
+      }
+
+      if (!youtubeConfig.appClientId || !youtubeConfig.appClientSecret || !youtubeConfig.redirectUrl) {
+        console.error("[YouTube Callback] YouTube app credentials not configured");
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/integrations/youtube?error=config_error`
+        );
+      }
+
+      console.log("[YouTube Callback] Using config from:", youtubeConfig.source);
+
       const tokenRes = await axios.post("https://oauth2.googleapis.com/token", {
         code,
-        client_id: process.env.GOOGLE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+        client_id: youtubeConfig.appClientId,
+        client_secret: youtubeConfig.appClientSecret,
+        redirect_uri: youtubeConfig.redirectUrl,
         grant_type: "authorization_code",
       });
   
@@ -230,10 +265,19 @@ async function getValidAccessToken(userId) {
     return tokens.access_token;
   }
 
+  // Get YouTube/Google app config from database (with fallback to env)
+  let youtubeConfig;
+  try {
+    youtubeConfig = await getAppConfig(userId, "app/youtube");
+  } catch (error) {
+    console.error("[YouTube getValidAccessToken] Error getting app config:", error.message);
+    throw new Error("YouTube app configuration not found");
+  }
+
   // Refresh token
   const refreshRes = await axios.post("https://oauth2.googleapis.com/token", {
-    client_id: process.env.GOOGLE_CLIENT_ID,
-    client_secret: process.env.GOOGLE_CLIENT_SECRET,
+    client_id: youtubeConfig.appClientId,
+    client_secret: youtubeConfig.appClientSecret,
     refresh_token: tokens.refresh_token,
     grant_type: "refresh_token",
   });
