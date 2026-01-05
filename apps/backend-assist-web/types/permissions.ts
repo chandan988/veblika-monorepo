@@ -152,7 +152,7 @@ export interface Role {
   permissions: string[]
   isDefault: boolean
   isSystem: boolean
-  organisationId: string
+  orgId: string
   createdAt: string
   updatedAt: string
 }
@@ -161,7 +161,7 @@ export interface Role {
 export interface Member {
   _id: string
   userId: string
-  organisationId: string
+  orgId: string
   roleId: Role | string
   isOwner: boolean
   extraPermissions: string[]

@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { authClient } from "@/lib/auth-client"
 
-const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password","/oauth/callback","/accept-invitation"]
+const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password","/oauth/callback","/accept-invite"]
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()

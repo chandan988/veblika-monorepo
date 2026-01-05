@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer"
+import { config } from "../../config"
 
 interface EmailOptions {
   to: string | string[]
@@ -60,7 +61,7 @@ class NodemailerEmailProvider implements EmailProvider {
       const { to, subject, html, text, from, replyTo, attachments } = options
 
       const result = await this.transporter.sendMail({
-        from: from || process.env.DEFAULT_FROM_EMAIL || "noreply@veblika.com",
+        from: from || config.email.from || "noreply@veblika.com",
         to: Array.isArray(to) ? to.join(", ") : to,
         subject,
         html,
@@ -91,7 +92,7 @@ class NodemailerEmailProvider implements EmailProvider {
         console.error("Email send unknown error", error)
         return {
           success: false,
-          error: { message: 'Unknown send error' },
+          error: { message: "Unknown send error" },
         }
       }
     }
@@ -99,11 +100,11 @@ class NodemailerEmailProvider implements EmailProvider {
 }
 
 export const emailService = new NodemailerEmailProvider({
-  host: process.env.SMTP_HOST || "email-smtp.ap-south-1.amazonaws.com",
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: process.env.SMTP_SECURE === "true" || false,
+  host: config.email.smtp.host || "email-smtp.ap-south-1.amazonaws.com",
+  port: Number(config.email.smtp.port) || 587,
+  secure: config.email.smtp.secure || false,
   auth: {
-    user: process.env.SMTP_USER || "",
-    pass: process.env.SMTP_PASS || "",
+    user: config.email.smtp.user || "",
+    pass: config.email.smtp.pass || "",
   },
 })

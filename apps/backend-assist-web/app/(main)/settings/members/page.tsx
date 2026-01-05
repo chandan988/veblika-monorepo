@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { PermissionGuard, AccessDenied } from "@/components/permission-guard"
 import { PermissionButton } from "@/components/permission-button"
+import { InviteMemberDialog } from "@/components/invite-member-dialog"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
@@ -68,8 +69,6 @@ import { PERMISSION_CATEGORIES } from "@/types/permissions"
 
 export default function MembersPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
-  const [inviteEmail, setInviteEmail] = useState("")
 
   // Role change dialog
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false)
@@ -235,15 +234,18 @@ export default function MembersPage() {
               Manage your team and their access levels
             </p>
           </div>
-          <PermissionButton
-            permission="member:add"
-            onClick={() => setIsInviteDialogOpen(true)}
-            fallback="disable"
-            disabledTooltip="You don't have permission to invite members"
-          >
-            <UserPlus className="h-4 w-4 mr-2" />
-            Invite Member
-          </PermissionButton>
+          <InviteMemberDialog
+            trigger={
+              <PermissionButton
+                permission="member:add"
+                fallback="disable"
+                disabledTooltip="You don't have permission to invite members"
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Invite Member
+              </PermissionButton>
+            }
+          />
         </div>
 
         {/* Search */}
@@ -385,63 +387,6 @@ export default function MembersPage() {
             <p className="text-sm text-muted-foreground">Agents</p>
           </div>
         </div>
-
-        {/* Invite Dialog (placeholder) */}
-        <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invite Team Member</DialogTitle>
-              <DialogDescription>
-                Send an invitation to join your organisation
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="colleague@example.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Select Role</Label>
-                <Select
-                  value={selectedRoleId}
-                  onValueChange={setSelectedRoleId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roles
-                      .filter((role) => role.slug !== "owner")
-                      .map((role) => (
-                        <SelectItem key={role._id} value={role._id}>
-                          {role.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                The invited member will receive an email with a link to join.
-                They will be assigned the default &quot;Agent&quot; role.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsInviteDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button>Send Invite</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Change Role Dialog */}
         <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>

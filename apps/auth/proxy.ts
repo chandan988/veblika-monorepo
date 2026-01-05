@@ -4,7 +4,7 @@ import { getSessionCookie } from "better-auth/cookies"
 const authRoutes = ["/login", "/signup", "/forgot-password", "/reset-password"]
 
 // http://localhost:3000/oauth2/callback
-const publicRoutes: string[] = ["/oauth/callback","/accept-invitation"]
+const publicRoutes: string[] = ["/oauth/callback","/master"]
 
 export async function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request)

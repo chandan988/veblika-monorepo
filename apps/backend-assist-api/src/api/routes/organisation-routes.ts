@@ -4,7 +4,7 @@ import { validate } from "../../middleware/validator"
 import {
     createOrganisationSchema,
     updateOrganisationSchema,
-    organisationIdSchema,
+    orgIdSchema,
     checkSlugSchema,
     addMemberSchema,
     updateMemberRoleSchema,
@@ -57,7 +57,7 @@ router.get(
 router.get(
     "/:id",
     isAuth,
-    validate(organisationIdSchema),
+    validate(orgIdSchema),
     organisationController.getOrganisationById
 )
 
@@ -69,7 +69,7 @@ router.get(
 router.put(
     "/:id",
     isAuth,
-    validate(organisationIdSchema.merge(updateOrganisationSchema)),
+    validate(orgIdSchema.merge(updateOrganisationSchema)),
     organisationController.updateOrganisation
 )
 
@@ -81,7 +81,7 @@ router.put(
 router.delete(
     "/:id",
     isAuth,
-    validate(organisationIdSchema),
+    validate(orgIdSchema),
     organisationController.deleteOrganisation
 )
 
@@ -97,7 +97,7 @@ router.delete(
 router.get(
     "/:id/members",
     isAuth,
-    validate(organisationIdSchema),
+    validate(orgIdSchema),
     organisationController.getMembers
 )
 
@@ -145,7 +145,7 @@ router.delete(
 router.post(
     "/:id/leave",
     isAuth,
-    validate(organisationIdSchema),
+    validate(orgIdSchema),
     organisationController.leaveOrganisation
 )
 

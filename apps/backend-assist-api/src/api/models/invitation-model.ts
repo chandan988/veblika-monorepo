@@ -5,7 +5,7 @@ export type InvitationStatus = "pending" | "accepted" | "rejected" | "expired"
 export interface IInvitation extends Document {
   email: string
   orgId: mongoose.Types.ObjectId
-  roleId: string
+  roleId: mongoose.Types.ObjectId
   invitedBy: mongoose.Types.ObjectId // memberId
   status: "pending" | "accepted" | "expired"
   userExists: boolean
@@ -28,8 +28,9 @@ const invitationSchema = new Schema<IInvitation>(
       trim: true,
     },
     roleId: {
-      type: String,
+      type: Schema.Types.ObjectId,
       required: true,
+      ref: "role",
     },
     invitedBy: {
       type: Schema.Types.ObjectId,

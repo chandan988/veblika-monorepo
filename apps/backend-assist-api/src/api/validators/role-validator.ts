@@ -17,7 +17,7 @@ export const createRoleSchema = z.object({
       .min(1, "At least one permission is required"),
   }),
   params: z.object({
-    organisationId: z.string().min(1, "Organisation ID is required"),
+    orgId: z.string().min(1, "Organisation ID is required"),
   }),
 })
 
@@ -37,21 +37,21 @@ export const updateRoleSchema = z.object({
     permissions: z.array(z.string()).optional(),
   }),
   params: z.object({
-    organisationId: z.string().min(1, "Organisation ID is required"),
+    orgId: z.string().min(1, "Organisation ID is required"),
     roleId: z.string().min(1, "Role ID is required"),
   }),
 })
 
 export const roleIdSchema = z.object({
   params: z.object({
-    organisationId: z.string().min(1, "Organisation ID is required"),
+    orgId: z.string().min(1, "Organisation ID is required"),
     roleId: z.string().min(1, "Role ID is required"),
   }),
 })
 
-export const organisationIdParamSchema = z.object({
+export const orgIdParamSchema = z.object({
   params: z.object({
-    organisationId: z.string().min(1, "Organisation ID is required"),
+    orgId: z.string().min(1, "Organisation ID is required"),
   }),
 })
 
@@ -61,7 +61,7 @@ export const assignRoleSchema = z.object({
     roleId: z.string().min(1, "Role ID is required"),
   }),
   params: z.object({
-    organisationId: z.string().min(1, "Organisation ID is required"),
+    orgId: z.string().min(1, "Organisation ID is required"),
   }),
 })
 
@@ -70,7 +70,7 @@ export const updateMemberPermissionsSchema = z.object({
     extraPermissions: z.array(z.string()),
   }),
   params: z.object({
-    organisationId: z.string().min(1, "Organisation ID is required"),
+    orgId: z.string().min(1, "Organisation ID is required"),
     memberId: z.string().min(1, "Member ID is required"),
   }),
 })

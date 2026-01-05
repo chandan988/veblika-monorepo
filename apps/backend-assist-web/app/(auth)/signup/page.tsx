@@ -29,6 +29,7 @@ import {
 } from "@workspace/ui/components/form"
 import { authClient } from "@/lib/auth-client"
 import { toast } from "sonner"
+import { saveInvitation } from "@/utils/invitation-storage"
 
 const signupSchema = z
   .object({
@@ -64,7 +65,7 @@ function SignupForm() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect")
   const emailParam = searchParams.get("email")
-  const invitationId = searchParams.get("invitationId")
+  const inviteToken = searchParams.get("inviteToken")
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<SignupFormValues>({
@@ -88,27 +89,47 @@ function SignupForm() {
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true)
 
+    // If coming from invitation page, save to localStorage for post-verification redirect
+    // This persists across browser tabs (important when user opens email verification in new tab)
+    if (inviteToken && data.email) {
+      // For signup, userExists should be false (user is creating new account)
+      // Role is 'user' since they're signing up via invitation
+      saveInvitation(inviteToken, data.email, 'user', false)
+    }
+
     try {
+      // Build callbackURL - include invitation token so after email verification user goes to accept-invite
+      let callbackURL = redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL
+      if (inviteToken) {
+        callbackURL = `${process.env.NEXT_PUBLIC_CLIENT_URL}/accept-invite?id=${inviteToken}`
+      }
+
+      // Determine role: if signing up via invitation, role is 'user', otherwise 'admin'
+      const userRole = inviteToken ? 'user' : 'admin'
+
       const result = await authClient.signUp.email({
         name: data.name,
         email: data.email,
         password: data.password,
-        callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
+        callbackURL,
+        // Pass role as additional field - invitation signups get 'user' role, direct signups get 'admin'
+        // @ts-expect-error - role is a custom field handled by auth middleware
+        role: userRole,
       })
 
       if (result.error) {
         toast.error(result.error.message || "Failed to create account")
-      } else {
-        toast.success("Account created successfully!")
-        // Redirect after successful signup
-        if (invitationId) {
-          // If coming from invitation flow, redirect to accept-invitation page
-          router.push(`/accept-invitation/${invitationId}`)
-        } else if (redirectTo) {
-          router.push(redirectTo)
-        } else {
-          router.push("/")
-        }
+        setIsLoading(false)
+        return
+      }
+
+      toast.success("Account created successfully! Please check your email to verify your account.")
+      
+      // If invitation token exists, redirect to accept-invite page
+      // Note: If email verification is required, user will be redirected after verification
+      if (inviteToken) {
+        router.push(`/accept-invite?id=${inviteToken}`)
+        return
       }
     } catch (error) {
       toast.error("An error occurred during signup")
@@ -120,12 +141,20 @@ function SignupForm() {
 
   const handleGoogleSignup = async () => {
     try {
+      // If invitation exists, save to localStorage before OAuth redirect
+      if (inviteToken && emailParam) {
+        // For signup, userExists should be false (user is creating new account)
+        saveInvitation(inviteToken, emailParam, 'user', false)
+      }
+
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: invitationId
-          ? process.env.NEXT_PUBLIC_CLIENT_URL +
-            `/accept-invitation/${invitationId}`
+        callbackURL: inviteToken
+          ? `${process.env.NEXT_PUBLIC_CLIENT_URL}/accept-invite?id=${inviteToken}`
           : redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
+        additionalData: {
+          role: inviteToken ? 'user' : 'admin',
+        },
       })
     } catch (error) {
       toast.error("Failed to signup with Google")
@@ -134,7 +163,7 @@ function SignupForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+    <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-background to-muted p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-2 text-center">
           <CardTitle className="text-3xl font-bold tracking-tight">
@@ -338,7 +367,7 @@ function SignupForm() {
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link
-              href="/login"
+              href={`/login${inviteToken ? `?inviteToken=${inviteToken}${emailParam ? `&email=${encodeURIComponent(emailParam)}` : ''}` : ''}`}
               className="font-medium text-primary hover:underline"
             >
               Sign in

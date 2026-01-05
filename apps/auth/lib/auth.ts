@@ -1,5 +1,5 @@
 import { betterAuth } from "better-auth"
-import { createAuthMiddleware, APIError } from "better-auth/api"
+import { createAuthMiddleware, APIError, getOAuthState } from "better-auth/api"
 
 import { mongodbAdapter } from "better-auth/adapters/mongodb"
 import { nextCookies } from "better-auth/next-js"
@@ -52,7 +52,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
     enabled: true,
     minPasswordLength: 4,
     maxPasswordLength: 20,
-    requireEmailVerification: false,
+    requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
       await email.sendEmail({
         from,
@@ -62,8 +62,27 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
       })
     },
   },
+
   emailVerification: {
-    async sendVerificationEmail({ user, url }) {
+    sendOnSignUp: true,
+    sendOnSignIn: true,
+
+    async sendVerificationEmail({ user, url }, request) {
+      const origin =
+        request?.headers.get("origin") || request?.headers.get("referer")
+      if (!origin) {
+        throw new APIError("BAD_REQUEST", {
+          message: "Origin header is missing",
+        })
+      }
+
+      const host = new URL(origin).host
+      console.log({
+        host,
+        url,
+        user,
+      })
+
       await email.sendEmail({
         from,
         to: user.email,
@@ -78,22 +97,37 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
       if (ctx.path !== "/sign-up/email") {
         return
       }
-      const host = ctx.headers?.get("host")
-      console.log(host, "Host manual sign-up")
-      const reseller = await getDatabase()
-        .db.collection("reseller")
-        .findOne({ host: host })
-      if (!reseller) {
-        throw new APIError("NOT_ACCEPTABLE", {
-          message: "Reseller not found for the given host",
+      const origin = ctx.headers?.get("origin") || ctx.headers?.get("referer")
+      if (!origin) {
+        throw new APIError("BAD_REQUEST", {
+          message: "Origin header is missing",
         })
       }
+
+      const host = new URL(origin).host
+      console.log(host, "Host manual sign-up")
+      const resellerApp = await getDatabase()
+        .db.collection("reseller_app")
+        .findOne({ host: host })
+      if (!resellerApp) {
+        throw new APIError("NOT_ACCEPTABLE", {
+          message: "Reseller app not found for the given host",
+        })
+      }
+
+      // Get role from request body - defaults to 'admin' if not provided
+      // When signing up via invitation, role should be 'user'
+      const requestedRole = ctx.body?.role
+      const role = requestedRole === 'user' ? 'user' : 'admin'
+      console.log("hooks.before - requestedRole:", requestedRole, "final role:", role)
+
       return {
         context: {
           ...ctx,
           body: {
             ...ctx.body,
-            resellerId: reseller._id.toString(),
+            resellerId: resellerApp.resellerId,
+            role: role,
           },
         },
       }
@@ -110,17 +144,53 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
             })
           }
 
-          const host = ctx.headers?.get("host")
-          console.log(host, "Host")
-          const reseller = await getDatabase()
-            .db.collection("reseller")
-            .findOne({ host: host })
-          if (!reseller) {
-            throw new APIError("NOT_ACCEPTABLE", {
-              message: "Reseller not found for the given host",
+          const origin =
+            ctx.headers?.get("origin") || ctx.headers?.get("referer")
+          if (!origin) {
+            throw new APIError("BAD_REQUEST", {
+              message: "Origin header is missing",
             })
           }
-          return { data: { ...user, resellerId: reseller._id } }
+
+          const host = new URL(origin).host
+          console.log(host, "Host user creation")
+          const resellerApp = await getDatabase()
+            .db.collection("reseller_app")
+            .findOne({ host: host })
+          if (!resellerApp) {
+            throw new APIError("NOT_ACCEPTABLE", {
+              message: "Reseller app not found for the given host",
+            })
+          }
+
+          // Try to get role from OAuth state (for Google signup)
+          // This is set via additionalData in signIn.social()
+          let role = 'admin' // default role
+          try {
+            const oauthState = await getOAuthState()
+            if (oauthState?.role) {
+              role = oauthState.role === 'user' ? 'user' : 'admin'
+              console.log("OAuth state role:", role)
+            }
+          } catch {
+            // Not an OAuth request, role will be set from body (email signup)
+            // The hooks.before middleware sets role in ctx.body for email signups
+            const bodyRole = (ctx as Record<string, unknown>).body as Record<string, unknown> | undefined
+            if (bodyRole?.role && typeof bodyRole.role === 'string') {
+              role = bodyRole.role === 'user' ? 'user' : 'admin'
+              console.log("Body role from middleware:", role)
+            }
+          }
+
+          console.log("Final role being saved:", role)
+
+          return { 
+            data: { 
+              ...user, 
+              resellerId: resellerApp.resellerId,
+              role: role,
+            } 
+          }
         },
       },
     },
@@ -129,6 +199,13 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      // mapProfileToUser: (profile) => ({
+      //   displayName: profile.name,
+      //   username: generateUsernameFromEmail(profile.email),
+      //   avatarUrl: profile.picture,
+      //   email: profile.email,
+      //   isVerified: profile.email_verified,
+      // }),
     },
   },
   plugins: [nextCookies()],

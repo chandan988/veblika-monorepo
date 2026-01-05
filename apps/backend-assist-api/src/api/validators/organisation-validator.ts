@@ -27,7 +27,7 @@ export const updateOrganisationSchema = z.object({
     }),
 });
 
-export const organisationIdSchema = z.object({
+export const orgIdSchema = z.object({
     params: z.object({
         id: z.string().min(1, 'Organisation ID is required'),
     }),

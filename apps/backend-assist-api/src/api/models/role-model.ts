@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from "mongoose"
 
 export interface IRole extends Document {
   _id: mongoose.Types.ObjectId
-  organisationId: Schema.Types.ObjectId
+  orgId: Schema.Types.ObjectId
   name: string
   slug: string
   description?: string
@@ -16,7 +16,7 @@ export interface IRole extends Document {
 
 const roleSchema = new Schema<IRole>(
   {
-    organisationId: {
+    orgId: {
       type: Schema.Types.ObjectId,
       required: true,
       ref: "organization",
@@ -66,9 +66,9 @@ const roleSchema = new Schema<IRole>(
 )
 
 // Compound unique index: role slug must be unique within an organisation
-roleSchema.index({ organisationId: 1, slug: 1 }, { unique: true })
+roleSchema.index({ orgId: 1, slug: 1 }, { unique: true })
 
 // Index for querying default roles
-roleSchema.index({ organisationId: 1, isDefault: 1 })
+roleSchema.index({ orgId: 1, isDefault: 1 })
 
 export const Role = mongoose.model<IRole>("role", roleSchema)

@@ -19,7 +19,7 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { authClient } from "@/lib/auth-client"
 import Image from "next/image"
 import { OrganisationSwitcher } from "./organisation-switcher"
-import { useLogout } from "@/hooks/use-session"
+import { useLogout, useSession } from "@/hooks/use-session"
 
 const menuItems = [
   { name: "Dashboard", href: "/" },
@@ -36,10 +36,7 @@ const LOGO =
   "https://cloudmediastorage.s3.ap-south-1.amazonaws.com/white-label/logo/veblika.com/e745e554-ebb2-44d5-979e-7ceb20f6918e-favicon2.png"
 
 export function TopNavbar() {
-  const { data } = useQuery({
-    queryKey: ["session"],
-    queryFn: () => authClient.getSession(),
-  })
+  const { data } = useSession()
   const mutation = useLogout()
   const user = data?.data?.user
   const session = data?.data?.session

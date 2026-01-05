@@ -31,11 +31,11 @@ export class MemberService {
   /**
    * Get all members of an organisation with user and role details
    */
-  async getMembersByOrganisation(organisationId: string): Promise<MemberWithUser[]> {
+  async getMembersByOrganisation(orgId: string): Promise<MemberWithUser[]> {
     const members = await Member.aggregate([
       {
         $match: {
-          organizationId: new mongoose.Types.ObjectId(organisationId),
+          orgId: new mongoose.Types.ObjectId(orgId),
         },
       },
       {
@@ -99,7 +99,7 @@ export class MemberService {
    */
   async getMemberById(
     memberId: string,
-    organisationId: string
+    orgId: string
   ): Promise<MemberWithUser | null> {
     if (!mongoose.Types.ObjectId.isValid(memberId)) {
       throw new Error("Invalid member ID")
@@ -109,7 +109,7 @@ export class MemberService {
       {
         $match: {
           _id: new mongoose.Types.ObjectId(memberId),
-          organizationId: new mongoose.Types.ObjectId(organisationId),
+          orgId: new mongoose.Types.ObjectId(orgId),
         },
       },
       {
@@ -170,7 +170,7 @@ export class MemberService {
    */
   async updateMemberRole(
     memberId: string,
-    organisationId: string,
+    orgId: string,
     roleId: string,
     updatedBy: { isOwner: boolean; memberId: string }
   ): Promise<IMember> {
@@ -185,7 +185,7 @@ export class MemberService {
     // Get the member being updated
     const member = await Member.findOne({
       _id: memberId,
-      organizationId: organisationId,
+      orgId: orgId,
     })
 
     if (!member) {
@@ -205,7 +205,7 @@ export class MemberService {
     // Verify the role exists and belongs to the organisation
     const role = await Role.findOne({
       _id: roleId,
-      organisationId: organisationId,
+      orgId: orgId,
     })
 
     if (!role) {
@@ -217,7 +217,9 @@ export class MemberService {
       throw new Error("Cannot assign owner role")
     }
 
-    member.roleId = new mongoose.Types.ObjectId(roleId) as unknown as Schema.Types.ObjectId
+    member.roleId = new mongoose.Types.ObjectId(
+      roleId
+    ) as unknown as Schema.Types.ObjectId
     await member.save()
 
     return member
@@ -228,7 +230,7 @@ export class MemberService {
    */
   async updateMemberExtraPermissions(
     memberId: string,
-    organisationId: string,
+    orgId: string,
     extraPermissions: string[],
     updatedBy: { isOwner: boolean; memberId: string }
   ): Promise<IMember> {
@@ -242,7 +244,7 @@ export class MemberService {
     // Get the member being updated
     const member = await Member.findOne({
       _id: memberId,
-      organizationId: organisationId,
+      orgId: orgId,
     })
 
     if (!member) {
@@ -274,7 +276,7 @@ export class MemberService {
    */
   async removeMember(
     memberId: string,
-    organisationId: string,
+    orgId: string,
     removedBy: { isOwner: boolean; memberId: string }
   ): Promise<void> {
     if (!mongoose.Types.ObjectId.isValid(memberId)) {
@@ -284,7 +286,7 @@ export class MemberService {
     // Get the member being removed
     const member = await Member.findOne({
       _id: memberId,
-      organizationId: organisationId,
+      orgId: orgId,
     })
 
     if (!member) {
@@ -307,19 +309,19 @@ export class MemberService {
   /**
    * Get member count for an organisation
    */
-  async getMemberCount(organisationId: string): Promise<number> {
+  async getMemberCount(orgId: string): Promise<number> {
     return Member.countDocuments({
-      organizationId: new mongoose.Types.ObjectId(organisationId),
+      orgId: new mongoose.Types.ObjectId(orgId),
     })
   }
 
   /**
    * Check if a user is a member of an organisation
    */
-  async isMember(userId: string, organisationId: string): Promise<boolean> {
+  async isMember(userId: string, orgId: string): Promise<boolean> {
     const member = await Member.findOne({
       userId: new mongoose.Types.ObjectId(userId),
-      organizationId: new mongoose.Types.ObjectId(organisationId),
+      orgId: new mongoose.Types.ObjectId(orgId),
     })
     return !!member
   }

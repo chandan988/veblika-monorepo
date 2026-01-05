@@ -19,13 +19,13 @@ export class RoleService {
   /**
    * Seed default roles for a new organisation
    */
-  async seedDefaultRoles(organisationId: string, createdBy?: string): Promise<IRole[]> {
+  async seedDefaultRoles(orgId: string, createdBy?: string): Promise<IRole[]> {
     const defaultRoles = getDefaultRolesConfig()
     const roles: IRole[] = []
 
     for (const [slug, config] of Object.entries(defaultRoles)) {
       const role = await Role.create({
-        organisationId,
+        orgId,
         name: config.name,
         slug,
         description: config.description,
@@ -43,41 +43,41 @@ export class RoleService {
   /**
    * Get all roles for an organisation
    */
-  async getRolesByOrganisation(organisationId: string): Promise<IRole[]> {
-    return Role.find({ organisationId }).sort({ isDefault: -1, name: 1 })
+  async getRolesByOrganisation(orgId: string): Promise<IRole[]> {
+    return Role.find({ orgId }).sort({ isDefault: -1, name: 1 })
   }
 
   /**
    * Get a role by ID
    */
-  async getRoleById(roleId: string, organisationId: string): Promise<IRole | null> {
+  async getRoleById(roleId: string, orgId: string): Promise<IRole | null> {
     if (!mongoose.Types.ObjectId.isValid(roleId)) {
       throw new Error("Invalid role ID")
     }
 
     return Role.findOne({
       _id: roleId,
-      organisationId,
+      orgId,
     })
   }
 
   /**
    * Get a role by slug within an organisation
    */
-  async getRoleBySlug(slug: string, organisationId: string): Promise<IRole | null> {
+  async getRoleBySlug(slug: string, orgId: string): Promise<IRole | null> {
     return Role.findOne({
       slug,
-      organisationId,
+      orgId,
     })
   }
 
   /**
    * Get the Owner role for an organisation
    */
-  async getOwnerRole(organisationId: string): Promise<IRole | null> {
+  async getOwnerRole(orgId: string): Promise<IRole | null> {
     return Role.findOne({
       slug: "owner",
-      organisationId,
+      orgId,
     })
   }
 
@@ -85,7 +85,7 @@ export class RoleService {
    * Create a custom role
    */
   async createRole(
-    organisationId: string,
+    orgId: string,
     data: CreateRoleInput,
     createdBy: string
   ): Promise<IRole> {
@@ -96,7 +96,7 @@ export class RoleService {
       .replace(/^-|-$/g, "")
 
     // Check if slug already exists
-    const existingRole = await Role.findOne({ organisationId, slug })
+    const existingRole = await Role.findOne({ orgId, slug })
     if (existingRole) {
       throw new Error("A role with this name already exists")
     }
@@ -111,7 +111,7 @@ export class RoleService {
     }
 
     const role = await Role.create({
-      organisationId,
+      orgId,
       name: data.name,
       slug,
       description: data.description,
@@ -129,14 +129,14 @@ export class RoleService {
    */
   async updateRole(
     roleId: string,
-    organisationId: string,
+    orgId: string,
     data: UpdateRoleInput
   ): Promise<IRole | null> {
     if (!mongoose.Types.ObjectId.isValid(roleId)) {
       throw new Error("Invalid role ID")
     }
 
-    const role = await Role.findOne({ _id: roleId, organisationId })
+    const role = await Role.findOne({ _id: roleId, orgId })
     if (!role) {
       throw new Error("Role not found")
     }
@@ -172,7 +172,7 @@ export class RoleService {
 
       // Check if new slug already exists
       const existingRole = await Role.findOne({
-        organisationId,
+        orgId,
         slug: updateData.slug,
         _id: { $ne: roleId },
       })
@@ -193,12 +193,12 @@ export class RoleService {
   /**
    * Delete a role
    */
-  async deleteRole(roleId: string, organisationId: string): Promise<void> {
+  async deleteRole(roleId: string, orgId: string): Promise<void> {
     if (!mongoose.Types.ObjectId.isValid(roleId)) {
       throw new Error("Invalid role ID")
     }
 
-    const role = await Role.findOne({ _id: roleId, organisationId })
+    const role = await Role.findOne({ _id: roleId, orgId })
     if (!role) {
       throw new Error("Role not found")
     }
@@ -210,7 +210,7 @@ export class RoleService {
 
     // Check if any members are using this role
     const membersUsingRole = await Member.countDocuments({
-      organizationId: organisationId,
+      orgId: orgId,
       roleId: roleId,
     })
 
@@ -236,10 +236,10 @@ export class RoleService {
    */
   async canAssignRole(
     roleId: string,
-    organisationId: string,
+    orgId: string,
     assignerIsOwner: boolean
   ): Promise<{ canAssign: boolean; reason?: string }> {
-    const role = await this.getRoleById(roleId, organisationId)
+    const role = await this.getRoleById(roleId, orgId)
     if (!role) {
       return { canAssign: false, reason: "Role not found" }
     }

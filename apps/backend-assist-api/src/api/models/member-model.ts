@@ -2,11 +2,12 @@ import mongoose, { Document, Schema } from "mongoose"
 
 export interface IMember extends Document {
   _id: mongoose.Types.ObjectId
-  organizationId: Schema.Types.ObjectId
+  orgId: Schema.Types.ObjectId
   userId: Schema.Types.ObjectId
   roleId: Schema.Types.ObjectId // Reference to the Role document
   isOwner: boolean // If true, has full access (manage all)
   extraPermissions: string[] // Additional permissions beyond role
+  metadata?: Record<string, any>
   invitedBy?: string
   createdAt: Date
   updatedAt: Date
@@ -27,7 +28,7 @@ export interface IMemberPopulated extends Omit<IMember, "roleId"> {
 // Member with user information from auth service
 export interface IMemberWithUserInfo {
   _id: string
-  organizationId: string
+  orgId: string
   userId:string
   user: {
     _id: string
@@ -38,13 +39,14 @@ export interface IMemberWithUserInfo {
   roleId: string
   isOwner: boolean
   extraPermissions: string[]
+  metadata?: Record<string, any>
   createdAt: Date
   updatedAt: Date
 }
 
 const memberSchema = new Schema<IMember>(
   {
-    organizationId: {
+    orgId: {
       type: Schema.Types.ObjectId,
       required: true,
       ref: "organization",
@@ -69,7 +71,13 @@ const memberSchema = new Schema<IMember>(
       required: true,
       default: [],
     },
-    invitedBy: String,
+    invitedBy: {
+      type:Schema.Types.ObjectId,
+      ref:"member",
+    },
+    metadata: {
+      type: Schema.Types.Mixed,
+    },
   },
   {
     timestamps: true,
@@ -77,9 +85,9 @@ const memberSchema = new Schema<IMember>(
   }
 )
 
-memberSchema.index({ organizationId: 1, userId: 1 }, { unique: true })
+memberSchema.index({ orgId: 1, userId: 1 }, { unique: true })
 memberSchema.index({ userId: 1 })
-memberSchema.index({ organizationId: 1, isOwner: 1 })
+memberSchema.index({ orgId: 1, isOwner: 1 })
 
 export const Member = mongoose.model<IMember>("member", memberSchema)
 

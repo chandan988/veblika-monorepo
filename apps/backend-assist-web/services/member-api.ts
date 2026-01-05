@@ -36,8 +36,8 @@ export interface MemberCount {
 /**
  * Get all members for an organisation
  */
-export async function getMembers(organisationId: string): Promise<Member[]> {
-  const response = await api.get(`/organisations/${organisationId}/members`)
+export async function getMembers(orgId: string): Promise<Member[]> {
+  const response = await api.get(`/organisations/${orgId}/members`)
   return response.data.data
 }
 
@@ -45,11 +45,11 @@ export async function getMembers(organisationId: string): Promise<Member[]> {
  * Get a single member by ID
  */
 export async function getMemberById(
-  organisationId: string,
+  orgId: string,
   memberId: string
 ): Promise<Member> {
   const response = await api.get(
-    `/organisations/${organisationId}/members/${memberId}`
+    `/organisations/${orgId}/members/${memberId}`
   )
   return response.data.data
 }
@@ -58,10 +58,10 @@ export async function getMemberById(
  * Get member count for an organisation
  */
 export async function getMemberCount(
-  organisationId: string
+  orgId: string
 ): Promise<MemberCount> {
   const response = await api.get(
-    `/organisations/${organisationId}/members/count`
+    `/organisations/${orgId}/members/count`
   )
   return response.data.data
 }
@@ -70,12 +70,12 @@ export async function getMemberCount(
  * Update a member's role
  */
 export async function updateMemberRole(
-  organisationId: string,
+  orgId: string,
   memberId: string,
   roleId: string
 ): Promise<Member> {
   const response = await api.put(
-    `/organisations/${organisationId}/members/${memberId}/role`,
+    `/organisations/${orgId}/members/${memberId}/role`,
     { roleId }
   )
   return response.data.data
@@ -85,12 +85,12 @@ export async function updateMemberRole(
  * Update a member's extra permissions
  */
 export async function updateMemberPermissions(
-  organisationId: string,
+  orgId: string,
   memberId: string,
   extraPermissions: string[]
 ): Promise<Member> {
   const response = await api.put(
-    `/organisations/${organisationId}/members/${memberId}/permissions`,
+    `/organisations/${orgId}/members/${memberId}/permissions`,
     { extraPermissions }
   )
   return response.data.data
@@ -100,8 +100,106 @@ export async function updateMemberPermissions(
  * Remove a member from the organisation
  */
 export async function removeMember(
-  organisationId: string,
+  orgId: string,
   memberId: string
 ): Promise<void> {
-  await api.delete(`/organisations/${organisationId}/members/${memberId}`)
+  await api.delete(`/organisations/${orgId}/members/${memberId}`)
+}
+
+// ============================================
+// Invitation API
+// ============================================
+
+export interface Invitation {
+  _id: string
+  email: string
+  orgId: {
+    _id: string
+    name: string
+    slug: string
+    logo?: string
+  }
+  roleId: {
+    _id: string
+    name: string
+    slug: string
+  }
+  invitedBy: {
+    _id: string
+    userId?: string
+    metadata?: {
+      name: string
+      email: string
+      image?: string
+    }
+  }
+  status: "pending" | "accepted" | "expired"
+  userExists: boolean
+  expiresAt: string
+  createdAt: string
+  acceptedAt?: string
+}
+
+export interface CreateInvitationInput {
+  email: string
+  roleId: string
+}
+
+/**
+ * Create a new invitation
+ */
+export async function createInvitation(
+  orgId: string,
+  input: CreateInvitationInput
+): Promise<Invitation> {
+  const response = await api.post(
+    `/organisations/${orgId}/invitations`,
+    input
+  )
+  return response.data.data
+}
+
+/**
+ * Get all invitations for an organisation
+ */
+export async function getInvitations(
+  orgId: string
+): Promise<Invitation[]> {
+  const response = await api.get(
+    `/organisations/${orgId}/invitations`
+  )
+  return response.data.data
+}
+
+/**
+ * Get invitation by ID (public endpoint)
+ */
+export async function getInvitationById(
+  invitationId: string
+): Promise<Invitation> {
+  const response = await api.get(`/invitations/${invitationId}`)
+  return response.data.data
+}
+
+/**
+ * Accept an invitation
+ */
+export async function acceptInvitation(invitationId: string): Promise<{
+  success: boolean
+  orgId: string
+}> {
+  const response = await api.post(`/invitations/${invitationId}/accept`)
+  return response.data.data
+}
+
+/**
+ * Cancel an invitation
+ */
+export async function cancelInvitation(
+  orgId: string,
+  invitationId: string
+): Promise<void> {
+  await api.delete(
+    `/organisations/${orgId}/invitations/${invitationId}`
+  )
 }

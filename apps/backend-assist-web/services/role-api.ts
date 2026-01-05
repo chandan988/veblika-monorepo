@@ -20,8 +20,8 @@ export interface UpdateRoleInput {
 /**
  * Get all roles for an organisation
  */
-export async function getRoles(organisationId: string): Promise<Role[]> {
-  const response = await api.get(`/organisations/${organisationId}/roles`)
+export async function getRoles(orgId: string): Promise<Role[]> {
+  const response = await api.get(`/organisations/${orgId}/roles`)
   return response.data.data
 }
 
@@ -29,11 +29,11 @@ export async function getRoles(organisationId: string): Promise<Role[]> {
  * Get a single role by ID
  */
 export async function getRoleById(
-  organisationId: string,
+  orgId: string,
   roleId: string
 ): Promise<Role> {
   const response = await api.get(
-    `/organisations/${organisationId}/roles/${roleId}`
+    `/organisations/${orgId}/roles/${roleId}`
   )
   return response.data.data
 }
@@ -42,11 +42,11 @@ export async function getRoleById(
  * Create a new role
  */
 export async function createRole(
-  organisationId: string,
+  orgId: string,
   data: CreateRoleInput
 ): Promise<Role> {
   const response = await api.post(
-    `/organisations/${organisationId}/roles`,
+    `/organisations/${orgId}/roles`,
     data
   )
   return response.data.data
@@ -56,12 +56,12 @@ export async function createRole(
  * Update a role
  */
 export async function updateRole(
-  organisationId: string,
+  orgId: string,
   roleId: string,
   data: UpdateRoleInput
 ): Promise<Role> {
   const response = await api.put(
-    `/organisations/${organisationId}/roles/${roleId}`,
+    `/organisations/${orgId}/roles/${roleId}`,
     data
   )
   return response.data.data
@@ -71,23 +71,23 @@ export async function updateRole(
  * Delete a role
  */
 export async function deleteRole(
-  organisationId: string,
+  orgId: string,
   roleId: string
 ): Promise<void> {
-  await api.delete(`/organisations/${organisationId}/roles/${roleId}`)
+  await api.delete(`/organisations/${orgId}/roles/${roleId}`)
 }
 
 /**
  * Get available permissions
  */
 export async function getAvailablePermissions(
-  organisationId: string
+  orgId: string
 ): Promise<{
   permissions: string[]
   metadata: Record<string, unknown>
 }> {
   const response = await api.get(
-    `/organisations/${organisationId}/roles/permissions`
+    `/organisations/${orgId}/roles/permissions`
   )
   return response.data.data
 }
@@ -96,9 +96,9 @@ export async function getAvailablePermissions(
  * Get current user's permissions in an organisation
  */
 export async function getMyPermissions(
-  organisationId: string
+  orgId: string
 ): Promise<UserPermissions> {
-  const response = await api.get(`/organisations/${organisationId}/roles/me`)
+  const response = await api.get(`/organisations/${orgId}/roles/me`)
   return response.data.data
 }
 
@@ -106,11 +106,11 @@ export async function getMyPermissions(
  * Assign a role to a member
  */
 export async function assignRole(
-  organisationId: string,
+  orgId: string,
   memberId: string,
   roleId: string
 ): Promise<void> {
-  await api.post(`/organisations/${organisationId}/roles/assign`, {
+  await api.post(`/organisations/${orgId}/roles/assign`, {
     memberId,
     roleId,
   })
@@ -120,12 +120,12 @@ export async function assignRole(
  * Update member's extra permissions
  */
 export async function updateMemberPermissions(
-  organisationId: string,
+  orgId: string,
   memberId: string,
   extraPermissions: string[]
 ): Promise<void> {
   await api.put(
-    `/organisations/${organisationId}/roles/members/${memberId}/permissions`,
+    `/organisations/${orgId}/roles/members/${memberId}/permissions`,
     { extraPermissions }
   )
 }

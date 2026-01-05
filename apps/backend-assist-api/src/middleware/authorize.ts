@@ -10,7 +10,7 @@ declare global {
     interface Request {
       ability?: AppAbility
       member?: IMemberPopulated
-      organisationId?: string
+      orgId?: string
     }
   }
 }
@@ -33,15 +33,15 @@ export const loadMemberAbility = async (
     }
 
     // Get organisation ID from various sources
-    const organisationId =
-      req.params.organisationId ||
+    const orgId =
+      req.params.orgId ||
       req.params.orgId ||
       req.params.id ||
-      req.body.organisationId ||
-      req.query.organisationId ||
+      req.body.orgId ||
+      req.query.orgId ||
       req.headers["x-organisation-id"]
 
-    if (!organisationId || typeof organisationId !== "string") {
+    if (!orgId || typeof orgId !== "string") {
       res.status(400).json({
         success: false,
         error: "Organisation ID is required",
@@ -51,7 +51,7 @@ export const loadMemberAbility = async (
 
     // Load member with populated role
     const member = await Member.findOne({
-      organizationId: organisationId,
+      orgId: orgId,
       userId: userId,
     }).populate<{ roleId: IMemberPopulated["roleId"] }>("roleId", "name slug permissions isDefault isSystem")
 
@@ -70,12 +70,12 @@ export const loadMemberAbility = async (
       extraPermissions: member.extraPermissions,
     }
 
-    const ability = defineAbilityFor(memberWithRole, organisationId)
+    const ability = defineAbilityFor(memberWithRole, orgId)
 
     // Attach to request
     req.ability = ability
     req.member = member as unknown as IMemberPopulated
-    req.organisationId = organisationId
+    req.orgId = orgId
 
     next()
   } catch (error) {

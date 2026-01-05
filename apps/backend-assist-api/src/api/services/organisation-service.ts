@@ -14,7 +14,7 @@ import {
   OrganisationRole,
 } from "../validators/organisation-validator"
 import { roleService } from "./role-service"
-import { fetchUsersFromAuthService } from "../../utils/auth-service"
+import { fetchUsersFromAuthService, fetchUserById } from "../../utils/auth-service"
 
 export interface OrganisationWithRole extends IOrganization {
   role: {
@@ -63,13 +63,23 @@ export class OrganisationService {
       throw new Error("Failed to create owner role")
     }
 
+    // Fetch user info from auth service to store in metadata
+    const userInfo = await fetchUserById(userId)
+
     // Create member with OWNER role and isOwner flag
     const member = await Member.create({
-      organizationId: organisation._id.toString(),
+      orgId: organisation._id.toString(),
       userId: userId,
       roleId: ownerRole._id,
       isOwner: true,
       extraPermissions: [],
+      metadata: userInfo
+        ? {
+            name: userInfo.name,
+            email: userInfo.email,
+            image: userInfo.image,
+          }
+        : undefined,
     })
 
     return { organisation, member }
@@ -92,7 +102,7 @@ export class OrganisationService {
     }
 
     // Get organisation IDs
-    const orgIds = memberships.map((m) => m.organizationId)
+    const orgIds = memberships.map((m) => m.orgId)
 
     // Fetch organisations
     const organisations = await Organization.find({
@@ -107,7 +117,7 @@ export class OrganisationService {
 
     return memberships
       .map((membership) => {
-        const org = orgMap.get(membership.organizationId.toString())
+        const org = orgMap.get(membership.orgId.toString())
         if (!org) return null
         const roleData = membership.roleId as any
         return {
@@ -214,10 +224,10 @@ export class OrganisationService {
     }
 
     // Delete all members
-    await Member.deleteMany({ organizationId: id })
+    await Member.deleteMany({ orgId: id })
 
     // Delete all roles
-    await Role.deleteMany({ organisationId: id })
+    await Role.deleteMany({ orgId: id })
 
     // Delete organisation
     const result = await Organization.findByIdAndDelete(id)
@@ -234,11 +244,11 @@ export class OrganisationService {
    * Get user's membership in an organisation
    */
   async getMembership(
-    organisationId: string,
+    orgId: string,
     userId: string
   ): Promise<IMemberPopulated | null> {
     return Member.findOne({
-      organizationId: organisationId,
+      orgId: orgId,
       userId: userId,
     }).populate<{ roleId: IMemberPopulated["roleId"] }>(
       "roleId",
@@ -250,10 +260,10 @@ export class OrganisationService {
    * Get all members of an organisation with user information from auth service
    */
   async getOrganisationMembers(
-    organisationId: string
+    orgId: string
   ): Promise<IMemberWithUserInfo[]> {
     // Fetch members from database
-    const members = await Member.find({ organizationId: organisationId })
+    const members = await Member.find({ orgId: orgId })
 
     // Extract unique user IDs
     const userIds = members.map((member) => member.userId.toString())
@@ -273,7 +283,7 @@ export class OrganisationService {
 
       return {
         _id: member._id.toString(),
-        organizationId: member.organizationId.toString(),
+        orgId: member.orgId.toString(),
         userId: userId,
         user: userInfo,
         roleId: member.roleId.toString(),
@@ -291,17 +301,17 @@ export class OrganisationService {
    * Add member to organisation
    */
   async addMember(
-    organisationId: string,
+    orgId: string,
     data: AddMemberInput,
     invitedByUserId: string
   ): Promise<IMember> {
-    if (!mongoose.Types.ObjectId.isValid(organisationId)) {
+    if (!mongoose.Types.ObjectId.isValid(orgId)) {
       throw new Error("Invalid organisation ID")
     }
 
     // Check if inviter has permission
     const inviterMembership = await this.getMembership(
-      organisationId,
+      orgId,
       invitedByUserId
     )
     const inviterRoleSlug = (inviterMembership?.roleId as any)?.slug
@@ -314,7 +324,7 @@ export class OrganisationService {
 
     // Check if user is already a member
     const existingMember = await Member.findOne({
-      organizationId: organisationId,
+      orgId: orgId,
       userId: data.userId,
     })
     if (existingMember) {
@@ -323,7 +333,7 @@ export class OrganisationService {
 
     // Get the role to assign (default to 'agent' if not specified)
     const roleSlug = data.role || "agent"
-    const role = await roleService.getRoleBySlug(roleSlug, organisationId)
+    const role = await roleService.getRoleBySlug(roleSlug, orgId)
     if (!role) {
       throw new Error(`Role '${roleSlug}' not found`)
     }
@@ -333,13 +343,23 @@ export class OrganisationService {
       throw new Error("Only owner can assign owner role")
     }
 
+    // Fetch user info from auth service to store in metadata
+    const userInfo = await fetchUserById(data.userId)
+
     const member = await Member.create({
-      organizationId: organisationId,
+      orgId: orgId,
       userId: data.userId,
       roleId: role._id,
       isOwner: roleSlug === "owner",
       extraPermissions: [],
       invitedBy: invitedByUserId,
+      metadata: userInfo
+        ? {
+            name: userInfo.name,
+            email: userInfo.email,
+            image: userInfo.image,
+          }
+        : undefined,
     })
 
     return member
@@ -349,14 +369,14 @@ export class OrganisationService {
    * Update member role
    */
   async updateMemberRole(
-    organisationId: string,
+    orgId: string,
     memberId: string,
     newRoleId: string,
     updatedByUserId: string
   ): Promise<IMember | null> {
     // Check if updater has permission
     const updaterMembership = await this.getMembership(
-      organisationId,
+      orgId,
       updatedByUserId
     )
     if (!updaterMembership || !updaterMembership.isOwner) {
@@ -364,7 +384,7 @@ export class OrganisationService {
     }
 
     // Verify the role exists
-    const role = await roleService.getRoleById(newRoleId, organisationId)
+    const role = await roleService.getRoleById(newRoleId, orgId)
     if (!role) {
       throw new Error("Role not found")
     }
@@ -372,7 +392,7 @@ export class OrganisationService {
     // Get the member to update
     const memberToUpdate = await Member.findOne({
       _id: memberId,
-      organizationId: organisationId,
+      orgId: orgId,
     })
     if (!memberToUpdate) {
       throw new Error("Member not found")
@@ -384,7 +404,7 @@ export class OrganisationService {
     }
 
     const member = await Member.findOneAndUpdate(
-      { _id: memberId, organizationId: organisationId },
+      { _id: memberId, orgId: orgId },
       {
         $set: {
           roleId: new mongoose.Types.ObjectId(newRoleId),
@@ -401,13 +421,13 @@ export class OrganisationService {
    * Remove member from organisation
    */
   async removeMember(
-    organisationId: string,
+    orgId: string,
     memberId: string,
     removedByUserId: string
   ): Promise<void> {
     const memberToRemove = await Member.findOne({
       _id: memberId,
-      organizationId: organisationId,
+      orgId: orgId,
     })
 
     if (!memberToRemove) {
@@ -421,7 +441,7 @@ export class OrganisationService {
 
     // Check if remover has permission
     const removerMembership = await this.getMembership(
-      organisationId,
+      orgId,
       removedByUserId
     )
     const removerRoleSlug = (removerMembership?.roleId as any)?.slug
@@ -439,10 +459,10 @@ export class OrganisationService {
    * Leave organisation
    */
   async leaveOrganisation(
-    organisationId: string,
+    orgId: string,
     userId: string
   ): Promise<void> {
-    const membership = await this.getMembership(organisationId, userId)
+    const membership = await this.getMembership(orgId, userId)
     if (!membership) {
       throw new Error("You are not a member of this organisation")
     }
@@ -451,7 +471,7 @@ export class OrganisationService {
     if (membership.isOwner) {
       // Check if there are other owners
       const owners = await Member.find({
-        organizationId: organisationId,
+        orgId: orgId,
         isOwner: true,
       })
       if (owners.length === 1) {
@@ -468,9 +488,9 @@ export class OrganisationService {
    * Get organisation members with roles populated
    */
   async getOrganisationMembersWithRoles(
-    organisationId: string
+    orgId: string
   ): Promise<IMemberPopulated[]> {
-    return Member.find({ organizationId: organisationId }).populate(
+    return Member.find({ orgId: orgId }).populate(
       "roleId",
       "name slug permissions isDefault isSystem"
     ) as unknown as IMemberPopulated[]

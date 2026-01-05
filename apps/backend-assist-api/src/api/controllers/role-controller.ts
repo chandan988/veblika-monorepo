@@ -11,8 +11,8 @@ export class RoleController {
    * Get all roles for an organisation
    */
   getRoles = asyncHandler(async (req: Request, res: Response) => {
-    const organisationId = req.params.organisationId!
-    const roles = await roleService.getRolesByOrganisation(organisationId)
+    const orgId = req.params.orgId!
+    const roles = await roleService.getRolesByOrganisation(orgId)
 
     res.json({
       success: true,
@@ -24,9 +24,9 @@ export class RoleController {
    * Get a single role by ID
    */
   getRoleById = asyncHandler(async (req: Request, res: Response) => {
-    const organisationId = req.params.organisationId!
+    const orgId = req.params.orgId!
     const roleId = req.params.roleId!
-    const role = await roleService.getRoleById(roleId, organisationId)
+    const role = await roleService.getRoleById(roleId, orgId)
 
     if (!role) {
       res.status(404).json({
@@ -46,10 +46,10 @@ export class RoleController {
    * Create a new role
    */
   createRole = asyncHandler(async (req: Request, res: Response) => {
-    const organisationId = req.params.organisationId!
+    const orgId = req.params.orgId!
     const userId = req.user!.id
 
-    const role = await roleService.createRole(organisationId, req.body, userId)
+    const role = await roleService.createRole(orgId, req.body, userId)
 
     res.status(201).json({
       success: true,
@@ -61,10 +61,10 @@ export class RoleController {
    * Update a role
    */
   updateRole = asyncHandler(async (req: Request, res: Response) => {
-    const organisationId = req.params.organisationId!
+    const orgId = req.params.orgId!
     const roleId = req.params.roleId!
 
-    const role = await roleService.updateRole(roleId, organisationId, req.body)
+    const role = await roleService.updateRole(roleId, orgId, req.body)
 
     res.json({
       success: true,
@@ -76,10 +76,10 @@ export class RoleController {
    * Delete a role
    */
   deleteRole = asyncHandler(async (req: Request, res: Response) => {
-    const organisationId = req.params.organisationId!
+    const orgId = req.params.orgId!
     const roleId = req.params.roleId!
 
-    await roleService.deleteRole(roleId, organisationId)
+    await roleService.deleteRole(roleId, orgId)
 
     res.json({
       success: true,
@@ -107,7 +107,7 @@ export class RoleController {
    * Assign a role to a member
    */
   assignRole = asyncHandler(async (req: Request, res: Response) => {
-    const organisationId = req.params.organisationId!
+    const orgId = req.params.orgId!
     const { memberId, roleId } = req.body
     const assignerIsOwner = req.member?.isOwner || false
 
@@ -123,7 +123,7 @@ export class RoleController {
     // Check if role can be assigned
     const canAssign = await roleService.canAssignRole(
       roleId,
-      organisationId,
+      orgId,
       assignerIsOwner
     )
     if (!canAssign.canAssign) {
@@ -137,7 +137,7 @@ export class RoleController {
     // Find the member
     const member = await Member.findOne({
       _id: memberId,
-      organizationId: organisationId,
+      orgId: orgId,
     })
 
     if (!member) {
@@ -177,7 +177,7 @@ export class RoleController {
    * Update member's extra permissions
    */
   updateMemberPermissions = asyncHandler(async (req: Request, res: Response) => {
-    const organisationId = req.params.organisationId!
+    const orgId = req.params.orgId!
     const memberId = req.params.memberId!
     const { extraPermissions } = req.body
 
@@ -193,7 +193,7 @@ export class RoleController {
     // Find the member
     const member = await Member.findOne({
       _id: memberId,
-      organizationId: organisationId,
+      orgId: orgId,
     })
 
     if (!member) {
