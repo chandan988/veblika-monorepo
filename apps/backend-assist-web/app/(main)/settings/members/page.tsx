@@ -54,6 +54,10 @@ import {
   Trash2,
   Settings2,
   Loader2,
+  Users,
+  Crown,
+  ShieldCheck,
+  Headphones,
 } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -365,26 +369,46 @@ export default function MembersPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="border rounded-lg p-4">
-            <p className="text-2xl font-bold">{members.length}</p>
-            <p className="text-sm text-muted-foreground">Total Members</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold">{members.length}</p>
+                <p className="text-sm text-muted-foreground">Total Members</p>
+              </div>
+              <Users className="h-8 w-8 text-muted-foreground/50" />
+            </div>
           </div>
           <div className="border rounded-lg p-4">
-            <p className="text-2xl font-bold">
-              {members.filter((m) => m.isOwner).length}
-            </p>
-            <p className="text-sm text-muted-foreground">Owners</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold">
+                  {members.filter((m) => m.isOwner).length}
+                </p>
+                <p className="text-sm text-muted-foreground">Owners</p>
+              </div>
+              <Crown className="h-8 w-8 text-muted-foreground/50" />
+            </div>
           </div>
           <div className="border rounded-lg p-4">
-            <p className="text-2xl font-bold">
-              {members.filter((m) => m.role?.slug === "admin").length}
-            </p>
-            <p className="text-sm text-muted-foreground">Admins</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold">
+                  {members.filter((m) => m.role?.slug === "admin").length}
+                </p>
+                <p className="text-sm text-muted-foreground">Admins</p>
+              </div>
+              <ShieldCheck className="h-8 w-8 text-muted-foreground/50" />
+            </div>
           </div>
           <div className="border rounded-lg p-4">
-            <p className="text-2xl font-bold">
-              {members.filter((m) => m.role?.slug === "agent").length}
-            </p>
-            <p className="text-sm text-muted-foreground">Agents</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold">
+                  {members.filter((m) => m.role?.slug === "agent").length}
+                </p>
+                <p className="text-sm text-muted-foreground">Agents</p>
+              </div>
+              <Headphones className="h-8 w-8 text-muted-foreground/50" />
+            </div>
           </div>
         </div>
 

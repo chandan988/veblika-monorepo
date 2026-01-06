@@ -51,31 +51,31 @@ interface PermissionGuardProps {
 
 /**
  * A guard component that conditionally renders children based on user permissions
- * 
+ *
  * @example
  * // Guard a section with single permission
  * <PermissionGuard permission="ticket:view">
  *   <TicketList />
  * </PermissionGuard>
- * 
+ *
  * @example
  * // Guard with ANY of multiple permissions
  * <PermissionGuard anyPermissions={["ticket:edit", "ticket:assign"]}>
  *   <TicketActions />
  * </PermissionGuard>
- * 
+ *
  * @example
  * // Guard with ALL permissions required
  * <PermissionGuard allPermissions={["role:view", "role:edit"]}>
  *   <RoleEditor />
  * </PermissionGuard>
- * 
+ *
  * @example
  * // Owner-only section
  * <PermissionGuard requireOwner fallback={<AccessDenied />}>
  *   <DangerZone />
  * </PermissionGuard>
- * 
+ *
  * @example
  * // Redirect if no permission
  * <PermissionGuard permission="organisation:billing" redirectTo="/dashboard">
@@ -198,7 +198,13 @@ export const Guards = {
   /**
    * Only owners can access
    */
-  OwnerOnly: ({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) => (
+  OwnerOnly: ({
+    children,
+    fallback,
+  }: {
+    children: ReactNode
+    fallback?: ReactNode
+  }) => (
     <PermissionGuard requireOwner fallback={fallback}>
       {children}
     </PermissionGuard>
@@ -207,7 +213,13 @@ export const Guards = {
   /**
    * Can view tickets
    */
-  CanViewTickets: ({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) => (
+  CanViewTickets: ({
+    children,
+    fallback,
+  }: {
+    children: ReactNode
+    fallback?: ReactNode
+  }) => (
     <PermissionGuard permission="ticket:view" fallback={fallback}>
       {children}
     </PermissionGuard>
@@ -216,9 +228,15 @@ export const Guards = {
   /**
    * Can manage roles (view + edit + create)
    */
-  CanManageRoles: ({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) => (
-    <PermissionGuard 
-      allPermissions={["role:view", "role:edit", "role:create"]} 
+  CanManageRoles: ({
+    children,
+    fallback,
+  }: {
+    children: ReactNode
+    fallback?: ReactNode
+  }) => (
+    <PermissionGuard
+      allPermissions={["role:view", "role:edit", "role:create"]}
       fallback={fallback}
     >
       {children}
@@ -228,9 +246,15 @@ export const Guards = {
   /**
    * Can manage members
    */
-  CanManageMembers: ({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) => (
-    <PermissionGuard 
-      anyPermissions={["member:add", "member:edit", "member:remove"]} 
+  CanManageMembers: ({
+    children,
+    fallback,
+  }: {
+    children: ReactNode
+    fallback?: ReactNode
+  }) => (
+    <PermissionGuard
+      anyPermissions={["member:add", "member:edit", "member:remove"]}
       fallback={fallback}
     >
       {children}
@@ -240,7 +264,13 @@ export const Guards = {
   /**
    * Can access organisation settings
    */
-  CanAccessSettings: ({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) => (
+  CanAccessSettings: ({
+    children,
+    fallback,
+  }: {
+    children: ReactNode
+    fallback?: ReactNode
+  }) => (
     <PermissionGuard permission="organisation:view" fallback={fallback}>
       {children}
     </PermissionGuard>
