@@ -142,16 +142,15 @@ export function OrganisationSwitcher() {
 
           <DropdownMenuSeparator />
 
-          {user?.role === "admin" ||
-            (user?.role === "reseller" && (
-              <DropdownMenuItem
-                onClick={() => setIsCreateModalOpen(true)}
-                className="flex items-center gap-2 cursor-pointer text-primary"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Create Organisation</span>
-              </DropdownMenuItem>
-            ))}
+          {(user?.role === "admin" || user?.role === "reseller") && (
+            <DropdownMenuItem
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center gap-2 cursor-pointer text-primary"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Create Organisation</span>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

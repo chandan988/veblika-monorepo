@@ -15,9 +15,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import { useMutation, useQuery } from "@tanstack/react-query"
-import { authClient } from "@/lib/auth-client"
-import Image from "next/image"
 import { OrganisationSwitcher } from "./organisation-switcher"
 import { useLogout, useSession } from "@/hooks/use-session"
 
