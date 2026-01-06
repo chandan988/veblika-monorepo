@@ -2,6 +2,7 @@ import { Router, IRouter } from "express"
 import { memberController } from "../controllers/member-controller"
 import { validate } from "../../middleware/validator"
 import { loadMemberAbility, checkPermission } from "../../middleware/authorize"
+import isAuth from "../../middleware/authenticate"
 import {
   orgIdParamSchema,
   memberIdParamSchema,
@@ -12,7 +13,7 @@ import {
 const router: IRouter = Router({ mergeParams: true })
 
 // All routes require authentication and member ability loading
-router.use(loadMemberAbility)
+router.use(isAuth, loadMemberAbility)
 
 /**
  * @route   GET /api/v1/organisations/:orgId/members

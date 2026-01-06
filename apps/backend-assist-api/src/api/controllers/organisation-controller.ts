@@ -4,8 +4,6 @@ import { asyncHandler } from "../../utils/async-handler"
 import {
   CreateOrganisationInput,
   UpdateOrganisationInput,
-  AddMemberInput,
-  UpdateMemberRoleInput,
 } from "../validators/organisation-validator"
 
 export class OrganisationController {
@@ -130,113 +128,6 @@ export class OrganisationController {
     return res.status(200).json({
       success: true,
       message: "Organisation deleted successfully",
-      data: null,
-    })
-  })
-
-  // ========================================
-  // Member Management
-  // ========================================
-
-  /**
-   * Get all members of an organisation
-   * GET /api/v1/organisations/:id/members
-   */
-  getMembers = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string
-    const userId = req.user!.id
-
-    // Check if user is a member
-    const membership = await organisationService.getMembership(id, userId)
-    if (!membership) {
-      return res.status(403).json({
-        success: false,
-        error: "You are not a member of this organisation",
-      })
-    }
-
-    const members = await organisationService.getOrganisationMembers(id)
-
-    return res.status(200).json({
-      success: true,
-      message: "Members retrieved successfully",
-      data: members,
-    })
-  })
-
-  /**
-   * Add member to organisation
-   * POST /api/v1/organisations/:id/members
-   */
-  addMember = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string
-    const data: AddMemberInput = req.body
-    const userId = req.user!.id
-
-    const member = await organisationService.addMember(id, data, userId)
-
-    return res.status(201).json({
-      success: true,
-      message: "Member added successfully",
-      data: member,
-    })
-  })
-
-  /**
-   * Update member role
-   * PUT /api/v1/organisations/:id/members/:memberId
-   */
-  updateMemberRole = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string
-    const memberId = req.params.memberId as string
-    const { role }: UpdateMemberRoleInput = req.body
-    const userId = req.user!.id
-
-    const member = await organisationService.updateMemberRole(
-      id,
-      memberId,
-      role,
-      userId
-    )
-
-    return res.status(200).json({
-      success: true,
-      message: "Member role updated successfully",
-      data: member,
-    })
-  })
-
-  /**
-   * Remove member from organisation
-   * DELETE /api/v1/organisations/:id/members/:memberId
-   */
-  removeMember = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string
-    const memberId = req.params.memberId as string
-    const userId = req.user!.id
-
-    await organisationService.removeMember(id, memberId, userId)
-
-    return res.status(200).json({
-      success: true,
-      message: "Member removed successfully",
-      data: null,
-    })
-  })
-
-  /**
-   * Leave organisation
-   * POST /api/v1/organisations/:id/leave
-   */
-  leaveOrganisation = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string
-    const userId = req.user!.id
-
-    await organisationService.leaveOrganisation(id, userId)
-
-    return res.status(200).json({
-      success: true,
-      message: "You have left the organisation",
       data: null,
     })
   })
