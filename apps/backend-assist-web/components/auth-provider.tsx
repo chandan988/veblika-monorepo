@@ -22,14 +22,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Handle session errors (invalid/expired session despite cookie existing)
     if (error) {
-      router.push(`/login?callback=${encodeURIComponent(pathname)}`)
+      // router.push(`/login?callback=${encodeURIComponent(pathname)}`)
+      router.push(`/login`)
       return
     }
 
     // If no session and cookie was invalid, middleware already redirected
     // This handles edge cases where cookie exists but session is invalid
     if (!session) {
-      router.push(`/login?callback=${encodeURIComponent(pathname)}`)
+      // router.push(`/login?callback=${encodeURIComponent(pathname)}`)
+      router.push(`/login`)
     }
   }, [session, isPending, error, pathname, router])
 

@@ -9,11 +9,7 @@ export const connectDatabase = async (): Promise<void> => {
       return
     }
 
-    
-    const configUri = config.mongodb.uri
-    console.log(configUri,"uri---")
-    const uri = process.env.MONGODB_URI!
-    console.log(uri,"uri---2")
+    const uri = config.mongodb.uri
 
     const connection = await mongoose.connect(uri)
 

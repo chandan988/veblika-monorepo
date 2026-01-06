@@ -67,22 +67,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
     sendOnSignUp: true,
     sendOnSignIn: true,
 
-    async sendVerificationEmail({ user, url }, request) {
-      const origin =
-        request?.headers.get("origin") || request?.headers.get("referer")
-      if (!origin) {
-        throw new APIError("BAD_REQUEST", {
-          message: "Origin header is missing",
-        })
-      }
-
-      const host = new URL(origin).host
-      console.log({
-        host,
-        url,
-        user,
-      })
-
+    async sendVerificationEmail({ user, url }) {
       await email.sendEmail({
         from,
         to: user.email,
@@ -118,8 +103,13 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
       // Get role from request body - defaults to 'admin' if not provided
       // When signing up via invitation, role should be 'user'
       const requestedRole = ctx.body?.role
-      const role = requestedRole === 'user' ? 'user' : 'admin'
-      console.log("hooks.before - requestedRole:", requestedRole, "final role:", role)
+      const role = requestedRole === "user" ? "user" : "admin"
+      console.log(
+        "hooks.before - requestedRole:",
+        requestedRole,
+        "final role:",
+        role
+      )
 
       return {
         context: {
@@ -153,7 +143,6 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
           }
 
           const host = new URL(origin).host
-          console.log(host, "Host user creation")
           const resellerApp = await getDatabase()
             .db.collection("reseller_app")
             .findOne({ host: host })
@@ -165,31 +154,25 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
 
           // Try to get role from OAuth state (for Google signup)
           // This is set via additionalData in signIn.social()
-          let role = 'admin' // default role
+          let role = user.role
           try {
             const oauthState = await getOAuthState()
             if (oauthState?.role) {
-              role = oauthState.role === 'user' ? 'user' : 'admin'
+              role = oauthState.role === "user" ? "user" : "admin"
               console.log("OAuth state role:", role)
             }
           } catch {
-            // Not an OAuth request, role will be set from body (email signup)
-            // The hooks.before middleware sets role in ctx.body for email signups
-            const bodyRole = (ctx as Record<string, unknown>).body as Record<string, unknown> | undefined
-            if (bodyRole?.role && typeof bodyRole.role === 'string') {
-              role = bodyRole.role === 'user' ? 'user' : 'admin'
-              console.log("Body role from middleware:", role)
-            }
+            console.log("No OAuth state found")
           }
 
           console.log("Final role being saved:", role)
 
-          return { 
-            data: { 
-              ...user, 
+          return {
+            data: {
+              ...user,
               resellerId: resellerApp.resellerId,
               role: role,
-            } 
+            },
           }
         },
       },

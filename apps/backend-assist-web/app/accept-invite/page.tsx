@@ -11,16 +11,12 @@ import {
   Clock,
   AlertTriangle,
 } from "lucide-react"
-import {
-  clearInvitation,
-  getInvitation,
-  saveInvitation,
-} from "@/utils/invitation-storage"
+import { clearInvitation, saveInvitation } from "@/utils/invitation-storage"
 
 function AcceptInviteContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  let invitationId = searchParams.get("id")
+  const invitationId = searchParams.get("id")
   const sessionQuery = useSession()
   const user = sessionQuery.data?.data?.user
   const isLoadingSession = sessionQuery.isPending
@@ -31,39 +27,6 @@ function AcceptInviteContent() {
     redirect: false,
   })
 
-  // Save invitation to localStorage when page loads with ID in URL
-  // This ensures the token persists across browser tabs and through email verification flow
-  useEffect(() => {
-    if (invitationId) {
-      // We'll save to localStorage once we have the invitation details (email)
-      // This is handled after invitation data is fetched
-    }
-  }, [invitationId])
-
-  // Check for pending invitation in localStorage if no ID in URL
-  useEffect(() => {
-    if (!invitationId && user) {
-      const pendingInvitation = getInvitation()
-      if (
-        pendingInvitation &&
-        pendingInvitation.email.toLowerCase() === user.email?.toLowerCase()
-      ) {
-        // Redirect to accept-invite with the stored token
-        router.push(`/accept-invite?id=${pendingInvitation.inviteToken}`)
-      }
-    }
-  }, [invitationId, user, router])
-
-  // Use the invitation ID from URL parameter
-  if (!invitationId) {
-    const pendingInvitation = getInvitation()
-    if (
-      pendingInvitation &&
-      user?.email?.toLowerCase() === pendingInvitation.email.toLowerCase()
-    ) {
-      invitationId = pendingInvitation.inviteToken
-    }
-  }
 
   const {
     data: invitation,
@@ -77,15 +40,7 @@ function AcceptInviteContent() {
   // This ensures the token persists across browser tabs and through email verification flow
   useEffect(() => {
     if (invitationId && invitation && invitation.email) {
-      // Get role from invitation (roleId.name) - convert to 'admin' | 'user'
-      const role =
-        invitation.roleId?.name?.toLowerCase() === "admin" ? "admin" : "user"
-      saveInvitation(
-        invitationId,
-        invitation.email,
-        role,
-        invitation.userExists
-      )
+      saveInvitation(invitationId, invitation.email)
     }
   }, [invitationId, invitation])
 
@@ -105,21 +60,9 @@ function AcceptInviteContent() {
     }
 
     // Flow 1: User is not logged in
-    // Check if user already exists - either from invitation.userExists or localStorage
-    // localStorage can tell us if user just signed up (they went through signup flow)
+    // Check if user already exists - from invitation.userExists
     if (!user) {
-      const pendingInvitation = getInvitation()
-
-      // If localStorage says userExists is false but we have the invitation stored,
-      // it means user just completed signup and verified email - redirect to login
-      // Otherwise use invitation.userExists from the API
-      const userAlreadySignedUp =
-        pendingInvitation &&
-        pendingInvitation.inviteToken === invitationId &&
-        pendingInvitation.userExists === false
-
-      // User exists if: API says so OR user just completed signup flow
-      const shouldRedirectToLogin = invitation.userExists || userAlreadySignedUp
+      const shouldRedirectToLogin = invitation.userExists
 
       if (shouldRedirectToLogin) {
         // User exists in database (or just created account), redirect to login
@@ -160,7 +103,7 @@ function AcceptInviteContent() {
   // Loading state
   if (isLoadingSession || isLoadingInvitation) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-muted/50 to-muted">
+      <div className="flex min-h-screen items-center justify-center  from-muted/50 to-muted">
         <div className="w-full max-w-lg rounded-lg border bg-card p-10 shadow-lg">
           <div className="flex flex-col items-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -176,11 +119,13 @@ function AcceptInviteContent() {
   // No invitation ID
   if (!invitationId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-muted/50 to-muted">
+      <div className="flex min-h-screen items-center justify-center  from-muted/50 to-muted">
         <div className="w-full max-w-lg rounded-lg border bg-card p-10 shadow-lg">
           <div className="flex flex-col items-center space-y-4">
             <XCircle className="h-16 w-16 text-destructive" />
-            <h1 className="text-2xl font-bold text-card-foreground">Invalid Link</h1>
+            <h1 className="text-2xl font-bold text-card-foreground">
+              Invalid Link
+            </h1>
             <p className="text-center text-muted-foreground">
               This invitation link is invalid or incomplete. Please check the
               link and try again.
@@ -202,7 +147,7 @@ function AcceptInviteContent() {
     const isEmailMismatch = error.toLowerCase().includes("wrong email")
 
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-muted/50 to-muted">
+      <div className="flex min-h-screen items-center justify-center  from-muted/50 to-muted">
         <div className="w-full max-w-lg rounded-lg border bg-card p-10 shadow-lg">
           <div className="flex flex-col items-center space-y-4">
             <AlertTriangle className="h-16 w-16 text-destructive" />
@@ -263,7 +208,7 @@ function AcceptInviteContent() {
         : "Invitation not found or has expired"
 
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-muted/50 to-muted">
+      <div className="flex min-h-screen items-center justify-center from-muted/50 to-muted">
         <div className="w-full max-w-lg rounded-lg border bg-card p-10 shadow-lg">
           <div className="flex flex-col items-center space-y-4">
             <Clock className="h-16 w-16 text-destructive" />
@@ -290,7 +235,7 @@ function AcceptInviteContent() {
   // Processing invitation
   if (isProcessing) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-muted/50 to-muted">
+      <div className="flex min-h-screen items-center justify-center from-muted/50 to-muted">
         <div className="w-full max-w-lg rounded-lg border bg-card p-10 shadow-lg">
           <div className="flex flex-col items-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -299,7 +244,10 @@ function AcceptInviteContent() {
             </h1>
             <p className="text-center text-muted-foreground">
               Please wait while we add you to{" "}
-              <strong className="text-card-foreground">{invitation.orgId.name}</strong>...
+              <strong className="text-card-foreground">
+                {invitation.orgId.name}
+              </strong>
+              ...
             </p>
           </div>
         </div>
@@ -334,7 +282,7 @@ function AcceptInviteContent() {
 
   // Valid invitation - show details with manual accept button
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-muted/50 to-muted px-4">
+    <div className="flex min-h-screen items-center justify-center  from-muted/50 to-muted px-4">
       <div className="w-full max-w-xl rounded-lg border bg-card p-10 shadow-lg">
         <div className="flex flex-col items-center space-y-6">
           <div className="rounded-full bg-primary/10 p-4">
@@ -354,7 +302,9 @@ function AcceptInviteContent() {
 
           <div className="w-full rounded-lg border bg-muted/50 p-6 space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Organization:</span>
+              <span className="text-sm text-muted-foreground">
+                Organization:
+              </span>
               <span className="font-semibold text-card-foreground text-lg">
                 {invitation.orgId.name}
               </span>
@@ -415,7 +365,7 @@ function AcceptInviteContent() {
 // Loading fallback for Suspense
 function LoadingFallback() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-muted/50 to-muted">
+    <div className="flex min-h-screen items-center justify-center  from-muted/50 to-muted">
       <div className="w-full max-w-lg rounded-lg border bg-card p-10 shadow-lg">
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />

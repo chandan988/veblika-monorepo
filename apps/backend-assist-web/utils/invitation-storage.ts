@@ -11,8 +11,6 @@ const EXPIRY_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
 export interface PendingInvitation {
   inviteToken: string;
   email: string;
-  role?: 'admin' | 'user';
-  userExists?: boolean;
   expiresAt: number;
 }
 
@@ -20,13 +18,11 @@ export interface PendingInvitation {
  * Save invitation token to localStorage with expiry time
  * Uses localStorage to persist across browser tabs (important for email verification flow)
  */
-export function saveInvitation(inviteToken: string, email: string, role?: 'admin' | 'user', userExists?: boolean): void {
+export function saveInvitation(inviteToken: string, email: string): void {
   try {
     const invitation: PendingInvitation = {
       inviteToken,
       email,
-      role: role || 'user',
-      userExists: userExists ?? false,
       expiresAt: Date.now() + EXPIRY_DURATION,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(invitation));

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
-import { redirect, useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -27,7 +27,7 @@ import {
 } from "@workspace/ui/components/form"
 import { authClient } from "@/lib/auth-client"
 import { toast } from "sonner"
-import { saveInvitation, getInvitation } from "@/utils/invitation-storage"
+import { getInvitation } from "@/utils/invitation-storage"
 
 const loginSchema = z.object({
   email: z.string().email({
@@ -56,7 +56,9 @@ function LoginForm() {
       const pendingInvitation = getInvitation()
       if (pendingInvitation) {
         // Redirect to login with the stored invitation token
-        router.replace(`/login?inviteToken=${pendingInvitation.inviteToken}&email=${encodeURIComponent(pendingInvitation.email)}`)
+        router.replace(
+          `/login?inviteToken=${pendingInvitation.inviteToken}&email=${encodeURIComponent(pendingInvitation.email)}`
+        )
       }
     }
   }, [inviteToken, router])
@@ -79,15 +81,6 @@ function LoginForm() {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true)
 
-    // If coming from invitation page, save to localStorage
-    // This persists across browser tabs (important for multi-tab scenarios)
-    if (inviteToken && data.email) {
-      const existingInvitation = getInvitation()
-      const role = existingInvitation?.role || 'user'
-      // For login, userExists is true (user already has an account)
-      saveInvitation(inviteToken, data.email, role, true)
-    }
-
     try {
       const result = await authClient.signIn.email({
         email: data.email,
@@ -106,7 +99,10 @@ function LoginForm() {
         } else {
           // Check localStorage for pending invitation
           const pendingInvitation = getInvitation()
-          if (pendingInvitation && pendingInvitation.email.toLowerCase() === data.email.toLowerCase()) {
+          if (
+            pendingInvitation &&
+            pendingInvitation.email.toLowerCase() === data.email.toLowerCase()
+          ) {
             router.push(`/accept-invite?id=${pendingInvitation.inviteToken}`)
           } else if (redirectTo) {
             router.push(redirectTo)
@@ -123,14 +119,6 @@ function LoginForm() {
 
   const handleGoogleLogin = async () => {
     try {
-      // If invitation exists, save to localStorage before OAuth redirect
-      if (inviteToken && emailParam) {
-        const existingInvitation = getInvitation()
-        const role = existingInvitation?.role || 'user'
-        // For login, userExists is true (user already has an account)
-        saveInvitation(inviteToken, emailParam, role, true)
-      }
-
       await authClient.signIn.social({
         provider: "google",
         callbackURL: inviteToken
@@ -286,7 +274,7 @@ function LoginForm() {
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
-            Don't have an account?{" "}
+            {`Don't have an account?`}
             <Link
               href={`/signup${inviteToken ? `?inviteToken=${inviteToken}${emailParam ? `&email=${encodeURIComponent(emailParam)}` : ""}` : ""}`}
               className="font-medium text-primary hover:underline"

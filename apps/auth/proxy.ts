@@ -24,7 +24,7 @@ export async function proxy(request: NextRequest) {
 
   if (!sessionCookie && !isAuthRoute && !isPublicRoute) {
     const loginUrl = new URL("/login", request.url)
-    loginUrl.searchParams.set("callback", pathname)
+    // loginUrl.searchParams.set("callback", pathname)
     return NextResponse.redirect(loginUrl)
   }
 

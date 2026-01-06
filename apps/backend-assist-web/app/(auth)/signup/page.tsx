@@ -29,7 +29,6 @@ import {
 } from "@workspace/ui/components/form"
 import { authClient } from "@/lib/auth-client"
 import { toast } from "sonner"
-import { saveInvitation } from "@/utils/invitation-storage"
 
 const signupSchema = z
   .object({
@@ -89,29 +88,18 @@ function SignupForm() {
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true)
 
-    // If coming from invitation page, save to localStorage for post-verification redirect
-    // This persists across browser tabs (important when user opens email verification in new tab)
-    if (inviteToken && data.email) {
-      // For signup, userExists should be false (user is creating new account)
-      // Role is 'user' since they're signing up via invitation
-      saveInvitation(inviteToken, data.email, "user", false)
-    }
-
     try {
-      // Build callbackURL - include invitation token so after email verification user goes to accept-invite
-      let callbackURL = redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL
-      if (inviteToken) {
-        callbackURL = `${process.env.NEXT_PUBLIC_CLIENT_URL}/accept-invite?id=${inviteToken}`
-      }
-
       // Determine role: if signing up via invitation, role is 'user', otherwise 'admin'
       const userRole = inviteToken ? "user" : "admin"
+      const callbackURL =
+        process.env.NEXT_PUBLIC_CLIENT_URL +
+        `/login?inviteToken=${inviteToken}&email=${encodeURIComponent(data.email)}`
 
       const result = await authClient.signUp.email({
         name: data.name,
         email: data.email,
         password: data.password,
-        callbackURL,
+        callbackURL: callbackURL,
         // Pass role as additional field - invitation signups get 'user' role, direct signups get 'admin'
         role: userRole,
       })
@@ -125,13 +113,6 @@ function SignupForm() {
       toast.success(
         "Account created successfully! Please check your email to verify your account."
       )
-
-      // If invitation token exists, redirect to accept-invite page
-      // Note: If email verification is required, user will be redirected after verification
-      if (inviteToken) {
-        router.push(`/accept-invite?id=${inviteToken}`)
-        return
-      }
     } catch (error) {
       toast.error("An error occurred during signup")
       console.error(error)
@@ -142,12 +123,6 @@ function SignupForm() {
 
   const handleGoogleSignup = async () => {
     try {
-      // If invitation exists, save to localStorage before OAuth redirect
-      if (inviteToken && emailParam) {
-        // For signup, userExists should be false (user is creating new account)
-        saveInvitation(inviteToken, emailParam, "user", false)
-      }
-
       await authClient.signIn.social({
         provider: "google",
         callbackURL: inviteToken
