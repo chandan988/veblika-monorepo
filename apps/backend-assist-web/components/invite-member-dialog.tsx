@@ -33,7 +33,7 @@ import { Button } from "@workspace/ui/components/button"
 import { useInviteMember } from "@/hooks/use-members"
 import { useRoles } from "@/hooks/use-roles"
 import { toast } from "sonner"
-import { Mail, Loader2 } from "lucide-react"
+import { Mail, Loader2, UserPlus } from "lucide-react"
 
 const inviteSchema = z.object({
   email: z
@@ -94,15 +94,23 @@ export function InviteMemberDialog({ trigger }: InviteMemberDialogProps) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Invite Team Member</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <UserPlus className="h-4 w-4 text-primary" />
+            </div>
+            Invite Team Member
+          </DialogTitle>
           <DialogDescription>
-            Send an invitation to a new or existing user to join your organization.
-            They will receive an email with instructions to accept.
+            {`Send an invitation to add a new member to your team. They'll receive
+            an email with instructions to join.`}
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-6 py-4"
+          >
             <FormField
               control={form.control}
               name="email"
@@ -144,11 +152,13 @@ export function InviteMemberDialog({ trigger }: InviteMemberDialogProps) {
                           Loading roles...
                         </SelectItem>
                       ) : roles && roles.length > 0 ? (
-                        roles.map((role) => (
-                          <SelectItem key={role._id} value={role._id}>
-                            {role.name}
-                          </SelectItem>
-                        ))
+                        roles
+                          .filter((role) => role.slug !== "owner")
+                          .map((role) => (
+                            <SelectItem key={role._id} value={role._id}>
+                              {role.name}
+                            </SelectItem>
+                          ))
                       ) : (
                         <SelectItem value="no-roles" disabled>
                           No roles available
