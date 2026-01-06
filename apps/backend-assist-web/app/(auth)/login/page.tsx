@@ -85,6 +85,9 @@ function LoginForm() {
       const result = await authClient.signIn.email({
         email: data.email,
         password: data.password,
+        ...(inviteToken && {
+          callbackURL: `${process.env.NEXT_PUBLIC_CLIENT_URL}/accept-invite?id=${inviteToken}`,
+        }),
         // callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
       })
 

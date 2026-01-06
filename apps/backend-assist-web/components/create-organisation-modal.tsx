@@ -231,7 +231,7 @@ export function CreateOrganisationModal({
                     Creating...
                   </>
                 ) : (
-                  "Create Organisationss"
+                  "Create Organisation"
                 )}
               </Button>
             </DialogFooter>
