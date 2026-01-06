@@ -94,7 +94,7 @@ function SignupForm() {
     if (inviteToken && data.email) {
       // For signup, userExists should be false (user is creating new account)
       // Role is 'user' since they're signing up via invitation
-      saveInvitation(inviteToken, data.email, 'user', false)
+      saveInvitation(inviteToken, data.email, "user", false)
     }
 
     try {
@@ -105,7 +105,7 @@ function SignupForm() {
       }
 
       // Determine role: if signing up via invitation, role is 'user', otherwise 'admin'
-      const userRole = inviteToken ? 'user' : 'admin'
+      const userRole = inviteToken ? "user" : "admin"
 
       const result = await authClient.signUp.email({
         name: data.name,
@@ -113,7 +113,6 @@ function SignupForm() {
         password: data.password,
         callbackURL,
         // Pass role as additional field - invitation signups get 'user' role, direct signups get 'admin'
-        // @ts-expect-error - role is a custom field handled by auth middleware
         role: userRole,
       })
 
@@ -123,8 +122,10 @@ function SignupForm() {
         return
       }
 
-      toast.success("Account created successfully! Please check your email to verify your account.")
-      
+      toast.success(
+        "Account created successfully! Please check your email to verify your account."
+      )
+
       // If invitation token exists, redirect to accept-invite page
       // Note: If email verification is required, user will be redirected after verification
       if (inviteToken) {
@@ -144,7 +145,7 @@ function SignupForm() {
       // If invitation exists, save to localStorage before OAuth redirect
       if (inviteToken && emailParam) {
         // For signup, userExists should be false (user is creating new account)
-        saveInvitation(inviteToken, emailParam, 'user', false)
+        saveInvitation(inviteToken, emailParam, "user", false)
       }
 
       await authClient.signIn.social({
@@ -153,7 +154,7 @@ function SignupForm() {
           ? `${process.env.NEXT_PUBLIC_CLIENT_URL}/accept-invite?id=${inviteToken}`
           : redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
         additionalData: {
-          role: inviteToken ? 'user' : 'admin',
+          role: inviteToken ? "user" : "admin",
         },
       })
     } catch (error) {
@@ -367,7 +368,7 @@ function SignupForm() {
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link
-              href={`/login${inviteToken ? `?inviteToken=${inviteToken}${emailParam ? `&email=${encodeURIComponent(emailParam)}` : ''}` : ''}`}
+              href={`/login${inviteToken ? `?inviteToken=${inviteToken}${emailParam ? `&email=${encodeURIComponent(emailParam)}` : ""}` : ""}`}
               className="font-medium text-primary hover:underline"
             >
               Sign in
