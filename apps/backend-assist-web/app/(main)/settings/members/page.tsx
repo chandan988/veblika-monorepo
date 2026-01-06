@@ -3,11 +3,17 @@
 import { useState } from "react"
 import { PermissionGuard, AccessDenied } from "@/components/permission-guard"
 import { PermissionButton } from "@/components/permission-button"
-import { InviteMemberDialog } from "@/components/invite-member-dialog"
+import { InviteMemberDialog } from "@/app/(main)/settings/members/invite-member-dialog"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Checkbox } from "@workspace/ui/components/checkbox"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip"
 import {
   Avatar,
   AvatarFallback,
@@ -194,6 +200,12 @@ export default function MembersPage() {
   const handleOpenRemoveDialog = (member: Member) => {
     setMemberToRemove(member)
     setIsRemoveDialogOpen(true)
+  }
+
+  const doesRoleHavePermission = (permissionKey: string, roleSlug: string) => {
+    const role = roles.find((r) => r.slug === roleSlug)
+    if (!role) return false
+    return role.permissions.includes(permissionKey)
   }
 
   const handleRemoveMember = async () => {
@@ -463,7 +475,7 @@ export default function MembersPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Extra Permissions Dialog */}
+        {/* Extra Extra Permissions Dialog */}
         <Dialog
           open={isPermissionsDialogOpen}
           onOpenChange={setIsPermissionsDialogOpen}
@@ -476,29 +488,101 @@ export default function MembersPage() {
                 beyond their role
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-6 py-4">
-              {Object.entries(PERMISSION_CATEGORIES).map(([key, category]) => (
-                <div key={key} className="space-y-3">
-                  <h4 className="font-medium text-sm">{category.label}</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {category.permissions.map((perm) => (
-                      <label
-                        key={perm.key}
-                        className="flex items-center gap-2 text-sm cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={selectedExtraPermissions.includes(perm.key)}
-                          onCheckedChange={() =>
-                            handleTogglePermission(perm.key)
-                          }
-                        />
-                        {perm.label}
-                      </label>
-                    ))}
+            {/* <div className="space-y-6 py-4">
+              {Object.entries(PERMISSION_CATEGORIES).map(([key, category]) => {
+                return (
+                  <div key={key} className="space-y-3">
+                    <h4 className="font-medium text-sm">{category.label}</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {category.permissions.map((perm) => (
+                        <label
+                          key={perm.key}
+                          className="flex items-center gap-2 text-sm cursor-pointer"
+                        >
+                          <Checkbox
+                            disabled={doesRoleHavePermission(
+                              perm.key,
+                              selectedMember?.role?.slug || ""
+                            )}
+                            checked={selectedExtraPermissions.includes(
+                              perm.key
+                            )}
+                            onCheckedChange={() =>
+                              handleTogglePermission(perm.key)
+                            }
+                          />
+                          {perm.label}
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
+            </div> */}
+
+            <div className="space-y-6 py-4">
+              {Object.entries(PERMISSION_CATEGORIES).map(([key, category]) => {
+                return (
+                  <div key={key} className="space-y-3">
+                    <h4 className="font-medium text-sm">{category.label}</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {category.permissions.map((perm) => {
+                        const isInRole = doesRoleHavePermission(
+                          perm.key,
+                          selectedMember?.role?.slug || ""
+                        )
+                        return (
+                          <TooltipProvider key={perm.key}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                  <Checkbox
+                                    disabled={isInRole}
+                                    checked={
+                                      isInRole ||
+                                      selectedExtraPermissions.includes(
+                                        perm.key
+                                      )
+                                    }
+                                    onCheckedChange={() =>
+                                      handleTogglePermission(perm.key)
+                                    }
+                                  />
+                                  <span
+                                    className={
+                                      isInRole ? "text-muted-foreground" : ""
+                                    }
+                                  >
+                                    {perm.label}
+                                    {isInRole && (
+                                      <span className="ml-1.5 text-xs text-muted-foreground">
+                                        (via role)
+                                      </span>
+                                    )}
+                                  </span>
+                                </label>
+                              </TooltipTrigger>
+                              {isInRole && (
+                                <TooltipContent>
+                                  <p>
+                                    Already included in{" "}
+                                    <span className="font-medium">
+                                      {selectedMember?.role?.name}
+                                    </span>{" "}
+                                    role
+                                  </p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
+
             <DialogFooter>
               <Button
                 variant="outline"
