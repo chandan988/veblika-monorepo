@@ -42,9 +42,22 @@ const PLATFORMS = [
 ];
 
 export default function ManageCredentialsPage() {
-  const { isAuthenticated, isLoading: isSessionLoading } = useAuthSession();
+  const { isAuthenticated, isLoading: isSessionLoading, role, user } = useAuthSession();
   const { data: appsData, isLoading: isLoadingApps, refetch } = useGetApps();
   const saveAppConfig = useSaveAppConfig();
+  
+  // Check if user has reseller role
+  const isReseller = role === "reseller";
+  
+  // Redirect if not reseller
+  React.useEffect(() => {
+    if (!isSessionLoading && isAuthenticated && !isReseller) {
+      // User is authenticated but not a reseller - redirect or show access denied
+      toast.error("Access denied. This page is only available for resellers.");
+      // You can redirect to a different page if needed
+      // window.location.href = "/";
+    }
+  }, [isSessionLoading, isAuthenticated, isReseller]);
 
   const [credentials, setCredentials] = React.useState<
     Record<string, { clientId: string; clientSecret: string; redirectUrl: string; useCustom: boolean }>
@@ -61,8 +74,9 @@ export default function ManageCredentialsPage() {
       
       appsData.data.integrations.forEach((integration: any) => {
         const config = integration.config;
-        // Only use config if it's from database (user's own credentials)
-        if (config && config.source === "database") {
+        // Use config if it's from reseller or database (user's own credentials)
+        // Priority: reseller config > user config > default
+        if (config && (config.source === "reseller" || config.source === "database")) {
           initialCredentials[integration.appname] = {
             clientId: config.appClientId || "",
             clientSecret: config.appClientSecret || "",
@@ -185,10 +199,26 @@ export default function ManageCredentialsPage() {
     }));
   };
 
-  if (isLoadingApps) {
+  if (isLoadingApps || isSessionLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Spinner />
+      </div>
+    );
+  }
+
+  // Show access denied if not reseller
+  if (!isReseller) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>
+              This page is only available for resellers.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
@@ -201,6 +231,11 @@ export default function ManageCredentialsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Manage App Credentials</h1>
           <p className="text-gray-600 mt-2">
             Configure OAuth credentials for your social media platforms. These credentials will be used when connecting your accounts.
+            {isReseller && (
+              <span className="block mt-2 text-sm font-medium text-blue-600">
+                Reseller Mode: Credentials saved here will be used as default for all users under your reseller account.
+              </span>
+            )}
           </p>
         </div>
 

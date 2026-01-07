@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 import allRouter from "./routes/allRoutes.js";
 import connectDb from "./config/db.js";
 import { migrateAppCredentialsIndexes } from "./models/appcredentials.model.js";
+import { migrateAppConfigIndexes } from "./models/appconfig.schema.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,5 +51,7 @@ app.listen(PORT, async () => {
   await connectDb();
   // Run migration to drop old orgNo index and ensure userId index exists
   await migrateAppCredentialsIndexes();
+  // Run migration to drop old orgNo index from AppConfig and ensure new indexes exist
+  await migrateAppConfigIndexes();
   console.log(`Server is running on http://localhost:${PORT}`);
 });
