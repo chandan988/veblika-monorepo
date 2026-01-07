@@ -169,11 +169,11 @@ const data = {
       url: "/social_media/analytics",
       icon: ChartLine,
     },
-    {
-      name: "Engage",
-      url: "/social_media/engage",
-      icon: MessageCircle,
-    },
+    // {
+    //   name: "Engage",
+    //   url: "/social_media/engage",
+    //   icon: MessageCircle,
+    // },
     {
       name: "Analyze",
       url: "/social_media/analyze",
@@ -210,7 +210,7 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user, isLoading } = useAuthSession();
+  const { user, isLoading, role } = useAuthSession();
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -229,6 +229,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     email: user?.email || "",
   };
 
+  const isReseller = role === "reseller";
+
+  const settingsProjects = React.useMemo(
+    () =>
+      isReseller
+        ? data.settings
+        : data.settings.filter((item) => item.url !== "/settings/credentials"),
+    [isReseller]
+  );
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -238,7 +248,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {/* <NavMain items={data.navMain} /> */}
         <NavProjects projects={data.normal_link} />
         <NavProjects heading="Social Media" projects={data.social_media} />
-        <NavProjects heading="Settings" projects={data.settings} />
+        <NavProjects heading="Settings" projects={settingsProjects} />
       </SidebarContent>
       <SidebarFooter>
         {!isLoading && (

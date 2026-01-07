@@ -45,7 +45,7 @@ export function IntegrationCard({
   config?: any;
 }) {
   const { data: connectedAccountsData, isLoading: isLoadingAccounts, refetch: refetchConnectedAccounts } = useGetConnectedAccounts();
-  const { userId } = useAuthSession();
+  const { userId, resellerId, role } = useAuthSession(); // ✅ ONLY CHANGE: Added resellerId and role
   const queryClient = useQueryClient();
   const router = useRouter();
   const connectedAccounts = connectedAccountsData?.data || {};
@@ -73,38 +73,65 @@ export function IntegrationCard({
   // INSTAGRAM (Graph API)
   // -----------------------------
   const handleTheInstagram = React.useCallback(() => {
-    // ALWAYS redirect to backend for Instagram Graph API
+    // ✅ ONLY CHANGE: Build URL with resellerId
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    const userIdParam = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+    let userIdParam = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+    
+    // Add resellerId if available
+    if (resellerId) {
+      userIdParam += `&resellerId=${encodeURIComponent(resellerId)}`;
+    }
+    
     window.location.href = `${apiUrl}/api/instagram/auth${userIdParam}`;
-  }, [userId]);
+  }, [userId, resellerId]);
 
   // -----------------------------
   // FACEBOOK (Pages API)
   // -----------------------------
   const handleTheFacebook = React.useCallback(() => {
+    // ✅ ONLY CHANGE: Build URL with resellerId
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    const userIdParam = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+    let userIdParam = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+    
+    // Add resellerId if available
+    if (resellerId) {
+      userIdParam += `&resellerId=${encodeURIComponent(resellerId)}`;
+    }
+    
     window.location.href = `${apiUrl}/api/facebook/auth${userIdParam}`;
-  }, [userId]);
+  }, [userId, resellerId]);
 
   // -----------------------------
   // LINKEDIN (OAuth)
   // -----------------------------
   const handleTheLinkedIn = React.useCallback(() => {
+    // ✅ ONLY CHANGE: Build URL with resellerId
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    const userIdParam = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+    let userIdParam = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+    
+    // Add resellerId if available
+    if (resellerId) {
+      userIdParam += `&resellerId=${encodeURIComponent(resellerId)}`;
+    }
+    
     window.location.href = `${apiUrl}/api/linkedin/auth${userIdParam}`;
-  }, [userId]);
+  }, [userId, resellerId]);
 
   // -----------------------------
   // YOUTUBE (OAuth)
   // -----------------------------
   const handleTheYouTube = React.useCallback(() => {
+    // ✅ ONLY CHANGE: Build URL with resellerId
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    const userIdParam = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+    let userIdParam = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+    
+    // Add resellerId if available
+    if (resellerId) {
+      userIdParam += `&resellerId=${encodeURIComponent(resellerId)}`;
+    }
+    
     window.location.href = `${apiUrl}/api/youtube/auth${userIdParam}`;
-  }, [userId]);
+  }, [userId, resellerId]);
 
   // -----------------------------
   // CONNECT HANDLER

@@ -1,94 +1,97 @@
 import axios from "axios";
 import AppCredentials from "../../models/appcredentials.model.js";
 import UserModel from "../../models/user.model.js";
-import { getAppConfig } from "../../utils/getAppConfig.js";
+import { resolveAppConfig } from "../appconfig/app.controller.js";
 
 // Redirect user to LinkedIn OAuth
 export const redirectToLinkedIn = async (req, res) => {
   try {
-    // Get LinkedIn app config from database (with fallback to env)
-    let linkedinConfig;
-    try {
-      linkedinConfig = await getAppConfig(mongoUserId || "default", "app/linkedin");
-    } catch (error) {
-      console.error("[LinkedIn Auth] Error getting app config:", error.message);
-      return res.status(500).json({ message: "LinkedIn OAuth not configured. Please configure it first." });
-    }
-
-    if (!linkedinConfig.appClientId || !linkedinConfig.redirectUrl) {
-      return res.status(500).json({ message: "LinkedIn OAuth not configured" });
-    }
-    
-    const clientId = linkedinConfig.appClientId;
-    const redirectUri = linkedinConfig.redirectUrl;
-
-    // LinkedIn OpenID Connect scopes (required for OIDC)
+    // LinkedIn OpenID Connect scopes
     const scopes = [
-      "openid",      // Required for OIDC authentication
-      "profile",     // Required for lite profile (id, name, picture)
-      "email",       // Required for email address
-      "w_member_social",      // For posting to personal profile (requires app approval)
-      // "w_organization_social", // For posting to organization pages (requires app approval - not enabled)
+      "openid",
+      "profile",
+      "email",
+      "w_member_social",
     ];
 
-    // Get userId from query parameter (passed from frontend) or from req.user
-    let userIdToUse = null;
-    
-    // Priority 1: Query parameter (from frontend redirect with better-auth userId)
-    if (req.query.userId) {
-      userIdToUse = req.query.userId;
-      console.log("[LinkedIn Auth] Using userId from query parameter:", userIdToUse);
+    // 1️⃣ Get userId from query or req.user
+    const userId = req.query.userId || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: "User not identified" });
     }
-    // Priority 2: req.user._id (from middleware)
-    else if (req.user?._id) {
-      userIdToUse = String(req.user._id);
-      console.log("[LinkedIn Auth] Using userId from req.user._id:", userIdToUse);
-    }
-    
-    // If we have a userId, try to resolve it to MongoDB _id
-    let mongoUserId = userIdToUse;
-    if (userIdToUse) {
+
+    console.log("[LinkedIn Auth] Initial userId:", userId);
+    console.log("[LinkedIn Auth] req.user:", req.user);
+    console.log("[LinkedIn Auth] req.query.resellerId:", req.query.resellerId);
+
+    // 2️⃣ Get resellerId from multiple sources (priority order)
+    // Priority 1: Query parameter (from frontend)
+    // Priority 2: req.user (from auth middleware headers)
+    // Priority 3: Local database lookup (fallback)
+    let resellerId = req.query.resellerId || req.user?.resellerId || null;
+
+    console.log("[LinkedIn Auth] resellerId from query/headers:", resellerId);
+
+    // If resellerId not found, try local DB lookup as fallback
+    if (!resellerId) {
       try {
-        let mongoUser = await UserModel.findById(userIdToUse).lean();
+        const localUser = await UserModel.findById(userId)
+          .select("resellerId")
+          .lean();
         
-        if (!mongoUser) {
-          const userEmail = req.headers["x-user-email"];
-          if (userEmail) {
-            console.log("[LinkedIn Auth] MongoDB user not found by _id, trying by email:", userEmail);
-            mongoUser = await UserModel.findOne({ email: userEmail }).lean();
-          }
-        }
-        
-        if (mongoUser) {
-          mongoUserId = String(mongoUser._id);
-          console.log("[LinkedIn Auth] Resolved to MongoDB userId:", mongoUserId);
-        } else {
-          console.log("[LinkedIn Auth] MongoDB user not found, using provided userId as-is:", userIdToUse);
+        if (localUser?.resellerId) {
+          resellerId = typeof localUser.resellerId === 'object' && localUser.resellerId._id
+            ? String(localUser.resellerId._id)
+            : String(localUser.resellerId);
+          console.log("[LinkedIn Auth] Found resellerId in local DB:", resellerId);
         }
       } catch (error) {
-        console.log("[LinkedIn Auth] Error looking up user:", error.message);
-        mongoUserId = userIdToUse;
+        console.log("[LinkedIn Auth] Local DB lookup skipped:", error.message);
       }
     }
 
-    // Include user ID in state parameter for multi-tenant support
-    let state = "default";
-    if (mongoUserId) {
-      state = Buffer.from(JSON.stringify({ userId: mongoUserId })).toString('base64');
-      console.log("[LinkedIn Auth] Setting state with userId:", mongoUserId);
+    console.log("[LinkedIn Auth] Final userId:", userId);
+    console.log("[LinkedIn Auth] Final resellerId:", resellerId);
+
+    // ✅ Build state with userId and resellerId for callback
+    const state = Buffer.from(
+      JSON.stringify({
+        userId: String(userId),
+        resellerId: resellerId,
+      })
+    ).toString('base64');
+
+    // 3️⃣ Resolve app config with resellerId
+    const linkedinConfig = await resolveAppConfig(
+      "app/linkedin",
+      resellerId
+    );
+
+    if (!linkedinConfig?.appClientId || !linkedinConfig?.redirectUrl) {
+      return res.status(500).json({ 
+        message: "LinkedIn OAuth not configured",
+        source: linkedinConfig?.source 
+      });
     }
+
+    console.log(
+      "[LinkedIn Auth] USING:",
+      linkedinConfig.source,
+      linkedinConfig.appClientId
+    );
 
     const loginUrl =
       `https://www.linkedin.com/oauth/v2/authorization` +
       `?response_type=code` +
-      `&client_id=${clientId}` +
-      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&client_id=${linkedinConfig.appClientId}` +
+      `&redirect_uri=${encodeURIComponent(linkedinConfig.redirectUrl)}` +
       `&state=${encodeURIComponent(state)}` +
       `&scope=${scopes.join(" ")}`;
 
     return res.redirect(loginUrl);
   } catch (err) {
-    console.log(err);
+    console.log("[LinkedIn Auth] Error:", err);
     return res.status(500).json({ message: "OAuth redirect failed" });
   }
 };
@@ -96,63 +99,34 @@ export const redirectToLinkedIn = async (req, res) => {
 // Handle callback from LinkedIn OAuth
 export const linkedinCallback = async (req, res) => {
   const { code, state } = req.query;
-  // Extract user ID from state if available
+  
+  // ✅ Extract userId and resellerId from state
   let userIdFromState = null;
+  let resellerIdFromState = null;
+  
   if (state) {
     try {
       const decoded = JSON.parse(Buffer.from(state, 'base64').toString());
       userIdFromState = decoded.userId;
+      resellerIdFromState = decoded.resellerId;
+      console.log("[LinkedIn Callback] Extracted from state:", { userId: userIdFromState, resellerId: resellerIdFromState });
     } catch (e) {
       userIdFromState = state;
+      console.log("[LinkedIn Callback] State is not JSON, using as userId:", userIdFromState);
     }
   }
   
-  // Multi-tenant: Use user's userId from state (most reliable for OAuth callbacks)
-  // Priority: state > req.user._id > headers
-  let userId = null;
-  
-  if (userIdFromState) {
-    userId = String(userIdFromState);
-    console.log("[LinkedIn Callback] Using userId from state:", userId);
-  } else if (req.user?._id) {
-    userId = String(req.user._id);
-    console.log("[LinkedIn Callback] Using userId from req.user._id:", userId);
-  } else {
-    const betterAuthUserId = req.headers["x-user-id"];
-    const userEmail = req.headers["x-user-email"];
-    
-    if (betterAuthUserId) {
-      console.log("[LinkedIn Callback] Trying to resolve userId from headers:", betterAuthUserId);
-      try {
-        let mongoUser = await UserModel.findById(betterAuthUserId).lean();
-        
-        if (!mongoUser && userEmail) {
-          console.log("[LinkedIn Callback] MongoDB user not found by _id, trying by email:", userEmail);
-          mongoUser = await UserModel.findOne({ email: userEmail }).lean();
-        }
-        
-        if (mongoUser) {
-          userId = String(mongoUser._id);
-          console.log("[LinkedIn Callback] Resolved to MongoDB userId:", userId);
-        } else {
-          console.log("[LinkedIn Callback] MongoDB user not found, using better-auth userId as-is:", betterAuthUserId);
-          userId = betterAuthUserId;
-        }
-      } catch (error) {
-        console.log("[LinkedIn Callback] Error looking up user:", error.message);
-        userId = betterAuthUserId;
-      }
-    }
-  }
+  // Get userId (priority: state > req.user > headers)
+  let userId = userIdFromState || req.user?._id || null;
   
   if (!userId) {
-    console.error("[LinkedIn Callback] No userId found - state:", state, "req.user:", req.user?._id);
+    console.error("[LinkedIn Callback] No userId found");
     return res.redirect(
       `${process.env.FRONTEND_URL}/integrations/linkedin?error=unauthorized`
     );
   }
   
-  console.log("[LinkedIn Callback] Final userId to use:", userId);
+  console.log("[LinkedIn Callback] Final userId:", userId);
 
   if (!code) {
     return res.redirect(
@@ -161,29 +135,40 @@ export const linkedinCallback = async (req, res) => {
   }
 
   try {
-    // Get LinkedIn app config from database (with fallback to env)
-    let linkedinConfig;
-    try {
-      linkedinConfig = await getAppConfig(userId, "app/linkedin");
-    } catch (error) {
-      console.error("[LinkedIn Callback] Error getting app config:", error.message);
-      return res.redirect(
-        `${process.env.FRONTEND_URL}/integrations/linkedin?error=config_error`
-      );
+    // ✅ Get resellerId (priority: state > req.user > headers > DB)
+    let resellerId = resellerIdFromState || req.user?.resellerId || req.headers["x-reseller-id"];
+    
+    console.log("[LinkedIn Callback] resellerId from state/headers:", resellerId);
+
+    // Fallback to DB lookup
+    if (!resellerId) {
+      try {
+        const localUser = await UserModel.findById(userId).select("resellerId").lean();
+        if (localUser?.resellerId) {
+          resellerId = String(localUser.resellerId);
+          console.log("[LinkedIn Callback] Found resellerId in local DB:", resellerId);
+        }
+      } catch (error) {
+        console.log("[LinkedIn Callback] DB lookup skipped:", error.message);
+      }
     }
 
-    if (!linkedinConfig.appClientId || !linkedinConfig.appClientSecret || !linkedinConfig.redirectUrl) {
+    console.log("[LinkedIn Callback] Final resellerId:", resellerId);
+
+    // ✅ Resolve app config with resellerId
+    const linkedinConfig = await resolveAppConfig(
+      "app/linkedin",
+      resellerId
+    );
+
+    if (!linkedinConfig?.appClientId || !linkedinConfig?.appClientSecret || !linkedinConfig?.redirectUrl) {
       console.error("[LinkedIn Callback] LinkedIn app credentials not configured");
       return res.redirect(
         `${process.env.FRONTEND_URL}/integrations/linkedin?error=config_error`
       );
     }
 
-    const clientId = linkedinConfig.appClientId;
-    const clientSecret = linkedinConfig.appClientSecret;
-    const redirectUri = linkedinConfig.redirectUrl;
-
-    console.log("[LinkedIn Callback] Using config from:", linkedinConfig.source);
+    console.log("[LinkedIn Callback] USING:", linkedinConfig.source, linkedinConfig.appClientId);
 
     // Step 1: Exchange code for access token
     const tokenRes = await axios.post(
@@ -191,9 +176,9 @@ export const linkedinCallback = async (req, res) => {
       new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        redirect_uri: redirectUri,
-        client_id: clientId,
-        client_secret: clientSecret,
+        redirect_uri: linkedinConfig.redirectUrl,
+        client_id: linkedinConfig.appClientId,
+        client_secret: linkedinConfig.appClientSecret,
       }),
       {
         headers: {
@@ -203,12 +188,11 @@ export const linkedinCallback = async (req, res) => {
     );
 
     const accessToken = tokenRes.data.access_token;
-    const idToken = tokenRes.data.id_token; // OIDC ID Token (JWT)
+    const idToken = tokenRes.data.id_token;
 
     console.log("[LinkedIn Callback] Access token received, fetching user info...");
 
     // Step 2: Get user profile using OpenID Connect userinfo endpoint
-    // LinkedIn deprecated /v2/me, now use /v2/userinfo with OIDC
     let userRes;
     try {
       userRes = await axios.get("https://api.linkedin.com/v2/userinfo", {
@@ -219,10 +203,10 @@ export const linkedinCallback = async (req, res) => {
       console.log("[LinkedIn Callback] User info received from /v2/userinfo");
     } catch (userInfoError) {
       console.error("[LinkedIn Callback] Failed to get userinfo:", userInfoError.response?.data || userInfoError.message);
-      // Fallback: Try to decode ID token if available
+      
+      // Fallback: Try to decode ID token
       if (idToken) {
         try {
-          // Decode JWT (without verification for now - in production you should verify)
           const base64Url = idToken.split('.')[1];
           const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
           const jsonPayload = JSON.parse(Buffer.from(base64, 'base64').toString());
@@ -237,71 +221,45 @@ export const linkedinCallback = async (req, res) => {
       }
     }
 
-    // Step 3: Extract user data from userinfo response
-    // The new userinfo endpoint returns: sub, name, given_name, family_name, picture, locale, email, email_verified
+    // Step 3: Extract user data
     const userData = userRes.data;
-    const linkedInUserId = userData.sub; // LinkedIn subject identifier (user ID) - NOT MongoDB userId
+    const linkedInUserId = userData.sub;
     const userName = userData.name || `${userData.given_name || ""} ${userData.family_name || ""}`.trim();
-    const email = userData.email || ""; // Email is now in userinfo response
+    const email = userData.email || "";
     const profilePicture = userData.picture || "";
 
     console.log("[LinkedIn Callback] User data extracted:", {
-      linkedInUserId, // LinkedIn user ID (e.g., '-nehK3ePun')
-      mongoUserId: userId, // MongoDB userId (e.g., '692d7b14b183fc3f9a664d27')
+      linkedInUserId,
+      mongoUserId: userId,
       userName,
       hasEmail: !!email,
       hasPicture: !!profilePicture,
     });
 
-    // Step 4: Get user's organizations (pages)
-    // NOTE: Organization fetching requires 'w_organization_social' scope which is not available in development
-    // Skipping organization fetch for now - can be enabled when app is approved and scope is granted
-    let organizations = [];
-    // try {
-    //   const orgRes = await axios.get(
-    //     "https://api.linkedin.com/v2/organizationalEntityAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED",
-    //     {
-    //       headers: {
-    //         Authorization: `Bearer ${accessToken}`,
-    //         "X-Restli-Protocol-Version": "2.0.0",
-    //       },
-    //     }
-    //   );
-    //   organizations = orgRes.data.elements || [];
-    // } catch (err) {
-    //   console.log("Could not fetch organizations:", err.response?.data || err);
-    // }
-    console.log("[LinkedIn Callback] Skipping organization fetch (not available in development mode)");
-
+    // Step 4: Store credentials
     const credentials = {
       user_access_token: accessToken,
-      id_token: idToken, // Store ID token for future use
-      user_id: linkedInUserId, // LinkedIn user ID (sub from userinfo) - NOT MongoDB userId
+      id_token: idToken,
+      user_id: linkedInUserId,
       user_name: userName,
       user_email: email,
       profile_picture: profilePicture,
       pages: [
         {
-          pageId: linkedInUserId, // Use LinkedIn 'sub' as pageId for personal profile
+          pageId: linkedInUserId,
           pageName: userName,
           page_access_token: accessToken,
         },
-        // Organizations (company pages) will be added here when w_organization_social scope is approved
-        // ...organizations.map((org) => ({
-        //   pageId: org.organizationalTarget,
-        //   pageName: org.organizationalTarget,
-        //   page_access_token: accessToken,
-        // })),
       ],
     };
 
     const savedCredential = await AppCredentials.findOneAndUpdate(
       {
-        userId,
+        userId: String(userId),
         platform: "LINKEDIN",
       },
       {
-        userId,
+        userId: String(userId),
         platform: "LINKEDIN",
         credentials,
         createdBy: req.user?._id || null,
@@ -309,21 +267,18 @@ export const linkedinCallback = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    console.log("[LinkedIn Callback] Credentials saved successfully:", {
+    console.log("[LinkedIn Callback] ✅ Credentials saved successfully:", {
       _id: savedCredential._id,
       userId: savedCredential.userId,
       platform: savedCredential.platform,
-      has_credentials: !!savedCredential.credentials,
       user_name: savedCredential.credentials?.user_name,
-      user_id: savedCredential.credentials?.user_id,
     });
 
-    // Redirect to integrations page to show connected status
     return res.redirect(
       `${process.env.FRONTEND_URL}/integrations?linkedin=connected`
     );
   } catch (err) {
-    console.log("LinkedIn OAuth error: ", err.response?.data || err);
+    console.log("[LinkedIn Callback] OAuth error:", err.response?.data || err);
     return res.redirect(
       `${process.env.FRONTEND_URL}/integrations/linkedin?error=oauth_failed`
     );
@@ -394,7 +349,7 @@ export const postToLinkedIn = async (req, res) => {
         },
       },
       visibility: {
-        "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC", // Options: PUBLIC, CONNECTIONS, LOGGED_IN
+        "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
       },
     };
 
@@ -477,4 +432,3 @@ export const postToLinkedIn = async (req, res) => {
     });
   }
 };
-

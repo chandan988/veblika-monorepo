@@ -2,23 +2,81 @@ import AppConfig from "../models/appconfig.schema.js";
 
 /**
  * Get app configuration from database, with fallback to environment variables
- * @param {string} userId - User ID
+ * Priority:
+ *  1) Reseller-level config (shared across all users of that reseller)
+ *  2) User-level config
+ *  3) Environment variables
+ *
+ * @param {string} userId - User ID (MongoDB or better-auth ID)
  * @param {string} appName - App name (e.g., "app/instagram", "app/facebook", "app/linkedin", "app/youtube")
+ * @param {string} [resellerId] - Optional reseller ID
  * @returns {Promise<{appClientId: string, appClientSecret: string, redirectUrl: string, source: string}>}
  */
-export async function getAppConfig(userId, appName) {
+export async function getAppConfig(userId, appName, resellerId) {
   try {
-    // Try to get from database first
-    const dbConfig = await AppConfig.findOne({ userId, appName }).lean();
+    console.log(`[getAppConfig] Called with userId: ${userId}, appName: ${appName}, resellerId: ${resellerId}`);
     
-    if (dbConfig) {
-      console.log(`[getAppConfig] Found config in DB for ${appName} (userId: ${userId})`);
-      return {
-        appClientId: dbConfig.appClientId,
-        appClientSecret: dbConfig.appClientSecret,
-        redirectUrl: dbConfig.redirectUrl,
-        source: "database",
-      };
+    // 1) Try reseller-level config first (shared for all users with same resellerId)
+    if (resellerId) {
+      // Convert resellerId to string to ensure consistent querying
+      const resellerIdStr = String(resellerId).trim();
+      console.log(`[getAppConfig] Searching for reseller config with resellerId: "${resellerIdStr}", appName: "${appName}"`);
+      
+      // Try exact match first
+      let resellerConfig = await AppConfig.findOne({ resellerId: resellerIdStr, appName }).lean();
+      
+      // If not found, try with ObjectId conversion (in case it's stored as ObjectId)
+      if (!resellerConfig) {
+        try {
+          const mongoose = await import("mongoose");
+          const ObjectId = mongoose.default.Types.ObjectId;
+          if (ObjectId.isValid(resellerIdStr)) {
+            resellerConfig = await AppConfig.findOne({ 
+              resellerId: { $in: [resellerIdStr, new ObjectId(resellerIdStr)] }, 
+              appName 
+            }).lean();
+          }
+        } catch (e) {
+          // Ignore ObjectId conversion errors
+        }
+      }
+      
+      if (resellerConfig) {
+        console.log(
+          `[getAppConfig] ✅ Found reseller config in DB for ${appName} (resellerId: ${resellerIdStr})`,
+          `- ClientId: ${resellerConfig.appClientId?.substring(0, 10)}...`
+        );
+        return {
+          appClientId: resellerConfig.appClientId,
+          appClientSecret: resellerConfig.appClientSecret,
+          redirectUrl: resellerConfig.redirectUrl,
+          source: "reseller",
+        };
+      } else {
+        console.log(`[getAppConfig] ❌ No reseller config found for resellerId: "${resellerIdStr}", appName: "${appName}"`);
+        // Debug: Check what reseller configs exist
+        const allResellerConfigs = await AppConfig.find({ resellerId: { $exists: true, $ne: null } }).lean();
+        console.log(`[getAppConfig] Debug: Found ${allResellerConfigs.length} reseller configs in DB:`, 
+          allResellerConfigs.map(c => ({ resellerId: String(c.resellerId), resellerIdType: typeof c.resellerId, appName: c.appName }))
+        );
+      }
+    } else {
+      console.log(`[getAppConfig] No resellerId provided, skipping reseller config lookup`);
+    }
+
+    // 2) Try user-level config
+    if (userId) {
+      const dbConfig = await AppConfig.findOne({ userId, appName }).lean();
+
+      if (dbConfig) {
+        console.log(`[getAppConfig] Found user config in DB for ${appName} (userId: ${userId})`);
+        return {
+          appClientId: dbConfig.appClientId,
+          appClientSecret: dbConfig.appClientSecret,
+          redirectUrl: dbConfig.redirectUrl,
+          source: "database",
+        };
+      }
     }
     
     // Fallback to environment variables

@@ -15,6 +15,8 @@ export const isAuth = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     const authToken = req.headers["x-auth-token"];
     const betterAuthUserId = req.headers["x-user-id"];
+    const userRole = req.headers["x-user-role"];
+    const resellerId = req.headers["x-reseller-id"];
     
     // Extract token from Authorization header if present (format: "Bearer <token>")
     const bearerToken = authHeader?.startsWith("Bearer ") 
@@ -33,6 +35,8 @@ export const isAuth = async (req, res, next) => {
       req.user = {
         _id: betterAuthUserId,
         userId: betterAuthUserId,
+        role: userRole || null,
+        resellerId: resellerId || null,
       };
       
       // Optionally try to find MongoDB user for additional info, but don't require it
@@ -50,7 +54,7 @@ export const isAuth = async (req, res, next) => {
         }
       }
       
-      console.log("Using better-auth userId for authentication:", betterAuthUserId);
+      console.log("Using better-auth userId for authentication:", betterAuthUserId, "role:", userRole, "resellerId:", resellerId);
       return next();
     }
     
@@ -89,6 +93,8 @@ export const isAuth = async (req, res, next) => {
       // Try to get userId from headers first (for API requests with better-auth)
       let resolvedUserId = betterAuthUserId;
       const userEmail = req.headers["x-user-email"];
+      const userRole = req.headers["x-user-role"];
+      const resellerId = req.headers["x-reseller-id"];
       
       // If we have better-auth userId from headers, try to resolve to MongoDB user
       if (betterAuthUserId) {
@@ -137,7 +143,9 @@ export const isAuth = async (req, res, next) => {
           if (sessionResponse.status === 200 && sessionResponse.data?.user?.id) {
             const betterAuthUserId = sessionResponse.data.user.id;
             const betterAuthUserEmail = sessionResponse.data.user.email;
-            console.log("Verified better-auth session, userId:", betterAuthUserId, "email:", betterAuthUserEmail);
+            const betterAuthUserRole = sessionResponse.data.user.role;
+            const betterAuthResellerId = sessionResponse.data.user.resellerId;
+            console.log("Verified better-auth session, userId:", betterAuthUserId, "email:", betterAuthUserEmail, "role:", betterAuthUserRole, "resellerId:", betterAuthResellerId);
             
             // Try to find MongoDB user by better-auth userId
             let mongoUser = await UserModel.findById(betterAuthUserId).lean();
@@ -156,6 +164,10 @@ export const isAuth = async (req, res, next) => {
               resolvedUserId = betterAuthUserId;
               console.log("Using better-auth userId as-is:", resolvedUserId);
             }
+            
+            // Store role and resellerId for later use
+            req.userRole = betterAuthUserRole;
+            req.userResellerId = betterAuthResellerId;
           } else {
             console.log("Better-auth session verification failed, status:", sessionResponse.status);
           }
@@ -241,6 +253,8 @@ export const isAuth = async (req, res, next) => {
         req.user = {
           _id: resolvedUserId,
           userId: resolvedUserId,
+          role: userRole || req.userRole || null,
+          resellerId: resellerId || req.userResellerId || null,
         };
         return next();
       }
