@@ -5,83 +5,226 @@
     "ticket": {
       "label": "Tickets",
       "actions": [
-        { "key": "ticket:view", "label": "View tickets", "description": "Can view tickets in the organisation" },
-        { "key": "ticket:create", "label": "Create tickets", "description": "Can create new tickets" },
-        { "key": "ticket:edit", "label": "Edit tickets", "description": "Can edit existing tickets" },
-        { "key": "ticket:delete", "label": "Delete tickets", "description": "Can delete tickets" },
-        { "key": "ticket:assign", "label": "Assign tickets", "description": "Can assign tickets to members" },
-        { "key": "ticket:close", "label": "Close tickets", "description": "Can close/resolve tickets" }
+        {
+          "key": "ticket:view",
+          "label": "View tickets",
+          "description": "Can view tickets in the organisation"
+        },
+        {
+          "key": "ticket:reply",
+          "label": "Reply to tickets",
+          "description": "Can reply to email tickets"
+        },
+        {
+          "key": "ticket:edit",
+          "label": "Edit tickets",
+          "description": "Can edit existing tickets"
+        },
+        {
+          "key": "ticket:delete",
+          "label": "Delete tickets",
+          "description": "Can delete tickets"
+        },
+        {
+          "key": "ticket:assign",
+          "label": "Assign tickets",
+          "description": "Can assign tickets to members"
+        },
+        {
+          "key": "ticket:close",
+          "label": "Close tickets",
+          "description": "Can close/resolve tickets"
+        }
       ]
     },
     "chat": {
       "label": "Chat / Conversations",
       "actions": [
-        { "key": "chat:view", "label": "View chats", "description": "Can view chat conversations" },
-        { "key": "chat:reply", "label": "Reply to chats", "description": "Can reply to chat messages" },
-        { "key": "chat:assign", "label": "Assign chats", "description": "Can assign chats to members" },
-        { "key": "chat:close", "label": "Close chats", "description": "Can close chat conversations" },
-        { "key": "chat:delete", "label": "Delete chats", "description": "Can delete chat conversations" }
+        {
+          "key": "chat:view",
+          "label": "View chats",
+          "description": "Can view chat conversations"
+        },
+        {
+          "key": "chat:reply",
+          "label": "Reply to chats",
+          "description": "Can reply to chat messages"
+        },
+        {
+          "key": "chat:assign",
+          "label": "Assign chats",
+          "description": "Can assign chats to members"
+        },
+        {
+          "key": "chat:close",
+          "label": "Close chats",
+          "description": "Can close chat conversations"
+        },
+        {
+          "key": "chat:delete",
+          "label": "Delete chats",
+          "description": "Can delete chat conversations"
+        }
       ]
     },
     "contact": {
       "label": "Contacts",
       "actions": [
-        { "key": "contact:view", "label": "View contacts", "description": "Can view contacts" },
-        { "key": "contact:create", "label": "Create contacts", "description": "Can create new contacts" },
-        { "key": "contact:edit", "label": "Edit contacts", "description": "Can edit contact information" },
-        { "key": "contact:delete", "label": "Delete contacts", "description": "Can delete contacts" },
-        { "key": "contact:export", "label": "Export contacts", "description": "Can export contacts data" }
+        {
+          "key": "contact:view",
+          "label": "View contacts",
+          "description": "Can view contacts"
+        },
+        {
+          "key": "contact:create",
+          "label": "Create contacts",
+          "description": "Can create new contacts"
+        },
+        {
+          "key": "contact:edit",
+          "label": "Edit contacts",
+          "description": "Can edit contact information"
+        },
+        {
+          "key": "contact:delete",
+          "label": "Delete contacts",
+          "description": "Can delete contacts"
+        },
+        {
+          "key": "contact:export",
+          "label": "Export contacts",
+          "description": "Can export contacts data"
+        }
       ]
     },
     "member": {
       "label": "Team Members",
       "actions": [
-        { "key": "member:view", "label": "View members", "description": "Can view team members" },
-        { "key": "member:add", "label": "Add members", "description": "Can invite new members" },
-        { "key": "member:edit", "label": "Edit members", "description": "Can edit member details" },
-        { "key": "member:remove", "label": "Remove members", "description": "Can remove members from organisation" }
+        {
+          "key": "member:view",
+          "label": "View members",
+          "description": "Can view team members"
+        },
+        {
+          "key": "member:add",
+          "label": "Add members",
+          "description": "Can invite new members"
+        },
+        {
+          "key": "member:edit",
+          "label": "Edit members",
+          "description": "Can edit member details"
+        },
+        {
+          "key": "member:remove",
+          "label": "Remove members",
+          "description": "Can remove members from organisation"
+        }
       ]
     },
     "role": {
       "label": "Roles & Permissions",
       "actions": [
-        { "key": "role:view", "label": "View roles", "description": "Can view roles and permissions" },
-        { "key": "role:create", "label": "Create roles", "description": "Can create new roles" },
-        { "key": "role:edit", "label": "Edit roles", "description": "Can edit existing roles" },
-        { "key": "role:delete", "label": "Delete roles", "description": "Can delete roles" },
-        { "key": "role:assign", "label": "Assign roles", "description": "Can assign roles to members" }
+        {
+          "key": "role:view",
+          "label": "View roles",
+          "description": "Can view roles and permissions"
+        },
+        {
+          "key": "role:create",
+          "label": "Create roles",
+          "description": "Can create new roles"
+        },
+        {
+          "key": "role:edit",
+          "label": "Edit roles",
+          "description": "Can edit existing roles"
+        },
+        {
+          "key": "role:delete",
+          "label": "Delete roles",
+          "description": "Can delete roles"
+        },
+        {
+          "key": "role:assign",
+          "label": "Assign roles",
+          "description": "Can assign roles to members"
+        }
       ]
     },
     "organisation": {
       "label": "Organisation Settings",
       "actions": [
-        { "key": "organisation:view", "label": "View settings", "description": "Can view organisation settings" },
-        { "key": "organisation:edit", "label": "Edit settings", "description": "Can edit organisation settings" },
-        { "key": "organisation:delete", "label": "Delete organisation", "description": "Can delete the organisation" },
-        { "key": "organisation:billing", "label": "Manage billing", "description": "Can manage billing and subscriptions" }
+        {
+          "key": "organisation:view",
+          "label": "View settings",
+          "description": "Can view organisation settings"
+        },
+        {
+          "key": "organisation:edit",
+          "label": "Edit settings",
+          "description": "Can edit organisation settings"
+        },
+        {
+          "key": "organisation:delete",
+          "label": "Delete organisation",
+          "description": "Can delete the organisation"
+        }
       ]
     },
     "integration": {
       "label": "Integrations",
       "actions": [
-        { "key": "integration:view", "label": "View integrations", "description": "Can view integrations" },
-        { "key": "integration:create", "label": "Create integrations", "description": "Can set up new integrations" },
-        { "key": "integration:edit", "label": "Edit integrations", "description": "Can edit integration settings" },
-        { "key": "integration:delete", "label": "Delete integrations", "description": "Can remove integrations" }
+        {
+          "key": "integration:view",
+          "label": "View integrations",
+          "description": "Can view integrations"
+        },
+        {
+          "key": "integration:create",
+          "label": "Create integrations",
+          "description": "Can set up new integrations"
+        },
+        {
+          "key": "integration:edit",
+          "label": "Edit integrations",
+          "description": "Can edit integration settings"
+        },
+        {
+          "key": "integration:delete",
+          "label": "Delete integrations",
+          "description": "Can remove integrations"
+        }
       ]
     },
     "report": {
       "label": "Reports & Analytics",
       "actions": [
-        { "key": "report:view", "label": "View reports", "description": "Can view reports and analytics" },
-        { "key": "report:export", "label": "Export reports", "description": "Can export reports data" }
+        {
+          "key": "report:view",
+          "label": "View reports",
+          "description": "Can view reports and analytics"
+        },
+        {
+          "key": "report:export",
+          "label": "Export reports",
+          "description": "Can export reports data"
+        }
       ]
     },
     "widget": {
       "label": "Widget Settings",
       "actions": [
-        { "key": "widget:view", "label": "View widget", "description": "Can view widget settings" },
-        { "key": "widget:edit", "label": "Edit widget", "description": "Can customize widget appearance and behavior" }
+        {
+          "key": "widget:view",
+          "label": "View widget",
+          "description": "Can view widget settings"
+        },
+        {
+          "key": "widget:edit",
+          "label": "Edit widget",
+          "description": "Can customize widget appearance and behavior"
+        }
       ]
     }
   },
@@ -91,7 +234,9 @@
       "description": "Full access to all resources and settings",
       "isDefault": true,
       "isSystem": true,
-      "permissions": ["*"]
+      "permissions": [
+        "*"
+      ]
     },
     "admin": {
       "name": "Admin",
@@ -99,15 +244,41 @@
       "isDefault": true,
       "isSystem": true,
       "permissions": [
-        "ticket:view", "ticket:create", "ticket:edit", "ticket:delete", "ticket:assign", "ticket:close",
-        "chat:view", "chat:reply", "chat:assign", "chat:close", "chat:delete",
-        "contact:view", "contact:create", "contact:edit", "contact:delete", "contact:export",
-        "member:view", "member:add", "member:edit", "member:remove",
-        "role:view", "role:create", "role:edit", "role:delete", "role:assign",
-        "organisation:view", "organisation:edit",
-        "integration:view", "integration:create", "integration:edit", "integration:delete",
-        "report:view", "report:export",
-        "widget:view", "widget:edit"
+        "ticket:view",
+        "ticket:reply",
+        "ticket:edit",
+        "ticket:delete",
+        "ticket:assign",
+        "ticket:close",
+        "chat:view",
+        "chat:reply",
+        "chat:assign",
+        "chat:close",
+        "chat:delete",
+        "contact:view",
+        "contact:create",
+        "contact:edit",
+        "contact:delete",
+        "contact:export",
+        "member:view",
+        "member:add",
+        "member:edit",
+        "member:remove",
+        "role:view",
+        "role:create",
+        "role:edit",
+        "role:delete",
+        "role:assign",
+        "organisation:view",
+        "organisation:edit",
+        "integration:view",
+        "integration:create",
+        "integration:edit",
+        "integration:delete",
+        "report:view",
+        "report:export",
+        "widget:view",
+        "widget:edit"
       ]
     },
     "agent": {
@@ -116,9 +287,16 @@
       "isDefault": true,
       "isSystem": true,
       "permissions": [
-        "ticket:view", "ticket:create", "ticket:edit", "ticket:assign", "ticket:close",
-        "chat:view", "chat:reply", "chat:assign", "chat:close",
-        "contact:view", "contact:create", "contact:edit",
+        "ticket:view",
+        "ticket:reply",
+        "ticket:edit",
+        "ticket:close",
+        "chat:view",
+        "chat:reply",
+        "chat:close",
+        "contact:view",
+        "contact:create",
+        "contact:edit",
         "member:view",
         "role:view",
         "organisation:view",
@@ -146,14 +324,41 @@
     }
   },
   "allPermissions": [
-    "ticket:view", "ticket:create", "ticket:edit", "ticket:delete", "ticket:assign", "ticket:close",
-    "chat:view", "chat:reply", "chat:assign", "chat:close", "chat:delete",
-    "contact:view", "contact:create", "contact:edit", "contact:delete", "contact:export",
-    "member:view", "member:add", "member:edit", "member:remove",
-    "role:view", "role:create", "role:edit", "role:delete", "role:assign",
-    "organisation:view", "organisation:edit", "organisation:delete", "organisation:billing",
-    "integration:view", "integration:create", "integration:edit", "integration:delete",
-    "report:view", "report:export",
-    "widget:view", "widget:edit"
+    "ticket:view",
+    "ticket:reply",
+    "ticket:edit",
+    "ticket:delete",
+    "ticket:assign",
+    "ticket:close",
+    "chat:view",
+    "chat:reply",
+    "chat:assign",
+    "chat:close",
+    "chat:delete",
+    "contact:view",
+    "contact:create",
+    "contact:edit",
+    "contact:delete",
+    "contact:export",
+    "member:view",
+    "member:add",
+    "member:edit",
+    "member:remove",
+    "role:view",
+    "role:create",
+    "role:edit",
+    "role:delete",
+    "role:assign",
+    "organisation:view",
+    "organisation:edit",
+    "organisation:delete",
+    "integration:view",
+    "integration:create",
+    "integration:edit",
+    "integration:delete",
+    "report:view",
+    "report:export",
+    "widget:view",
+    "widget:edit"
   ]
 }

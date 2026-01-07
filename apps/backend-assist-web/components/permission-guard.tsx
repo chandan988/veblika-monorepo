@@ -78,7 +78,7 @@ interface PermissionGuardProps {
  *
  * @example
  * // Redirect if no permission
- * <PermissionGuard permission="organisation:billing" redirectTo="/dashboard">
+ * <PermissionGuard permission="organisation:edit" redirectTo="/dashboard">
  *   <BillingPage />
  * </PermissionGuard>
  */
