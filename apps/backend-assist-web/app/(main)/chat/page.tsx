@@ -42,7 +42,7 @@ export default function ChatPage() {
     hasNextPage: hasNextMessagePage,
     isFetchingNextPage: isFetchingNextMessagePage,
     fetchNextPage: fetchNextMessagePage,
-  } = useMessages(selectedConversationId || "", { limit: 25 })
+  } = useMessages(selectedConversationId || "", { limit: 25, orgId: activeOrganisation?._id || "" })
 
   // Mutations
   const updateConversation = useUpdateConversation()

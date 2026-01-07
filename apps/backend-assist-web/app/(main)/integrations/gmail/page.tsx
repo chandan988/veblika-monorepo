@@ -91,7 +91,7 @@ export default function GmailIntegrations() {
   const handleStartWatch = async (integrationId: string) => {
     setWatchingId(integrationId)
     try {
-      await startWatch.mutateAsync(integrationId)
+      await startWatch.mutateAsync({ orgId, integrationId })
       toast.success(
         "Gmail watch started! You'll receive real-time notifications."
       )
@@ -106,7 +106,7 @@ export default function GmailIntegrations() {
   const handleStopWatch = async (integrationId: string) => {
     setWatchingId(integrationId)
     try {
-      await stopWatch.mutateAsync(integrationId)
+      await stopWatch.mutateAsync({ orgId, integrationId })
       toast.success("Gmail watch stopped")
     } catch (error) {
       console.error("Stop watch error:", error)
@@ -120,7 +120,7 @@ export default function GmailIntegrations() {
     if (!deleteIntegrationId) return
 
     try {
-      await deleteIntegration.mutateAsync(deleteIntegrationId)
+      await deleteIntegration.mutateAsync({ orgId, integrationId: deleteIntegrationId })
       toast.success("Gmail account disconnected")
       setDeleteIntegrationId(null)
     } catch (error) {

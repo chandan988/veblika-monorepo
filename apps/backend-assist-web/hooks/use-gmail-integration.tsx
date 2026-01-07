@@ -21,9 +21,10 @@ interface OAuthCallbackInput {
 export const useGenerateGmailAuthUrl = () => {
   return useMutation({
     mutationFn: async (input: GenerateAuthUrlInput) => {
+      const { orgId } = input;
       const { data } = await api.post<{ success: boolean; data: GenerateAuthUrlResponse }>(
-        "/integrations/gmail/auth-url",
-        input
+        `/organisations/${orgId}/integrations/gmail/auth-url`,
+        {}
       );
       return data.data;
     },
@@ -35,7 +36,8 @@ export const useGmailOAuthCallback = () => {
 
   return useMutation({
     mutationFn: async (input: OAuthCallbackInput) => {
-      const { data } = await api.post("/integrations/gmail/callback", input);
+      const { orgId, ...bodyData } = input;
+      const { data } = await api.post(`/organisations/${orgId}/integrations/gmail/callback`, bodyData);
       return data.data;
     },
     onSuccess: () => {
@@ -46,9 +48,9 @@ export const useGmailOAuthCallback = () => {
 
 export const useVerifyGmailIntegration = () => {
   return useMutation({
-    mutationFn: async (integrationId: string) => {
+    mutationFn: async ({ orgId, integrationId }: { orgId: string; integrationId: string }) => {
       const { data } = await api.post(
-        `/integrations/gmail/${integrationId}/verify`
+        `/organisations/${orgId}/integrations/gmail/${integrationId}/verify`
       );
       return data.data;
     },
@@ -59,9 +61,9 @@ export const useStartGmailWatch = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (integrationId: string) => {
+    mutationFn: async ({ orgId, integrationId }: { orgId: string; integrationId: string }) => {
       const { data } = await api.post(
-        `/integrations/gmail/${integrationId}/watch`
+        `/organisations/${orgId}/integrations/gmail/${integrationId}/watch`
       );
       return data.data;
     },
@@ -75,9 +77,9 @@ export const useStopGmailWatch = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (integrationId: string) => {
+    mutationFn: async ({ orgId, integrationId }: { orgId: string; integrationId: string }) => {
       const { data } = await api.post(
-        `/integrations/gmail/${integrationId}/stop-watch`
+        `/organisations/${orgId}/integrations/gmail/${integrationId}/stop-watch`
       );
       return data.data;
     },
@@ -91,8 +93,8 @@ export const useDeleteGmailIntegration = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (integrationId: string) => {
-      const { data } = await api.delete(`/integrations/gmail/${integrationId}`);
+    mutationFn: async ({ orgId, integrationId }: { orgId: string; integrationId: string }) => {
+      const { data } = await api.delete(`/organisations/${orgId}/integrations/gmail/${integrationId}`);
       return data;
     },
     onSuccess: () => {

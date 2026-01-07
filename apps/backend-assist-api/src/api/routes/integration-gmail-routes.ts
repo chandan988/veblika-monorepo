@@ -1,18 +1,22 @@
 import { Router, Request, Response } from "express"
 import { integrationGmailService } from "../services/integration-gmail-service"
 import isAuth from "../../middleware/authenticate"
+import { loadMemberAbility } from "../../middleware/authorize"
 import { logger } from "../../config/logger"
 
-const router: Router = Router()
+const router: Router = Router({ mergeParams: true })
+
+// All routes require authentication and organisation membership
+router.use(isAuth, loadMemberAbility)
 
 /**
- * @route   POST /api/v1/integrations/gmail/auth-url
+ * @route   POST /api/v1/organisations/:orgId/integrations/gmail/auth-url
  * @desc    Generate Gmail OAuth authorization URL
- * @access  Private
+ * @access  Private (org members)
  */
-router.post("/auth-url", isAuth, async (req: Request, res: Response) => {
+router.post("/auth-url", async (req: Request, res: Response) => {
   try {
-    const { orgId } = req.body
+    const orgId = req.params.orgId
     const userId = req.user?.id
 
     if (!orgId || !userId) {
@@ -39,13 +43,14 @@ router.post("/auth-url", isAuth, async (req: Request, res: Response) => {
 })
 
 /**
- * @route   POST /api/v1/integrations/gmail/callback
+ * @route   POST /api/v1/organisations/:orgId/integrations/gmail/callback
  * @desc    Handle Gmail OAuth callback and create integration
- * @access  Private
+ * @access  Private (org members)
  */
-router.post("/callback", isAuth, async (req: Request, res: Response) => {
+router.post("/callback", async (req: Request, res: Response) => {
   try {
-    const { code, state, orgId } = req.body
+    const { code, state } = req.body
+    const orgId = req.params.orgId
     const userId = req.user?.id
 
     if (!code || !state || !orgId || !userId) {
@@ -77,13 +82,12 @@ router.post("/callback", isAuth, async (req: Request, res: Response) => {
 })
 
 /**
- * @route   POST /api/v1/integrations/gmail/:integrationId/verify
+ * @route   POST /api/v1/organisations/:orgId/integrations/gmail/:integrationId/verify
  * @desc    Verify Gmail integration connection
- * @access  Private
+ * @access  Private (org members)
  */
 router.post(
   "/:integrationId/verify",
-  isAuth,
   async (req: Request, res: Response) => {
     try {
       const { integrationId } = req.params
@@ -114,13 +118,12 @@ router.post(
 )
 
 /**
- * @route   POST /api/v1/integrations/gmail/:integrationId/watch
+ * @route   POST /api/v1/organisations/:orgId/integrations/gmail/:integrationId/watch
  * @desc    Start Gmail Push Notifications (Pub/Sub)
- * @access  Private
+ * @access  Private (org members)
  */
 router.post(
   "/:integrationId/watch",
-  isAuth,
   async (req: Request, res: Response) => {
     try {
       const { integrationId } = req.params
@@ -150,13 +153,12 @@ router.post(
 )
 
 /**
- * @route   POST /api/v1/integrations/gmail/:integrationId/stop-watch
+ * @route   POST /api/v1/organisations/:orgId/integrations/gmail/:integrationId/stop-watch
  * @desc    Stop Gmail Push Notifications
- * @access  Private
+ * @access  Private (org members)
  */
 router.post(
   "/:integrationId/stop-watch",
-  isAuth,
   async (req: Request, res: Response) => {
     try {
       const { integrationId } = req.params
@@ -186,13 +188,12 @@ router.post(
 )
 
 /**
- * @route   POST /api/v1/integrations/gmail/:integrationId/send
+ * @route   POST /api/v1/organisations/:orgId/integrations/gmail/:integrationId/send
  * @desc    Send an email via Gmail API
- * @access  Private
+ * @access  Private (org members)
  */
 router.post(
   "/:integrationId/send",
-  isAuth,
   async (req: Request, res: Response) => {
     try {
       const { integrationId } = req.params
@@ -252,13 +253,12 @@ router.post(
 )
 
 /**
- * @route   DELETE /api/v1/integrations/gmail/:integrationId
+ * @route   DELETE /api/v1/organisations/:orgId/integrations/gmail/:integrationId
  * @desc    Disconnect Gmail integration
- * @access  Private
+ * @access  Private (org members)
  */
 router.delete(
   "/:integrationId",
-  isAuth,
   async (req: Request, res: Response) => {
     try {
       const { integrationId } = req.params

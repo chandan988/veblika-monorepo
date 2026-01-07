@@ -29,11 +29,13 @@ export interface Message {
     status?: string;
 }
 
+export type Priority = "low" | "normal" | "high" | "urgent";
+
 export interface Conversation {
     _id: string;
     contactId: Contact;
     status: "open" | "pending" | "closed";
-    priority: string;
+    priority: Priority;
     channel: "webchat" | "gmail";
     lastMessageAt: string;
     lastMessagePreview: string;

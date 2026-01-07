@@ -8,7 +8,10 @@ export class IntegrationController {
    * Create a new webchat integration
    */
   createWebchatIntegration = asyncHandler(async (req: Request, res: Response) => {
-    const data: CreateWebchatIntegrationInput = req.body;
+    const data: CreateWebchatIntegrationInput = {
+      ...req.body,
+      orgId: req.params.orgId,
+    };
     const integration = await integrationService.createWebchatIntegration(data);
     const embedScript = integrationService.generateEmbedScript(integration);
 
@@ -26,7 +29,10 @@ export class IntegrationController {
    * Get all integrations
    */
   getIntegrations = asyncHandler(async (req: Request, res: Response) => {
-    const query: GetIntegrationsQuery = req.query;
+    const query: GetIntegrationsQuery = {
+      ...req.query,
+      orgId: req.params.orgId as string,
+    };
     const integrations = await integrationService.getIntegrations(query);
 
     return res.status(200).json({

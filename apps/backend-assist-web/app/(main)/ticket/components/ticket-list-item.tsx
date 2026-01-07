@@ -11,6 +11,8 @@ import { Copy, Pencil, Mail, Trash2 } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { StatusDropdown } from "@/components/status-dropdown"
 import { AssignmentDropdown } from "@/components/assignment-dropdown"
+import { PriorityDropdown, type Priority } from "@/components/priority-dropdown"
+import { usePermissionsStore } from "@/stores/permissions-store"
 
 interface TicketListItemProps {
   ticket: {
@@ -32,6 +34,7 @@ interface TicketListItemProps {
       | "merged"
       | "other"
     assignedMemberId?: string | null
+    priority?: Priority
     lastMessageAt?: string
     createdAt?: string
   }
@@ -42,6 +45,7 @@ interface TicketListItemProps {
   onStatusChange?: (status: "open" | "pending" | "closed") => void
   onClosedReasonChange?: (reason: string) => void
   onAssignmentChange?: (memberId: string | null) => void
+  onPriorityChange?: (priority: Priority) => void
   latestMessage?: string
 }
 
@@ -54,7 +58,10 @@ export function TicketListItem({
   onStatusChange,
   onClosedReasonChange,
   onAssignmentChange,
+  onPriorityChange,
 }: TicketListItemProps) {
+  const { can } = usePermissionsStore()
+
   const formatTime = (dateString?: string) => {
     if (!dateString) return "New"
     const date = new Date(dateString)
@@ -163,14 +170,25 @@ export function TicketListItem({
               />
             </div>
 
-            {/* Assignment */}
+            {/* Priority */}
             <div onClick={(e) => e.stopPropagation()}>
-              <AssignmentDropdown
-                assignedMemberId={ticket.assignedMemberId}
-                onAssign={(memberId) => onAssignmentChange?.(memberId)}
+              <PriorityDropdown
+                priority={ticket.priority || "normal"}
+                onPriorityChange={(priority) => onPriorityChange?.(priority)}
                 compact
               />
             </div>
+
+            {/* Assignment */}
+            {can("ticket:assign") && (
+              <div onClick={(e) => e.stopPropagation()}>
+                <AssignmentDropdown
+                  assignedMemberId={ticket.assignedMemberId}
+                  onAssign={(memberId) => onAssignmentChange?.(memberId)}
+                  compact
+                />
+              </div>
+            )}
 
             {/* Time */}
             <span className="text-xs text-muted-foreground whitespace-nowrap min-w-[60px] text-right">

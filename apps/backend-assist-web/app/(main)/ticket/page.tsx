@@ -143,12 +143,12 @@ export default function TicketPage() {
   })
 
   const selectedConversation = allConversations.find((c: any) => c._id === selectedConversationId)
-  const { messages = [], isLoading: messagesLoading, hasNextPage: hasNextMessagePage, isFetchingNextPage: isFetchingNextMessagePage, fetchNextPage: fetchNextMessagePage } = useMessages(selectedConversationId || "", { limit: 5 })
+  const { messages = [], isLoading: messagesLoading, hasNextPage: hasNextMessagePage, isFetchingNextPage: isFetchingNextMessagePage, fetchNextPage: fetchNextMessagePage } = useMessages(selectedConversationId || "", { limit: 5, orgId: orgId || "" })
 
   const queryClient = useQueryClient()
   const updateConversationMutation = useUpdateConversation()
 
-  const handleUpdateTicket = (updates: { status?: "open" | "pending" | "closed"; assignedMemberId?: string | null }) => {
+  const handleUpdateTicket = (updates: { status?: "open" | "pending" | "closed"; assignedMemberId?: string | null; priority?: "low" | "normal" | "high" | "urgent" }) => {
     if (!selectedConversationId) return
     updateConversationMutation.mutate({
       conversationId: selectedConversationId,
@@ -213,8 +213,9 @@ export default function TicketPage() {
         : selectedConversation.integrationId
 
       if (!integrationId) throw new Error('Invalid integration ID')
+      if (!orgId) throw new Error('Organization ID is required')
 
-      return api.post(`/integrations/gmail/${integrationId}/send`, payload)
+      return api.post(`/organisations/${orgId}/integrations/gmail/${integrationId}/send`, payload)
     },
     onSuccess: () => {
       toast.success("Email sent successfully!", {
@@ -379,6 +380,12 @@ export default function TicketPage() {
                       updateConversationMutation.mutate({
                         conversationId: ticket._id,
                         updates: { assignedMemberId: memberId },
+                      })
+                    }}
+                    onPriorityChange={(priority) => {
+                      updateConversationMutation.mutate({
+                        conversationId: ticket._id,
+                        updates: { priority },
                       })
                     }}
                     latestMessage={getLatestMessagePreview(ticket._id)}

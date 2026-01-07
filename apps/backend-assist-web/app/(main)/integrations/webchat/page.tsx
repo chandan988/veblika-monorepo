@@ -55,7 +55,7 @@ export default function WebchatIntegrations() {
     orgId,
     "webchat"
   )
-  const { data: embedScript } = useGetEmbedScript(selectedIntegrationId || "")
+  const { data: embedScript } = useGetEmbedScript(orgId, selectedIntegrationId || "")
   const createIntegration = useCreateWebchatIntegration()
   const deleteIntegration = useDeleteIntegration()
 
@@ -84,7 +84,7 @@ export default function WebchatIntegrations() {
     if (!deleteIntegrationId) return
 
     try {
-      await deleteIntegration.mutateAsync(deleteIntegrationId)
+      await deleteIntegration.mutateAsync({ orgId, integrationId: deleteIntegrationId })
       if (selectedIntegrationId === deleteIntegrationId) {
         setSelectedIntegrationId(undefined)
       }

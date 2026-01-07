@@ -7,6 +7,7 @@ import { useEffect } from "react"
 import { toast } from "sonner"
 import { useChatStore, type Conversation as StoreConversation } from "@/stores/chat-store"
 import { useOrganisationStore } from "@/stores/organisation-store"
+import { type Priority } from "@/types/chat"
 
 interface Conversation {
   _id: string
@@ -15,7 +16,7 @@ interface Conversation {
   contactId: any
   channel: string
   status: "open" | "pending" | "closed"
-  priority: string
+  priority: Priority
   lastMessageAt: string
   lastMessagePreview: string
   tags: string[]
@@ -84,8 +85,9 @@ export const useConversations = (params: GetConversationsParams) => {
   const query = useInfiniteQuery({
     queryKey: ["conversations", params.orgId, params.channel, params.status, params.assignedMemberId, params.limit],
     queryFn: async ({ pageParam = 1 }) => {
-      const { data } = await api.get<ConversationsResponse>("/conversations", { 
-        params: { ...params, page: pageParam, limit } 
+      const { orgId, ...queryParams } = params
+      const { data } = await api.get<ConversationsResponse>(`/organisations/${orgId}/conversations`, { 
+        params: { ...queryParams, page: pageParam, limit } 
       })
       
       const conversations = data.data || []
@@ -272,12 +274,12 @@ export const useUpdateConversation = () => {
       conversationId: string
       updates: Partial<Conversation>
     }) => {
+      const orgId = activeOrganisation?._id
+      if (!orgId) throw new Error("Organization ID is required")
+
       const { data } = await api.put(
-        `/conversations/${conversationId}`,
-        {
-          ...updates,
-          orgId: activeOrganisation?._id, // Add orgId for loadMemberAbility middleware
-        }
+        `/organisations/${orgId}/conversations/${conversationId}`,
+        updates
       )
       return data.data
     },

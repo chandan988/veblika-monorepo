@@ -11,80 +11,74 @@ import {
 import isAuth from '../../middleware/authenticate';
 import { loadMemberAbility } from '../../middleware/authorize';
 
-const router: Router = Router();
+const router: Router = Router({ mergeParams: true });
+
+// All routes require authentication and organisation membership
+router.use(isAuth, loadMemberAbility);
 
 /**
- * @route   GET /api/v1/conversations
+ * @route   GET /api/v1/organisations/:orgId/conversations
  * @desc    Get all conversations with filters
- * @access  Private
- * @query   ?orgId=xxx&status=open&channel=webchat&page=1&limit=50
+ * @access  Private (org members)
+ * @query   ?status=open&channel=webchat&page=1&limit=50
  */
 router.get(
   '/',
-  isAuth,
   validate(getConversationsQuerySchema),
   conversationController.getConversations
 );
 
 /**
- * @route   GET /api/v1/conversations/stats
+ * @route   GET /api/v1/organisations/:orgId/conversations/stats
  * @desc    Get conversation statistics
- * @access  Private
- * @query   ?orgId=xxx
+ * @access  Private (org members)
  */
 router.get(
   '/stats',
-  isAuth,
   conversationController.getConversationStats
 );
 
 /**
- * @route   GET /api/v1/conversations/:id
+ * @route   GET /api/v1/organisations/:orgId/conversations/:id
  * @desc    Get conversation by ID
- * @access  Private
+ * @access  Private (org members)
  */
 router.get(
   '/:id',
-  isAuth,
   validate(conversationIdSchema),
   conversationController.getConversationById
 );
 
 /**
- * @route   PUT /api/v1/conversations/:id
+ * @route   PUT /api/v1/organisations/:orgId/conversations/:id
  * @desc    Update conversation
- * @access  Private
- * @note    Requires orgId in query/body for member context
+ * @access  Private (org members)
  */
 router.put(
   '/:id',
-  isAuth,
-  loadMemberAbility,
   validate(conversationIdSchema.merge(updateConversationSchema)),
   conversationController.updateConversation
 );
 
 /**
- * @route   GET /api/v1/conversations/:id/messages
+ * @route   GET /api/v1/organisations/:orgId/conversations/:id/messages
  * @desc    Get messages for a conversation
- * @access  Private
+ * @access  Private (org members)
  * @query   ?limit=50&before=2024-01-01T00:00:00.000Z
  */
 router.get(
   '/:id/messages',
-  isAuth,
   validate(conversationIdSchema.merge(getMessagesQuerySchema)),
   conversationController.getConversationMessages
 );
 
 /**
- * @route   POST /api/v1/conversations/:id/messages
+ * @route   POST /api/v1/organisations/:orgId/conversations/:id/messages
  * @desc    Send message to conversation
- * @access  Private
+ * @access  Private (org members)
  */
 router.post(
   '/:id/messages',
-  isAuth,
   validate(conversationIdSchema.merge(sendMessageSchema)),
   conversationController.sendMessage
 );

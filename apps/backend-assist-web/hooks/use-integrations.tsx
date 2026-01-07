@@ -31,24 +31,24 @@ export const useIntegrations = (orgId: string, channel?: string) => {
   return useQuery({
     queryKey: ["integrations", orgId, channel],
     queryFn: async () => {
-      const params: Record<string, string> = { orgId };
+      const params: Record<string, string> = {};
       if (channel) params.channel = channel;
 
-      const { data } = await api.get("/integrations", { params });
+      const { data } = await api.get(`/organisations/${orgId}/integrations`, { params });
       return data.data as Integration[];
     },
     enabled: !!orgId,
   });
 };
 
-export const useIntegration = (integrationId: string) => {
+export const useIntegration = (orgId: string, integrationId: string) => {
   return useQuery({
-    queryKey: ["integration", integrationId],
+    queryKey: ["integration", orgId, integrationId],
     queryFn: async () => {
-      const { data } = await api.get(`/integrations/${integrationId}`);
+      const { data } = await api.get(`/organisations/${orgId}/integrations/${integrationId}`);
       return data.data as Integration;
     },
-    enabled: !!integrationId,
+    enabled: !!orgId && !!integrationId,
   });
 };
 
@@ -57,7 +57,8 @@ export const useCreateWebchatIntegration = () => {
 
   return useMutation({
     mutationFn: async (input: CreateWebchatIntegrationInput) => {
-      const { data } = await api.post("/integrations/webchat", input);
+      const { orgId, ...bodyData } = input;
+      const { data } = await api.post(`/organisations/${orgId}/integrations/webchat`, bodyData);
       return data.data;
     },
     onSuccess: () => {
@@ -70,8 +71,8 @@ export const useDeleteIntegration = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (integrationId: string) => {
-      const { data } = await api.delete(`/integrations/${integrationId}`);
+    mutationFn: async ({ orgId, integrationId }: { orgId: string; integrationId: string }) => {
+      const { data } = await api.delete(`/organisations/${orgId}/integrations/${integrationId}`);
       return data;
     },
     onSuccess: () => {
@@ -80,13 +81,13 @@ export const useDeleteIntegration = () => {
   });
 };
 
-export const useGetEmbedScript = (integrationId: string) => {
+export const useGetEmbedScript = (orgId: string, integrationId: string) => {
   return useQuery({
-    queryKey: ["embed-script", integrationId],
+    queryKey: ["embed-script", orgId, integrationId],
     queryFn: async () => {
-      const { data } = await api.get(`/integrations/${integrationId}/embed-script`);
+      const { data } = await api.get(`/organisations/${orgId}/integrations/${integrationId}/embed-script`);
       return data.data.embedScript as string;
     },
-    enabled: !!integrationId,
+    enabled: !!orgId && !!integrationId,
   });
 };

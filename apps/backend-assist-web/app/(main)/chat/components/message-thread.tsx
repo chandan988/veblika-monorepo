@@ -123,6 +123,10 @@ export function MessageThread({
     onUpdateConversation?.({ assignedMemberId: memberId } as Partial<Conversation>)
   }
 
+  const handlePriorityChange = (priority: "low" | "normal" | "high" | "urgent") => {
+    onUpdateConversation?.({ priority } as Partial<Conversation>)
+  }
+
   // Check if message is consecutive (same sender, within 5 minutes)
   const isConsecutiveMessage = (
     current: Message,
@@ -148,6 +152,7 @@ export function MessageThread({
         conversation={conversation}
         onStatusChange={handleStatusChange}
         onAssignmentChange={handleAssignmentChange}
+        onPriorityChange={handlePriorityChange}
       />
 
       {/* Messages Area */}

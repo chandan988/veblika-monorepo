@@ -49,7 +49,8 @@ export const useContacts = (params: GetContactsParams) => {
     return useQuery({
         queryKey: ["contacts", params],
         queryFn: async () => {
-            const { data } = await api.get("/contacts", { params });
+            const { orgId, ...queryParams } = params;
+            const { data } = await api.get(`/organisations/${orgId}/contacts`, { params: queryParams });
             return data;
         },
         enabled: !!params.orgId,
@@ -59,14 +60,14 @@ export const useContacts = (params: GetContactsParams) => {
 /**
  * Get a single contact
  */
-export const useContact = (id: string) => {
+export const useContact = (orgId: string, id: string) => {
     return useQuery({
-        queryKey: ["contact", id],
+        queryKey: ["contact", orgId, id],
         queryFn: async () => {
-            const { data } = await api.get(`/contacts/${id}`);
+            const { data } = await api.get(`/organisations/${orgId}/contacts/${id}`);
             return data;
         },
-        enabled: !!id,
+        enabled: !!orgId && !!id,
     });
 };
 
@@ -78,7 +79,8 @@ export const useCreateContact = () => {
 
     return useMutation({
         mutationFn: async (contactData: CreateContactData) => {
-            const { data } = await api.post("/contacts", contactData);
+            const { orgId, ...bodyData } = contactData;
+            const { data } = await api.post(`/organisations/${orgId}/contacts`, bodyData);
             return data;
         },
         onSuccess: () => {
@@ -98,8 +100,8 @@ export const useUpdateContact = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: UpdateContactData }) => {
-            const response = await api.put(`/contacts/${id}`, data);
+        mutationFn: async ({ orgId, id, data }: { orgId: string; id: string; data: UpdateContactData }) => {
+            const response = await api.put(`/organisations/${orgId}/contacts/${id}`, data);
             return response.data;
         },
         onSuccess: (_, variables) => {
@@ -120,8 +122,8 @@ export const useDeleteContact = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (id: string) => {
-            const { data } = await api.delete(`/contacts/${id}`);
+        mutationFn: async ({ orgId, id }: { orgId: string; id: string }) => {
+            const { data } = await api.delete(`/organisations/${orgId}/contacts/${id}`);
             return data;
         },
         onSuccess: () => {

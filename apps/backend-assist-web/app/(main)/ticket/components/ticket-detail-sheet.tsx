@@ -38,6 +38,8 @@ import { TicketEmailComposer } from "./ticket-email-composer"
 import { useState } from "react"
 import { AssignmentDropdown } from "@/components/assignment-dropdown"
 import { StatusDropdown } from "@/components/status-dropdown"
+import { PriorityDropdown, type Priority } from "@/components/priority-dropdown"
+import { usePermissionsStore } from "@/stores/permissions-store"
 
 interface TicketDetailSheetProps {
   open: boolean
@@ -47,6 +49,7 @@ interface TicketDetailSheetProps {
     integrationId?: string
     threadId?: string
     assignedMemberId?: string | null
+    priority?: Priority
     sourceMetadata?: {
       subject?: string
       from?: string
@@ -76,7 +79,7 @@ interface TicketDetailSheetProps {
     cc?: string
     bcc?: string
   }) => void
-  onUpdateTicket?: (updates: { status?: "open" | "pending" | "closed"; closedReason?: string; assignedMemberId?: string | null }) => void
+  onUpdateTicket?: (updates: { status?: "open" | "pending" | "closed"; closedReason?: string; assignedMemberId?: string | null; priority?: Priority }) => void
   isSending?: boolean
   hasNextPage?: boolean
   isFetchingNextPage?: boolean
@@ -96,6 +99,7 @@ export function TicketDetailSheet({
   isFetchingNextPage = false,
   fetchNextPage = () => { },
 }: TicketDetailSheetProps) {
+  const { can } = usePermissionsStore()
   const [activeTab, setActiveTab] = useState("conversation")
   const [showComposer, setShowComposer] = useState(false)
   const [composerMode, setComposerMode] = useState<"reply" | "replyAll" | "forward">("reply")
@@ -197,12 +201,21 @@ export function TicketDetailSheet({
               variant="badge"
             />
 
-            {/* Assignment Dropdown */}
-            <AssignmentDropdown
-              assignedMemberId={ticket.assignedMemberId}
-              onAssign={(memberId) => onUpdateTicket?.({ assignedMemberId: memberId })}
+            {/* Priority Dropdown */}
+            <PriorityDropdown
+              priority={ticket.priority || "normal"}
+              onPriorityChange={(priority) => onUpdateTicket?.({ priority })}
               compact
             />
+
+            {/* Assignment Dropdown */}
+            {can("ticket:assign") && (
+              <AssignmentDropdown
+                assignedMemberId={ticket.assignedMemberId}
+                onAssign={(memberId) => onUpdateTicket?.({ assignedMemberId: memberId })}
+                compact
+              />
+            )}
 
             <span className="text-sm text-muted-foreground">
               {formatTime(ticket.lastMessageAt || ticket.createdAt)}
