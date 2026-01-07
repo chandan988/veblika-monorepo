@@ -8,6 +8,14 @@ export type Channel =
   | "whatsapp"
   | "webchat"
 export type ConversationStatus = "open" | "pending" | "closed"
+export type ClosedReason = 
+  | "resolved" 
+  | "spam" 
+  | "duplicate" 
+  | "no_response" 
+  | "customer_request" 
+  | "merged" 
+  | "other"
 
 export interface IConversation extends Document {
   orgId: mongoose.Types.ObjectId
@@ -19,13 +27,21 @@ export interface IConversation extends Document {
   priority?: "low" | "normal" | "high" | "urgent"
   threadId?: string
 
+  // Assignment tracking
   assignedMemberId?: string
+  assignedBy?: string
+  assignedAt?: Date
+  
   tags: string[]
 
   lastMessageAt?: Date
   lastMessagePreview?: string
 
+  // Closure tracking
   closedAt?: Date
+  closedBy?: string
+  closedReason?: ClosedReason
+  
   sourceMetadata?: Record<string, any>
 }
 
@@ -51,7 +67,7 @@ const conversationSchema = new Schema<IConversation>(
     },
     channel: {
       type: String,
-      enum: ["gmail", "imap", "smtp", "slack", "whatsapp", "webchat", "email", "chat"],
+      enum: ["gmail","webchat"],
       required: true,
     },
     threadId: {
@@ -73,6 +89,13 @@ const conversationSchema = new Schema<IConversation>(
       ref: "member",
       index: true,
     },
+    assignedBy: {
+      type: String,
+      ref: "member",
+    },
+    assignedAt: {
+      type: Date,
+    },
     tags: [
       {
         type: String,
@@ -87,6 +110,14 @@ const conversationSchema = new Schema<IConversation>(
     },
     closedAt: {
       type: Date,
+    },
+    closedBy: {
+      type: String,
+      ref: "member",
+    },
+    closedReason: {
+      type: String,
+      enum: ["resolved", "spam", "duplicate", "no_response", "customer_request", "merged", "other"],
     },
     sourceMetadata: {
       type: Schema.Types.Mixed,

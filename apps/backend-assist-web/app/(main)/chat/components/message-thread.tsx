@@ -111,8 +111,12 @@ export function MessageThread({
     setShouldAutoScroll(isAtBottom)
   }, [])
 
-  const handleStatusChange = (status: "open" | "pending" | "closed") => {
-    onUpdateConversation?.({ status })
+  const handleStatusChange = (status: "open" | "pending" | "closed", closedReason?: any) => {
+    const updates: any = { status }
+    if (status === "closed" && closedReason) {
+      updates.closedReason = closedReason
+    }
+    onUpdateConversation?.(updates)
   }
 
   const handleAssignmentChange = (memberId: string | null) => {

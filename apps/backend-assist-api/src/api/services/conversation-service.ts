@@ -83,17 +83,33 @@ export class ConversationService {
 
   /**
    * Update conversation
+   * @param memberId - The member ID (from req.member._id) performing the update
    */
-  async updateConversation(id: string, data: UpdateConversationInput): Promise<IConversation> {
+  async updateConversation(
+    id: string, 
+    data: UpdateConversationInput, 
+    memberId?: string
+  ): Promise<IConversation> {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new Error('Invalid conversation ID');
     }
 
     const updateData: any = { ...data };
 
-    // If closing conversation, set closedAt timestamp
+    // Track assignment - store member ID who did the assignment
+    if (data.assignedMemberId !== undefined) {
+      updateData.assignedBy = memberId;
+      updateData.assignedAt = new Date();
+    }
+
+    // If closing conversation, set closedAt and closedBy with member ID
     if (data.status === 'closed') {
       updateData.closedAt = new Date();
+      updateData.closedBy = memberId;
+      // Set default closed reason if not provided
+      if (!data.closedReason) {
+        updateData.closedReason = 'resolved';
+      }
     }
 
     const conversation = await Conversation.findByIdAndUpdate(

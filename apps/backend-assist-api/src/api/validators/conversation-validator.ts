@@ -19,10 +19,12 @@ export const conversationIdSchema = z.object({
 
 export const updateConversationSchema = z.object({
   body: z.object({
+    orgId: z.string().optional(), // Required for loadMemberAbility middleware
     status: z.enum(['open', 'pending', 'closed']).optional(),
     assignedMemberId: z.string().optional(),
     tags: z.array(z.string()).optional(),
     priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
+    closedReason: z.enum(['resolved', 'spam', 'duplicate', 'no_response', 'customer_request', 'merged', 'other']).optional(),
   }),
 });
 

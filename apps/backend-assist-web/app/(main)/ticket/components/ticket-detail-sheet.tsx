@@ -59,6 +59,7 @@ interface TicketDetailSheetProps {
       email?: string
     }
     status?: "open" | "pending" | "closed"
+    closedReason?: "resolved" | "spam" | "duplicate" | "no_response" | "customer_request" | "merged" | "other"
     lastMessageAt?: string
     createdAt?: string
   } | null
@@ -75,7 +76,7 @@ interface TicketDetailSheetProps {
     cc?: string
     bcc?: string
   }) => void
-  onUpdateTicket?: (updates: { status?: "open" | "pending" | "closed"; assignedMemberId?: string | null }) => void
+  onUpdateTicket?: (updates: { status?: "open" | "pending" | "closed"; closedReason?: string; assignedMemberId?: string | null }) => void
   isSending?: boolean
   hasNextPage?: boolean
   isFetchingNextPage?: boolean
@@ -185,7 +186,14 @@ export function TicketDetailSheet({
             {/* Status Dropdown */}
             <StatusDropdown
               status={ticket.status || "open"}
-              onStatusChange={(status) => onUpdateTicket?.({ status })}
+              closedReason={ticket.closedReason}
+              onStatusChange={(status, closedReason) => {
+                const updates: any = { status }
+                if (status === "closed" && closedReason) {
+                  updates.closedReason = closedReason
+                }
+                onUpdateTicket?.(updates)
+              }}
               variant="badge"
             />
 

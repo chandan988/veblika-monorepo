@@ -15,8 +15,7 @@ import { loadMemberAbility, authorize } from "../../middleware/authorize"
 const router: Router = Router({ mergeParams: true })
 
 // All routes require authentication and organisation membership
-router.use(isAuth)
-router.use(loadMemberAbility)
+router.use(isAuth, loadMemberAbility)
 
 // ========================================
 // Role Routes

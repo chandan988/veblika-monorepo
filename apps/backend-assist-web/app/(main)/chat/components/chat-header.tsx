@@ -23,10 +23,15 @@ import {
 import type { Conversation } from "@/types/chat"
 import { cn } from "@workspace/ui/lib/utils"
 import { AssignmentDropdown } from "@/components/assignment-dropdown"
+import { StatusDropdown } from "@/components/status-dropdown"
+import type { ClosedReason } from "@/components/closed-reason-dropdown"
 
 interface ChatHeaderProps {
-  conversation: Conversation & { assignedMemberId?: string | null }
-  onStatusChange?: (status: "open" | "pending" | "closed") => void
+  conversation: Conversation & { 
+    assignedMemberId?: string | null
+    closedReason?: ClosedReason
+  }
+  onStatusChange?: (status: "open" | "pending" | "closed", closedReason?: ClosedReason) => void
   onAssignmentChange?: (memberId: string | null) => void
   onClose?: () => void
 }
@@ -83,6 +88,16 @@ export function ChatHeader({
       </div>
 
       <div className="flex items-center gap-4 shrink-0">
+        {/* Status Dropdown */}
+        <StatusDropdown
+          status={conversation.status || "open"}
+          closedReason={conversation.closedReason}
+          onStatusChange={(status, closedReason) => {
+            onStatusChange?.(status, closedReason)
+          }}
+          variant="badge"
+        />
+
         {/* Assignment Dropdown */}
         <AssignmentDropdown
           assignedMemberId={conversation.assignedMemberId}
@@ -102,11 +117,18 @@ export function ChatHeader({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => onStatusChange?.("open")}>
-              Mark as Open
+            <DropdownMenuItem>
+              <Archive className="h-4 w-4 mr-2" />
+              Archive
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onStatusChange?.("closed")}>
-              Mark as Closed
+            <DropdownMenuItem>
+              <Flag className="h-4 w-4 mr-2" />
+              Flag
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-destructive">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -9,6 +9,7 @@ import {
   getMessagesQuerySchema,
 } from '../validators/conversation-validator';
 import isAuth from '../../middleware/authenticate';
+import { loadMemberAbility } from '../../middleware/authorize';
 
 const router: Router = Router();
 
@@ -53,10 +54,12 @@ router.get(
  * @route   PUT /api/v1/conversations/:id
  * @desc    Update conversation
  * @access  Private
+ * @note    Requires orgId in query/body for member context
  */
 router.put(
   '/:id',
   isAuth,
+  loadMemberAbility,
   validate(conversationIdSchema.merge(updateConversationSchema)),
   conversationController.updateConversation
 );

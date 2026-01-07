@@ -42,7 +42,8 @@ export class ConversationController {
    */
   updateConversation = asyncHandler(async (req: Request, res: Response) => {
     const data: UpdateConversationInput = req.body;
-    const conversation = await conversationService.updateConversation(req.params.id!, data);
+    const memberId = req.member?._id?.toString(); // Get current member from loadMemberAbility middleware
+    const conversation = await conversationService.updateConversation(req.params.id!, data, memberId);
 
     return res.status(200).json({
       success: true,

@@ -6,6 +6,7 @@ import { useSocket } from "./use-socket"
 import { useEffect } from "react"
 import { toast } from "sonner"
 import { useChatStore, type Conversation as StoreConversation } from "@/stores/chat-store"
+import { useOrganisationStore } from "@/stores/organisation-store"
 
 interface Conversation {
   _id: string
@@ -19,6 +20,11 @@ interface Conversation {
   lastMessagePreview: string
   tags: string[]
   assignedMemberId?: string | null
+  assignedBy?: string
+  assignedAt?: string
+  closedBy?: string
+  closedAt?: string
+  closedReason?: "resolved" | "spam" | "duplicate" | "no_response" | "customer_request" | "merged" | "other"
   sourceMetadata?: any
 }
 
@@ -256,6 +262,7 @@ export const useConversation = (conversationId: string) => {
 export const useUpdateConversation = () => {
   const queryClient = useQueryClient()
   const updateConversation = useChatStore((state) => state.updateConversation)
+  const { activeOrganisation } = useOrganisationStore()
 
   return useMutation({
     mutationFn: async ({
@@ -267,7 +274,10 @@ export const useUpdateConversation = () => {
     }) => {
       const { data } = await api.put(
         `/conversations/${conversationId}`,
-        updates
+        {
+          ...updates,
+          orgId: activeOrganisation?._id, // Add orgId for loadMemberAbility middleware
+        }
       )
       return data.data
     },
