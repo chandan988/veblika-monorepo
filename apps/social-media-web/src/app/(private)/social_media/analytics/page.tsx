@@ -466,15 +466,10 @@ export default function AnalyticsPage() {
                       {/* Thumbnail */}
                       {(post.thumbnailUrl || post.mediaUrl) && (
                         <div className="flex-shrink-0">
-                          <img
-                            src={post.thumbnailUrl || post.mediaUrl}
-                            alt={getPostDisplayName(post)}
-                            className="w-32 h-20 object-cover rounded-lg"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src =
-                                "/placeholder-image.png";
-                            }}
-                          />
+                              <img
+                              src="https://via.placeholder.com/150"
+                              alt="Placeholder"
+                            />
                         </div>
                       )}
                       {!post.thumbnailUrl && !post.mediaUrl && (

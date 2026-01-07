@@ -3,73 +3,87 @@ import axios from "axios";
 import path from "path";
 import AppCredentials from "../../models/appcredentials.model.js";
 import UserModel from "../../models/user.model.js";
-import { getAppConfig } from "../../utils/getAppConfig.js";
+import { resolveAppConfig } from "../appconfig/app.controller.js";
+
 
 // Redirect user to Google OAuth
 export const redirectToGoogle = async (req, res) => {
   try {
-    const scope = "https://www.googleapis.com/auth/youtube.force-ssl " + "https://www.googleapis.com/auth/youtube.upload";
+    const scope =
+      "https://www.googleapis.com/auth/youtube.force-ssl " +
+      "https://www.googleapis.com/auth/youtube.upload";
 
-    // Get userId from query parameter (passed from frontend) or from req.user
-    let userIdToUse = null;
-    
-    // Priority 1: Query parameter (from frontend redirect with better-auth userId)
-    if (req.query.userId) {
-      userIdToUse = req.query.userId;
-      console.log("[YouTube Auth] Using userId from query parameter:", userIdToUse);
+    // 1️⃣ Get userId from query or req.user
+    const userId = req.query.userId || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: "User not identified" });
     }
-    // Priority 2: req.user._id (from middleware)
-    else if (req.user?._id) {
-      userIdToUse = String(req.user._id);
-      console.log("[YouTube Auth] Using userId from req.user._id:", userIdToUse);
-    }
-    
-    // If we have a userId, try to resolve it to MongoDB _id
-    let mongoUserId = userIdToUse;
-    if (userIdToUse) {
+
+    console.log("[YouTube Connect] Initial userId:", userId);
+    console.log("[YouTube Connect] req.user:", req.user);
+    console.log("[YouTube Connect] req.query.resellerId:", req.query.resellerId);
+
+    // 2️⃣ Get resellerId from multiple sources (priority order):
+    // Priority 1: Query parameter (from frontend)
+    // Priority 2: req.user (from auth middleware headers)
+    // Priority 3: Local database lookup
+    let resellerId = req.query.resellerId || req.user?.resellerId || null;
+
+    console.log("[YouTube Connect] resellerId from query/headers:", resellerId);
+    console.log("[YouTube Connect] req.user.role:", req.user?.role);
+
+    // If resellerId is not in req.user, try to get it from this project's UserModel
+    // (in case some users exist in both databases)
+    if (!resellerId) {
       try {
-        let mongoUser = await UserModel.findById(userIdToUse).lean();
+        const localUser = await UserModel.findById(userId)
+          .select("resellerId")
+          .lean();
         
-        if (!mongoUser) {
-          const userEmail = req.headers["x-user-email"];
-          if (userEmail) {
-            console.log("[YouTube Auth] MongoDB user not found by _id, trying by email:", userEmail);
-            mongoUser = await UserModel.findOne({ email: userEmail }).lean();
-          }
-        }
-        
-        if (mongoUser) {
-          mongoUserId = String(mongoUser._id);
-          console.log("[YouTube Auth] Resolved to MongoDB userId:", mongoUserId);
+        if (localUser?.resellerId) {
+          resellerId = typeof localUser.resellerId === 'object' && localUser.resellerId._id
+            ? String(localUser.resellerId._id)
+            : String(localUser.resellerId);
+          console.log("[YouTube Connect] Found resellerId in local DB:", resellerId);
         } else {
-          console.log("[YouTube Auth] MongoDB user not found, using provided userId as-is:", userIdToUse);
+          console.log("[YouTube Connect] No resellerId found in local DB");
         }
       } catch (error) {
-        console.log("[YouTube Auth] Error looking up user:", error.message);
-        mongoUserId = userIdToUse;
+        console.log("[YouTube Connect] Local DB lookup skipped:", error.message);
       }
     }
 
-    // Include user ID in state parameter for multi-tenant support
-    let state = "default";
-    if (mongoUserId) {
-      state = Buffer.from(JSON.stringify({ userId: mongoUserId })).toString('base64');
-      console.log("[YouTube Auth] Setting state with userId:", mongoUserId);
+    console.log("[YouTube Connect] Final userId:", userId);
+    console.log("[YouTube Connect] Final resellerId:", resellerId);
+
+    // 3️⃣ Resolve app config
+    const youtubeConfig = await resolveAppConfig(
+      "app/youtube",
+      resellerId
+    );
+
+    if (!youtubeConfig?.appClientId || !youtubeConfig?.redirectUrl) {
+      return res.status(500).json({
+        message: "YouTube OAuth not configured",
+      });
     }
 
-    // Get YouTube/Google app config from database (with fallback to env)
-    let youtubeConfig;
-    try {
-      youtubeConfig = await getAppConfig(mongoUserId || "default", "app/youtube");
-    } catch (error) {
-      console.error("[YouTube Auth] Error getting app config:", error.message);
-      return res.status(500).json({ message: "YouTube OAuth not configured. Please configure it first." });
-    }
+    console.log(
+      "[YouTube Connect] USING:",
+      youtubeConfig.source,
+      youtubeConfig.appClientId
+    );
 
-    if (!youtubeConfig.appClientId || !youtubeConfig.redirectUrl) {
-      return res.status(500).json({ message: "YouTube OAuth not configured" });
-    }
+    // 4️⃣ Build state with userId and resellerId for callback
+    const state = Buffer.from(
+      JSON.stringify({
+        userId: String(userId),
+        resellerId: resellerId,
+      })
+    ).toString("base64");
 
+    // 5️⃣ Redirect
     const authUrl =
       `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${youtubeConfig.appClientId}` +
@@ -78,234 +92,200 @@ export const redirectToGoogle = async (req, res) => {
       `&scope=${encodeURIComponent(scope)}` +
       `&access_type=offline` +
       `&prompt=consent` +
-      `&state=${encodeURIComponent(state)}`;
+      `&state=${state}`;
 
-    console.log("[YouTube Auth] Using config from:", youtubeConfig.source);
     return res.redirect(authUrl);
   } catch (err) {
-    console.log(err);
+    console.error("[YouTube OAuth ERROR]", err);
     return res.status(500).json({ message: "OAuth redirect failed" });
   }
 };
 
+
 // Handle callback from Google
 export const youtubeCallback = async (req, res) => {
-    const code = req.query.code;
-    const { state } = req.query;
-    
-    // Extract user ID from state if available
-    let userIdFromState = null;
-    if (state) {
-      try {
-        const decoded = JSON.parse(Buffer.from(state, 'base64').toString());
-        userIdFromState = decoded.userId;
-      } catch (e) {
-        userIdFromState = state;
-      }
-    }
-    
-    // Multi-tenant: Use user's userId from state (most reliable for OAuth callbacks)
-    // Priority: state > req.user._id > headers
-    let userId = null;
-    
-    if (userIdFromState) {
-      userId = String(userIdFromState);
-      console.log("[YouTube Callback] Using userId from state:", userId);
-    } else if (req.user?._id) {
-      userId = String(req.user._id);
-      console.log("[YouTube Callback] Using userId from req.user._id:", userId);
-    } else {
-      const betterAuthUserId = req.headers["x-user-id"];
-      const userEmail = req.headers["x-user-email"];
-      
-      if (betterAuthUserId) {
-        console.log("[YouTube Callback] Trying to resolve userId from headers:", betterAuthUserId);
-        try {
-          let mongoUser = await UserModel.findById(betterAuthUserId).lean();
-          
-          if (!mongoUser && userEmail) {
-            console.log("[YouTube Callback] MongoDB user not found by _id, trying by email:", userEmail);
-            mongoUser = await UserModel.findOne({ email: userEmail }).lean();
-          }
-          
-          if (mongoUser) {
-            userId = String(mongoUser._id);
-            console.log("[YouTube Callback] Resolved to MongoDB userId:", userId);
-          } else {
-            console.log("[YouTube Callback] MongoDB user not found, using better-auth userId as-is:", betterAuthUserId);
-            userId = betterAuthUserId;
-          }
-        } catch (error) {
-          console.log("[YouTube Callback] Error looking up user:", error.message);
-          userId = betterAuthUserId;
-        }
-      }
-    }
-    
-    if (!userId) {
-      console.error("[YouTube Callback] No userId found - state:", state, "req.user:", req.user?._id);
-      return res.redirect(
-        `${process.env.FRONTEND_URL}/integrations/youtube?error=unauthorized`
-      );
-    }
-    
-    console.log("[YouTube Callback] Final userId to use:", userId);
-  
-    if (!code) {
-      return res.redirect(
-        `${process.env.FRONTEND_URL}/integrations/youtube?error=missing_code`
-      );
-    }
-  
+  const { code, state } = req.query;
+
+  let userId = null;
+  let resellerId = null;
+
+  // Decode state to get userId and resellerId
+  if (state) {
     try {
-      // Get YouTube/Google app config from database (with fallback to env)
-      let youtubeConfig;
-      try {
-        youtubeConfig = await getAppConfig(userId, "app/youtube");
-      } catch (error) {
-        console.error("[YouTube Callback] Error getting app config:", error.message);
-        return res.redirect(
-          `${process.env.FRONTEND_URL}/integrations/youtube?error=config_error`
-        );
-      }
+      const decoded = JSON.parse(
+        Buffer.from(state, "base64").toString()
+      );
+      userId = decoded.userId;
+      resellerId = decoded.resellerId || null;
+    } catch {
+      // Fallback if state is just userId string
+      userId = state;
+    }
+  }
 
-      if (!youtubeConfig.appClientId || !youtubeConfig.appClientSecret || !youtubeConfig.redirectUrl) {
-        console.error("[YouTube Callback] YouTube app credentials not configured");
-        return res.redirect(
-          `${process.env.FRONTEND_URL}/integrations/youtube?error=config_error`
-        );
-      }
+  // Fallback to req.user if available
+  if (!userId && req.user?._id) {
+    userId = req.user._id;
+    resellerId = req.user.resellerId || null;
+  }
 
-      console.log("[YouTube Callback] Using config from:", youtubeConfig.source);
+  if (!userId) {
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/integrations/youtube?error=unauthorized`
+    );
+  }
 
-      const tokenRes = await axios.post("https://oauth2.googleapis.com/token", {
+  try {
+    console.log("[YouTube Callback] userId:", userId);
+    console.log("[YouTube Callback] resellerId:", resellerId);
+
+    // ✅ Resolve YouTube config with resellerId
+    const youtubeConfig = await resolveAppConfig(
+      "app/youtube",
+      resellerId
+    );
+
+    if (
+      !youtubeConfig?.appClientId ||
+      !youtubeConfig?.appClientSecret ||
+      !youtubeConfig?.redirectUrl
+    ) {
+      console.error("[YouTube Callback] Config missing");
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/integrations/youtube?error=config_error`
+      );
+    }
+
+    console.log(
+      "[YouTube Callback] USING:",
+      youtubeConfig.source,
+      youtubeConfig.appClientId
+    );
+
+    // Exchange code for tokens
+    const tokenRes = await axios.post(
+      "https://oauth2.googleapis.com/token",
+      {
         code,
         client_id: youtubeConfig.appClientId,
         client_secret: youtubeConfig.appClientSecret,
         redirect_uri: youtubeConfig.redirectUrl,
         grant_type: "authorization_code",
-      });
-  
-      const tokens = {
-        access_token: tokenRes.data.access_token,
-        refresh_token: tokenRes.data.refresh_token,
-        expires_in: tokenRes.data.expires_in,
-        expiry: Date.now() + tokenRes.data.expires_in * 1000,
-      };
+      }
+    );
 
-      // Get YouTube channel info
-      const ytRes = await axios.get(
-        "https://www.googleapis.com/youtube/v3/channels",
-        {
-          params: { part: "snippet,statistics", mine: true },
-          headers: { Authorization: `Bearer ${tokens.access_token}` },
-        }
-      );
+    const tokens = {
+      access_token: tokenRes.data.access_token,
+      refresh_token: tokenRes.data.refresh_token,
+      expiry: Date.now() + tokenRes.data.expires_in * 1000,
+    };
 
-      const channel = ytRes.data.items?.[0];
+    // Get YouTube channel info
+    const ytRes = await axios.get(
+      "https://www.googleapis.com/youtube/v3/channels",
+      {
+        params: { part: "snippet,statistics", mine: true },
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      }
+    );
 
-      // Store credentials in database
-      const credentials = {
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expires_in: tokens.expires_in,
-        expiry: tokens.expiry,
-        channel: {
-          id: channel?.id,
-          title: channel?.snippet?.title,
-          description: channel?.snippet?.description,
-          thumbnail: channel?.snippet?.thumbnails?.default?.url,
-          subscriberCount: channel?.statistics?.subscriberCount,
-          videoCount: channel?.statistics?.videoCount,
+    const channel = ytRes.data.items?.[0];
+
+    // Save credentials to database
+    await AppCredentials.findOneAndUpdate(
+      { userId, platform: "YOUTUBE" },
+      {
+        userId,
+        platform: "YOUTUBE",
+        credentials: {
+          ...tokens,
+          channel: {
+            id: channel?.id,
+            title: channel?.snippet?.title,
+            thumbnail: channel?.snippet?.thumbnails?.default?.url,
+            subscriberCount: channel?.statistics?.subscriberCount,
+          },
         },
-      };
+      },
+      { upsert: true, new: true }
+    );
 
-      await AppCredentials.findOneAndUpdate(
-        {
-          userId,
-          platform: "YOUTUBE",
-        },
-        {
-          userId,
-          platform: "YOUTUBE",
-          credentials,
-          createdBy: req.user?._id || null,
-        },
-        { upsert: true, new: true }
-      );
-  
-      return res.redirect(
-        `${process.env.FRONTEND_URL}/integrations/youtube?connected=1`
-      );
-    } catch (err) {
-      console.log("YouTube OAuth error:", err.response?.data || err);
-      return res.redirect(
-        `${process.env.FRONTEND_URL}/integrations/youtube?error=token_error`
-      );
-    }
-  };
-  
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/integrations/youtube?connected=1`
+    );
+  } catch (err) {
+    console.error("[YouTube Callback ERROR]", err);
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/integrations/youtube?error=token_error`
+    );
+  }
+};
 
-// Auto-refresh
-async function getValidAccessToken(userId) {
+// Auto-refresh access token
+async function getValidAccessToken(userId, resellerId = null) {
   const appCredential = await AppCredentials.findOne({
     userId,
     platform: "YOUTUBE",
   });
 
-  if (!appCredential || !appCredential.credentials.refresh_token) {
+  if (!appCredential?.credentials?.refresh_token) {
     throw new Error("No refresh token found");
   }
 
-  const tokens = appCredential.credentials;
-  const now = Date.now();
-
   // Check if token is still valid (with 1 minute buffer)
-  if (tokens.expiry && now < tokens.expiry - 60000) {
-    return tokens.access_token;
+  if (appCredential.credentials.expiry > Date.now() + 60000) {
+    return appCredential.credentials.access_token;
   }
 
-  // Get YouTube/Google app config from database (with fallback to env)
-  let youtubeConfig;
-  try {
-    youtubeConfig = await getAppConfig(userId, "app/youtube");
-  } catch (error) {
-    console.error("[YouTube getValidAccessToken] Error getting app config:", error.message);
-    throw new Error("YouTube app configuration not found");
+  console.log("[YouTube Token Refresh] Refreshing token for userId:", userId);
+  console.log("[YouTube Token Refresh] resellerId:", resellerId);
+
+  // ✅ Resolve YouTube config with resellerId
+  const youtubeConfig = await resolveAppConfig(
+    "app/youtube",
+    resellerId
+  );
+
+  if (!youtubeConfig?.appClientId || !youtubeConfig?.appClientSecret) {
+    throw new Error("YouTube OAuth not configured");
   }
 
-  // Refresh token
-  const refreshRes = await axios.post("https://oauth2.googleapis.com/token", {
-    client_id: youtubeConfig.appClientId,
-    client_secret: youtubeConfig.appClientSecret,
-    refresh_token: tokens.refresh_token,
-    grant_type: "refresh_token",
-  });
+  console.log(
+    "[YouTube Token Refresh] USING:",
+    youtubeConfig.source,
+    youtubeConfig.appClientId
+  );
 
-  const newAccessToken = refreshRes.data.access_token;
+  // Refresh the token
+  const refreshRes = await axios.post(
+    "https://oauth2.googleapis.com/token",
+    {
+      client_id: youtubeConfig.appClientId,
+      client_secret: youtubeConfig.appClientSecret,
+      refresh_token: appCredential.credentials.refresh_token,
+      grant_type: "refresh_token",
+    }
+  );
+
   const newExpiry = Date.now() + refreshRes.data.expires_in * 1000;
 
-    // Update in database
-    await AppCredentials.findOneAndUpdate(
-      { userId, platform: "YOUTUBE" },
+  // Update credentials in database
+  await AppCredentials.findOneAndUpdate(
+    { userId, platform: "YOUTUBE" },
     {
       $set: {
-        "credentials.access_token": newAccessToken,
-        "credentials.expires_in": refreshRes.data.expires_in,
+        "credentials.access_token": refreshRes.data.access_token,
         "credentials.expiry": newExpiry,
       },
     }
   );
 
-  return newAccessToken;
+  return refreshRes.data.access_token;
 }
 
 // Get YouTube channel info
 export const getMyYouTubeChannel = async (req, res) => {
   try {
-    if (!req.user?._id) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
     const userId = String(req.user._id);
 
     const appCredential = await AppCredentials.findOne({
@@ -322,72 +302,74 @@ export const getMyYouTubeChannel = async (req, res) => {
       channel: appCredential.credentials.channel,
     });
   } catch (err) {
-    console.log(err.response?.data || err);
+    console.error("[Get YouTube Channel ERROR]", err);
     return res.status(500).json({ message: "Failed to fetch channel info" });
   }
 };
 
-
+// Upload video
 export const uploadYouTubeVideo = async (req, res) => {
-    try {
-      const file = req.file; // multer puts file info here
-      const { title, description, privacyStatus = "public" } = req.body;
-      if (!req.user?._id) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const orgNo = req.user?.orgNo || String(req.user._id);
-  
-      if (!file) {
-        return res.status(400).json({ message: "No video uploaded" });
-      }
-  
-      const accessToken = await getValidAccessToken(userId);
-  
-      // 1️⃣ Create YouTube Resumable Upload Session
-      const createRes = await axios.post(
-        "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
-        {
-          snippet: {
-            title: title || "Untitled Video",
-            description: description || "",
-          },
-          status: {
-            privacyStatus: privacyStatus, // "public", "private", or "unlisted"
-          },
+  try {
+    const userId = String(req.user._id);
+    const resellerId = req.user?.resellerId || null;
+
+    console.log("[YouTube Upload] userId:", userId);
+    console.log("[YouTube Upload] resellerId:", resellerId);
+
+    // Get valid access token (will auto-refresh if needed)
+    const accessToken = await getValidAccessToken(userId, resellerId);
+
+    const file = req.file;
+    const { title, description, privacyStatus = "public" } = req.body;
+
+    if (!file) {
+      return res.status(400).json({ message: "No video file provided" });
+    }
+
+    // Create video resource
+    const createRes = await axios.post(
+      "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
+      {
+        snippet: { title, description },
+        status: { privacyStatus },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "X-Upload-Content-Length": file.size,
+          "X-Upload-Content-Type": file.mimetype,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json; charset=UTF-8",
-            "X-Upload-Content-Length": file.size,
-            "X-Upload-Content-Type": file.mimetype,
-          },
-        }
-      );
-  
-      const uploadUrl = createRes.headers.location;
-  
-      // 2️⃣ Upload the actual file bytes
-      const fileStream = fs.createReadStream(file.path);
-  
-      const uploadRes = await axios.put(uploadUrl, fileStream, {
+      }
+    );
+
+    // Upload video file
+    await axios.put(
+      createRes.headers.location,
+      fs.createReadStream(file.path),
+      {
         headers: {
           "Content-Length": file.size,
           "Content-Type": file.mimetype,
         },
-        maxContentLength: Infinity,
         maxBodyLength: Infinity,
-      });
-  
-      // 3️⃣ Cleanup uploaded file from temp folder
-      fs.unlinkSync(file.path);
-  
-      return res.status(200).json({
-        message: "Uploaded successfully to YouTube",
-        youtubeResponse: uploadRes.data,
-      });
-    } catch (err) {
-      console.log(err.response?.data || err);
-      return res.status(500).json({ error: "Upload failed", details: err.response?.data || err.message });
+      }
+    );
+
+    // Clean up uploaded file
+    fs.unlinkSync(file.path);
+
+    return res.json({ message: "Uploaded successfully to YouTube" });
+  } catch (err) {
+    console.error("[YouTube Upload ERROR]", err);
+    
+    // Clean up file on error
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
     }
-  };
+    
+    return res.status(500).json({ 
+      message: "Upload failed",
+      error: err.message 
+    });
+  }
+};

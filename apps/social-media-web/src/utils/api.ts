@@ -19,12 +19,22 @@ const api = axios.create({
 let currentSessionToken: string | null = null;
 let currentUserId: string | null = null;
 let currentUserEmail: string | null = null;
+let currentUserRole: string | null = null;
+let currentResellerId: string | null = null;
 
 // Function to update session token and user data (called from components using the hook)
-export const setAuthToken = (token: string | null, userId: string | null, userEmail?: string | null) => {
+export const setAuthToken = (
+  token: string | null, 
+  userId: string | null, 
+  userEmail?: string | null,
+  userRole?: string | null,
+  resellerId?: string | null
+) => {
   currentSessionToken = token;
   currentUserId = userId;
   currentUserEmail = userEmail || null;
+  currentUserRole = userRole || null;
+  currentResellerId = resellerId || null;
 };
 
 // Helper to get session synchronously (with retry)
@@ -85,6 +95,14 @@ api.interceptors.request.use(
       // Add user email if available (for user lookup fallback)
       if (currentUserEmail) {
         config.headers["X-User-Email"] = currentUserEmail;
+      }
+      // Add user role if available
+      if (currentUserRole) {
+        config.headers["X-User-Role"] = currentUserRole;
+      }
+      // Add resellerId if available
+      if (currentResellerId) {
+        config.headers["X-Reseller-Id"] = currentResellerId;
       }
     }
     
