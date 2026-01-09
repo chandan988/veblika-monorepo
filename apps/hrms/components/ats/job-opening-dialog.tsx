@@ -29,6 +29,7 @@ import { useJobOpeningStatuses } from "@/hooks/ats/use-job-opening-statuses";
 import { useJobTypes } from "@/hooks/ats/use-job-types";
 import { useSalaries } from "@/hooks/ats/use-salaries";
 import { useWorkExperiences } from "@/hooks/ats/use-work-experiences";
+import { useFileUpload } from "@/hooks/use-file-upload";
 import { RichTextEditor } from "./rich-text-editor";
 import { TagInput } from "./tag-input";
 import { toast } from "sonner";
@@ -69,13 +70,13 @@ export function JobOpeningDialog({
             city: "",
             zipCode: "",
             isRemote: false,
-            responsibilities: "",
             noOfPositions: 1,
         },
     });
 
     const createMutation = useCreateJobOpening();
     const updateMutation = useUpdateJobOpening();
+    const { uploadFiles, isUploading } = useFileUpload();
 
     // Fetch dropdown data
     const { industries } = useIndustries({ organisationId: "695131b8c139647c5a9931af", limit: 100 });
@@ -154,16 +155,40 @@ export function JobOpeningDialog({
                 benefits: benefits,
             };
 
+            let createdJobOpening;
+            
             if (jobOpening) {
                 await updateMutation.mutateAsync({
                     id: jobOpening._id,
                     data: payload,
                 });
+                createdJobOpening = { _id: jobOpening._id };
                 toast.success("Job opening updated successfully");
             } else {
-                await createMutation.mutateAsync(payload);
+                const result = await createMutation.mutateAsync(payload);
+                createdJobOpening = result.data;
                 toast.success("Job opening created successfully");
             }
+
+            // Upload attachments if any
+            if (attachments.length > 0 && createdJobOpening?._id) {
+                try {
+                    await uploadFiles({
+                        endpoint: `/api/ats/job-opening/${createdJobOpening._id}/upload`,
+                        files: attachments,
+                        organisationId: data.organisationId,
+                        // bucketName: "your-custom-bucket", // Optional: specify custom bucket
+                        onSuccess: (uploadData) => {
+                            toast.success(`${uploadData.data.attachments.length} file(s) uploaded successfully`);
+                        },
+                    });
+                } catch (uploadError) {
+                    // Job opening is created, but file upload failed
+                    console.error("File upload failed:", uploadError);
+                    toast.error("Job opening created but file upload failed. You can upload files later.");
+                }
+            }
+
             reset();
             setSkills([]);
             setDescription("");
@@ -575,8 +600,16 @@ export function JobOpeningDialog({
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="h-10">
                             Cancel
                         </Button>
-                        <Button type="submit" className="h-10" disabled={createMutation.isPending || updateMutation.isPending}>
-                            {jobOpening ? "Update Job Opening" : "Create Job Opening"}
+                        <Button 
+                            type="submit" 
+                            className="h-10" 
+                            disabled={createMutation.isPending || updateMutation.isPending || isUploading}
+                        >
+                            {isUploading 
+                                ? "Uploading files..." 
+                                : jobOpening 
+                                ? "Update Job Opening" 
+                                : "Create Job Opening"}
                         </Button>
                     </DialogFooter>
                 </form>

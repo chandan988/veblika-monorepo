@@ -1,7 +1,6 @@
 import mongoose, { Document } from "mongoose";
 
 
-
 export interface IJobOpening extends Document {
     title: string;
     organisationId: mongoose.Types.ObjectId;
@@ -14,16 +13,23 @@ export interface IJobOpening extends Document {
     workExperience: string;
     salary: string;
     requiredSkills: string[];
-    country: string;
-    state: string;
-    city: string;
-    zipCode: string;
-    isRemote: boolean;
+    country?: string;
+    state?: string;
+    city?: string;
+    zipCode?: string;
+    isRemote?: boolean;
     description: string;
-    responsibilities: string;
     requirements: string;
     benefits: string;
     noOfPositions: number;
+    attachments?: Array<{
+        key: string;
+        url: string;
+        fileName: string;
+        mimeType: string;
+        size: number;
+        uploadedAt: Date;
+    }>;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -47,10 +53,17 @@ const JobOpeningSchema = new mongoose.Schema<IJobOpening>(
         zipCode: { type: String, required: false },
         isRemote: { type: Boolean, required: true, default: false },
         description: { type: String, required: true },  
-        responsibilities: { type: String, required: true },
         requirements: { type: String, required: true },
         benefits: { type: String, required: true },
         noOfPositions: { type: Number, required: true },
+        attachments: [{
+            key: { type: String, required: true },
+            url: { type: String, required: true },
+            fileName: { type: String, required: true },
+            mimeType: { type: String, required: true },
+            size: { type: Number, required: true },
+            uploadedAt: { type: Date, default: Date.now }
+        }],
     },
     { timestamps: true }
 );

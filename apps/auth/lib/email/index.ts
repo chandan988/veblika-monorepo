@@ -43,7 +43,6 @@ class NodemailerEmailProvider implements EmailProvider {
     try {
       const { to, subject, html, text, from, replyTo, attachments } = options
 
-
       const result = await this.transporter.sendMail({
         from: from || process.env.DEFAULT_FROM_EMAIL || "noreply@veblika.com",
         to: Array.isArray(to) ? to.join(", ") : to,

@@ -72,13 +72,16 @@ function LoginForm() {
   }
 
   const handleGoogleLogin = async () => {
+    console.log('google login initiated')
     try {
+      console.log('google login')
       await authClient.signIn.social({
         provider: "google",
         callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
       })
     } catch (error) {
       toast.error("Failed to login with Google")
+      console.log(error,"google login err")
       console.error(error)
     }
   }

@@ -65,6 +65,7 @@ const menuItems = [
   { title: "Dashboard", icon: BarChart3, url: "/dashboard" },
   { title: "Organisations", icon: Building2, url: "/organisation" },
   { title: "Employees", icon: UserCheck, url: "/employee" },
+  {title:"Upload File",icon:FileCheck,url:"/file-upload"},
   { title: "Users", icon: Users, url: "/users" },
   { title: "Documents", icon: FileText, url: "/documents" },
 ]
