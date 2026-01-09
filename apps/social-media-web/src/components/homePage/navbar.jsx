@@ -100,7 +100,7 @@ export default function Navbar() {
             className="bg-white-700 hover:bg-blue-700 text-blue-500 hover:text-white border-2 border-blue-500 rounded-3xl px-5 shadow-lg py-5 text-sm font-medium relative overflow-hidden"
           >
             <a
-              href={`${process.env.NEXT_PUBLIC_AUTH_URL || 'http://localhost:3000'}/login`}
+              href='/login'
               className="relative z-10 text-lg"
             >
               Get it now
