@@ -6,6 +6,8 @@ import { useSocket } from "./use-socket"
 import { useEffect } from "react"
 import { toast } from "sonner"
 import { useChatStore, type Conversation as StoreConversation } from "@/stores/chat-store"
+import { useOrganisationStore } from "@/stores/organisation-store"
+import { type Priority } from "@/types/chat"
 
 interface Conversation {
   _id: string
@@ -14,11 +16,16 @@ interface Conversation {
   contactId: any
   channel: string
   status: "open" | "pending" | "closed"
-  priority: string
+  priority: Priority
   lastMessageAt: string
   lastMessagePreview: string
   tags: string[]
   assignedMemberId?: string | null
+  assignedBy?: string
+  assignedAt?: string
+  closedBy?: string
+  closedAt?: string
+  closedReason?: "resolved" | "spam" | "duplicate" | "no_response" | "customer_request" | "merged" | "other"
   sourceMetadata?: any
 }
 
@@ -78,8 +85,9 @@ export const useConversations = (params: GetConversationsParams) => {
   const query = useInfiniteQuery({
     queryKey: ["conversations", params.orgId, params.channel, params.status, params.assignedMemberId, params.limit],
     queryFn: async ({ pageParam = 1 }) => {
-      const { data } = await api.get<ConversationsResponse>("/conversations", { 
-        params: { ...params, page: pageParam, limit } 
+      const { orgId, ...queryParams } = params
+      const { data } = await api.get<ConversationsResponse>(`/organisations/${orgId}/conversations`, { 
+        params: { ...queryParams, page: pageParam, limit } 
       })
       
       const conversations = data.data || []
@@ -256,6 +264,7 @@ export const useConversation = (conversationId: string) => {
 export const useUpdateConversation = () => {
   const queryClient = useQueryClient()
   const updateConversation = useChatStore((state) => state.updateConversation)
+  const { activeOrganisation } = useOrganisationStore()
 
   return useMutation({
     mutationFn: async ({
@@ -265,8 +274,11 @@ export const useUpdateConversation = () => {
       conversationId: string
       updates: Partial<Conversation>
     }) => {
+      const orgId = activeOrganisation?._id
+      if (!orgId) throw new Error("Organization ID is required")
+
       const { data } = await api.put(
-        `/conversations/${conversationId}`,
+        `/organisations/${orgId}/conversations/${conversationId}`,
         updates
       )
       return data.data

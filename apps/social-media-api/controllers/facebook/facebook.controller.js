@@ -1,6 +1,7 @@
 import axios from "axios";
 import AppCredentials from "../../models/appcredentials.model.js";
 import UserModel from "../../models/user.model.js";
+import { resolveAppConfig } from "../appconfig/app.controller.js";
 
 // Redirect user to Facebook OAuth
 export const redirectToFacebook = async (req, res) => {
@@ -16,74 +17,84 @@ export const redirectToFacebook = async (req, res) => {
       "pages_manage_metadata",
     ];
 
-    const clientId = process.env.FACEBOOK_APP_ID || process.env.META_APP_ID;
-    const redirectUri = process.env.FACEBOOK_REDIRECT_URI || process.env.INSTAGRAM_REDIRECT_URI;
+    // 1️⃣ Get userId from query or req.user
+    const userId = req.query.userId || req.user?._id;
 
-    if (!clientId || !redirectUri) {
-      return res.status(500).json({ message: "Facebook OAuth not configured" });
+    if (!userId) {
+      return res.status(401).json({ message: "User not identified" });
     }
 
-    // Get userId from query parameter (passed from frontend) or from req.user
-    let userIdToUse = null;
-    
-    // Priority 1: Query parameter (from frontend redirect with better-auth userId)
-    if (req.query.userId) {
-      userIdToUse = req.query.userId;
-      console.log("[Facebook Auth] Using userId from query parameter:", userIdToUse);
-    }
-    // Priority 2: req.user._id (from middleware)
-    else if (req.user?._id) {
-      userIdToUse = String(req.user._id);
-      console.log("[Facebook Auth] Using userId from req.user._id:", userIdToUse);
-    }
-    
-    // If we have a userId, try to resolve it to MongoDB _id
-    let mongoUserId = userIdToUse;
-    if (userIdToUse) {
+    console.log("[Facebook Auth] Initial userId:", userId);
+    console.log("[Facebook Auth] req.user:", req.user);
+    console.log("[Facebook Auth] req.query.resellerId:", req.query.resellerId);
+
+    // 2️⃣ Get resellerId from multiple sources (priority order)
+    // Priority 1: Query parameter (from frontend)
+    // Priority 2: req.user (from auth middleware headers)
+    // Priority 3: Local database lookup (fallback)
+    let resellerId = req.query.resellerId || req.user?.resellerId || null;
+
+    console.log("[Facebook Auth] resellerId from query/headers:", resellerId);
+
+    // If resellerId not found, try local DB lookup as fallback
+    if (!resellerId) {
       try {
-        // Try to find MongoDB user by _id first
-        let mongoUser = await UserModel.findById(userIdToUse).lean();
+        const localUser = await UserModel.findById(userId)
+          .select("resellerId")
+          .lean();
         
-        // If not found, try to find by email (in case userId is better-auth ID and we need to find MongoDB user)
-        if (!mongoUser) {
-          const userEmail = req.headers["x-user-email"];
-          if (userEmail) {
-            console.log("[Facebook Auth] MongoDB user not found by _id, trying by email:", userEmail);
-            mongoUser = await UserModel.findOne({ email: userEmail }).lean();
-          }
-        }
-        
-        if (mongoUser) {
-          mongoUserId = String(mongoUser._id);
-          console.log("[Facebook Auth] Resolved to MongoDB userId:", mongoUserId);
-        } else {
-          console.log("[Facebook Auth] MongoDB user not found, using provided userId as-is:", userIdToUse);
+        if (localUser?.resellerId) {
+          resellerId = typeof localUser.resellerId === 'object' && localUser.resellerId._id
+            ? String(localUser.resellerId._id)
+            : String(localUser.resellerId);
+          console.log("[Facebook Auth] Found resellerId in local DB:", resellerId);
         }
       } catch (error) {
-        console.log("[Facebook Auth] Error looking up user:", error.message);
-        // Use userIdToUse as-is if lookup fails
-        mongoUserId = userIdToUse;
+        console.log("[Facebook Auth] Local DB lookup skipped:", error.message);
       }
     }
 
-    // Include user ID in state parameter for multi-tenant support
-    let state = "default";
-    if (mongoUserId) {
-      state = Buffer.from(JSON.stringify({ userId: mongoUserId })).toString('base64');
-      console.log("[Facebook Auth] Setting state with userId:", mongoUserId);
+    console.log("[Facebook Auth] Final userId:", userId);
+    console.log("[Facebook Auth] Final resellerId:", resellerId);
+
+    // ✅ Build state with userId and resellerId for callback
+    const state = Buffer.from(
+      JSON.stringify({
+        userId: String(userId),
+        resellerId: resellerId,
+      })
+    ).toString('base64');
+
+    // 3️⃣ Resolve app config with resellerId
+    const facebookConfig = await resolveAppConfig(
+      "app/facebook",
+      resellerId
+    );
+    
+    if (!facebookConfig?.appClientId || !facebookConfig?.redirectUrl) {
+      return res.status(500).json({ 
+        message: "Facebook OAuth not configured",
+        source: facebookConfig?.source 
+      });
     }
+
+    console.log(
+      "[Facebook Auth] USING:",
+      facebookConfig.source,
+      facebookConfig.appClientId
+    );
 
     const loginUrl =
       `https://www.facebook.com/v20.0/dialog/oauth` +
-      `?client_id=${clientId}` +
-      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `?client_id=${facebookConfig.appClientId}` +
+      `&redirect_uri=${encodeURIComponent(facebookConfig.redirectUrl)}` +
       `&scope=${scopes.join(",")}` +
       `&response_type=code` +
       `&state=${encodeURIComponent(state)}`;
 
     return res.redirect(loginUrl);
   } catch (err) {
-    console.log(err);
+    console.log("[Facebook Auth] Error:", err);
     return res.status(500).json({ message: "OAuth redirect failed" });
   }
 };
@@ -91,70 +102,34 @@ export const redirectToFacebook = async (req, res) => {
 // Handle callback from Facebook OAuth
 export const facebookCallback = async (req, res) => {
   const { code, state } = req.query;
-  // Extract user ID from state if available
+  
+  // ✅ Extract userId and resellerId from state
   let userIdFromState = null;
+  let resellerIdFromState = null;
+  
   if (state) {
     try {
       const decoded = JSON.parse(Buffer.from(state, 'base64').toString());
       userIdFromState = decoded.userId;
-      console.log("[Facebook Callback] Extracted userId from state:", userIdFromState);
+      resellerIdFromState = decoded.resellerId;
+      console.log("[Facebook Callback] Extracted from state:", { userId: userIdFromState, resellerId: resellerIdFromState });
     } catch (e) {
       userIdFromState = state;
-      console.log("[Facebook Callback] State is not JSON, using as-is:", userIdFromState);
+      console.log("[Facebook Callback] State is not JSON, using as userId:", userIdFromState);
     }
   }
   
-  // Multi-tenant: Use user's userId from state (most reliable for OAuth callbacks)
-  // Priority: state > req.user._id > headers
-  let userId = null;
-  
-  if (userIdFromState) {
-    // State parameter is most reliable for OAuth callbacks
-    userId = String(userIdFromState);
-    console.log("[Facebook Callback] Using userId from state:", userId);
-  } else if (req.user?._id) {
-    // If user is authenticated via cookie/token, use their userId
-    userId = String(req.user._id);
-    console.log("[Facebook Callback] Using userId from req.user._id:", userId);
-  } else {
-    // Try to get from headers as last resort
-    const betterAuthUserId = req.headers["x-user-id"];
-    const userEmail = req.headers["x-user-email"];
-    
-    if (betterAuthUserId) {
-      console.log("[Facebook Callback] Trying to resolve userId from headers:", betterAuthUserId);
-      try {
-        // Try to find MongoDB user by _id first
-        let mongoUser = await UserModel.findById(betterAuthUserId).lean();
-        
-        // If not found, try to find by email
-        if (!mongoUser && userEmail) {
-          console.log("[Facebook Callback] MongoDB user not found by _id, trying by email:", userEmail);
-          mongoUser = await UserModel.findOne({ email: userEmail }).lean();
-        }
-        
-        if (mongoUser) {
-          userId = String(mongoUser._id);
-          console.log("[Facebook Callback] Resolved to MongoDB userId:", userId);
-        } else {
-          console.log("[Facebook Callback] MongoDB user not found, using better-auth userId as-is:", betterAuthUserId);
-          userId = betterAuthUserId;
-        }
-      } catch (error) {
-        console.log("[Facebook Callback] Error looking up user:", error.message);
-        userId = betterAuthUserId;
-      }
-    }
-  }
+  // Get userId (priority: state > req.user > headers)
+  let userId = userIdFromState || req.user?._id || null;
   
   if (!userId) {
-    console.error("[Facebook Callback] No userId found - state:", state, "req.user:", req.user?._id);
+    console.error("[Facebook Callback] No userId found");
     return res.redirect(
       `${process.env.FRONTEND_URL}/integrations/facebook?error=unauthorized`
     );
   }
   
-  console.log("[Facebook Callback] Final userId to use:", userId);
+  console.log("[Facebook Callback] Final userId:", userId);
 
   if (!code) {
     return res.redirect(
@@ -163,18 +138,49 @@ export const facebookCallback = async (req, res) => {
   }
 
   try {
-    const clientId = process.env.FACEBOOK_APP_ID || process.env.META_APP_ID;
-    const clientSecret = process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET;
-    const redirectUri = process.env.FACEBOOK_REDIRECT_URI || process.env.INSTAGRAM_REDIRECT_URI;
+    // ✅ Get resellerId (priority: state > req.user > headers > DB)
+    let resellerId = resellerIdFromState || req.user?.resellerId || req.headers["x-reseller-id"];
+    
+    console.log("[Facebook Callback] resellerId from state/headers:", resellerId);
+
+    // Fallback to DB lookup
+    if (!resellerId) {
+      try {
+        const localUser = await UserModel.findById(userId).select("resellerId").lean();
+        if (localUser?.resellerId) {
+          resellerId = String(localUser.resellerId);
+          console.log("[Facebook Callback] Found resellerId in local DB:", resellerId);
+        }
+      } catch (error) {
+        console.log("[Facebook Callback] DB lookup skipped:", error.message);
+      }
+    }
+
+    console.log("[Facebook Callback] Final resellerId:", resellerId);
+
+    // ✅ Resolve app config with resellerId
+    const facebookConfig = await resolveAppConfig(
+      "app/facebook",
+      resellerId
+    );
+
+    if (!facebookConfig?.appClientId || !facebookConfig?.appClientSecret || !facebookConfig?.redirectUrl) {
+      console.error("[Facebook Callback] Facebook app credentials not configured");
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/integrations/facebook?error=config_error`
+      );
+    }
+
+    console.log("[Facebook Callback] USING:", facebookConfig.source, facebookConfig.appClientId);
 
     // Step 1: Exchange code → short-lived access token
     const shortToken = await axios.get(
       "https://graph.facebook.com/v20.0/oauth/access_token",
       {
         params: {
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: redirectUri,
+          client_id: facebookConfig.appClientId,
+          client_secret: facebookConfig.appClientSecret,
+          redirect_uri: facebookConfig.redirectUrl,
           code,
         },
       }
@@ -188,8 +194,8 @@ export const facebookCallback = async (req, res) => {
       {
         params: {
           grant_type: "fb_exchange_token",
-          client_id: clientId,
-          client_secret: clientSecret,
+          client_id: facebookConfig.appClientId,
+          client_secret: facebookConfig.appClientSecret,
           fb_exchange_token: shortLivedToken,
         },
       }
@@ -208,11 +214,14 @@ export const facebookCallback = async (req, res) => {
       }
     );
 
-    // Step 4: Get pages
+    // Step 4: Get pages with profile pictures
     const pagesRes = await axios.get(
       "https://graph.facebook.com/v20.0/me/accounts",
       {
-        params: { access_token: longLivedToken },
+        params: { 
+          access_token: longLivedToken,
+          fields: "id,name,access_token,picture.type(large)"
+        },
       }
     );
 
@@ -223,6 +232,7 @@ export const facebookCallback = async (req, res) => {
       pageId: page.id,
       pageName: page.name,
       page_access_token: page.access_token,
+      picture: page.picture?.data?.url || null,
     }));
 
     const credentials = {
@@ -235,11 +245,11 @@ export const facebookCallback = async (req, res) => {
 
     await AppCredentials.findOneAndUpdate(
       {
-        userId,
+        userId: String(userId),
         platform: "FACEBOOK",
       },
       {
-        userId,
+        userId: String(userId),
         platform: "FACEBOOK",
         credentials,
         createdBy: req.user?._id || null,
@@ -247,11 +257,13 @@ export const facebookCallback = async (req, res) => {
       { upsert: true, new: true }
     );
 
+    console.log("[Facebook Callback] ✅ Credentials saved successfully");
+
     return res.redirect(
       `${process.env.FRONTEND_URL}/integrations/facebook?connected=1`
     );
   } catch (err) {
-    console.log("Facebook OAuth error: ", err.response?.data || err);
+    console.log("[Facebook Callback] OAuth error:", err.response?.data || err);
     return res.redirect(
       `${process.env.FRONTEND_URL}/integrations/facebook?error=oauth_failed`
     );
@@ -342,4 +354,3 @@ export const postToFacebook = async (req, res) => {
     });
   }
 };
-

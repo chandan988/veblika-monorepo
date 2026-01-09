@@ -64,7 +64,7 @@ function SignupForm() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect")
   const emailParam = searchParams.get("email")
-  const invitationId = searchParams.get("invitationId")
+  const inviteToken = searchParams.get("inviteToken")
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<SignupFormValues>({
@@ -89,27 +89,30 @@ function SignupForm() {
     setIsLoading(true)
 
     try {
+      // Determine role: if signing up via invitation, role is 'user', otherwise 'admin'
+      const userRole = inviteToken ? "user" : "admin"
+      const callbackURL =
+        process.env.NEXT_PUBLIC_CLIENT_URL +
+        `/login?inviteToken=${inviteToken}&email=${encodeURIComponent(data.email)}`
+
       const result = await authClient.signUp.email({
         name: data.name,
         email: data.email,
         password: data.password,
-        callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
+        callbackURL: inviteToken ? callbackURL : process.env.NEXT_PUBLIC_CLIENT_URL,
+        // Pass role as additional field - invitation signups get 'user' role, direct signups get 'admin'
+        role: userRole,
       })
 
       if (result.error) {
         toast.error(result.error.message || "Failed to create account")
-      } else {
-        toast.success("Account created successfully!")
-        // Redirect after successful signup
-        if (invitationId) {
-          // If coming from invitation flow, redirect to accept-invitation page
-          router.push(`/accept-invitation/${invitationId}`)
-        } else if (redirectTo) {
-          router.push(redirectTo)
-        } else {
-          router.push("/")
-        }
+        setIsLoading(false)
+        return
       }
+
+      toast.success(
+        "Account created successfully! Please check your email to verify your account."
+      )
     } catch (error) {
       toast.error("An error occurred during signup")
       console.error(error)
@@ -122,10 +125,12 @@ function SignupForm() {
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: invitationId
-          ? process.env.NEXT_PUBLIC_CLIENT_URL +
-            `/accept-invitation/${invitationId}`
-          : redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
+        callbackURL: inviteToken
+          ? `${process.env.NEXT_PUBLIC_CLIENT_URL}/accept-invite?id=${inviteToken}`
+          : process.env.NEXT_PUBLIC_CLIENT_URL,
+        additionalData: {
+          role: inviteToken ? "user" : "admin",
+        },
       })
     } catch (error) {
       toast.error("Failed to signup with Google")
@@ -134,7 +139,7 @@ function SignupForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+    <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-background to-muted p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-2 text-center">
           <CardTitle className="text-3xl font-bold tracking-tight">
@@ -338,7 +343,7 @@ function SignupForm() {
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link
-              href="/login"
+              href={`/login${inviteToken ? `?inviteToken=${inviteToken}${emailParam ? `&email=${encodeURIComponent(emailParam)}` : ""}` : ""}`}
               className="font-medium text-primary hover:underline"
             >
               Sign in

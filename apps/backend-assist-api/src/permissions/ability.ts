@@ -34,7 +34,7 @@ export type Subjects =
   | "Integration"
   | "Report"
   | "Widget"
-  | { kind: string; organisationId?: string }
+  | { kind: string; orgId?: string }
 
 // Define the ability type
 export type AppAbility = MongoAbility<[Actions, Subjects]>
@@ -43,7 +43,7 @@ export type AppAbility = MongoAbility<[Actions, Subjects]>
 const permissionMap: Record<string, { action: Actions; subject: Subjects }> = {
   // Ticket permissions
   "ticket:view": { action: "view", subject: "Ticket" },
-  "ticket:create": { action: "create", subject: "Ticket" },
+  "ticket:reply": { action: "reply", subject: "Ticket" },
   "ticket:edit": { action: "edit", subject: "Ticket" },
   "ticket:delete": { action: "delete", subject: "Ticket" },
   "ticket:assign": { action: "assign", subject: "Ticket" },
@@ -80,7 +80,6 @@ const permissionMap: Record<string, { action: Actions; subject: Subjects }> = {
   "organisation:view": { action: "view", subject: "Organisation" },
   "organisation:edit": { action: "edit", subject: "Organisation" },
   "organisation:delete": { action: "delete", subject: "Organisation" },
-  "organisation:billing": { action: "billing", subject: "Organisation" },
 
   // Integration permissions
   "integration:view": { action: "view", subject: "Integration" },
@@ -122,16 +121,16 @@ export interface MemberWithRole extends Omit<IMember, "roleId"> {
 /**
  * Define abilities for a member within their organisation context
  * @param member - The member document with populated role
- * @param organisationId - The organisation context (reserved for future conditions)
+ * @param orgId - The organisation context (reserved for future conditions)
  */
 export function defineAbilityFor(
   member: MemberWithRole | null,
-  organisationId: string
+  orgId: string
 ): AppAbility {
   const { can, build } = new AbilityBuilder<AppAbility>(createMongoAbility)
 
   // Reserved for future use - will be used for organisation-scoped conditions
-  void organisationId
+  void orgId
 
   if (!member) {
     // No member = no permissions (guest/unauthenticated)
@@ -154,7 +153,7 @@ export function defineAbilityFor(
     const mapped = permissionMap[permission]
     if (mapped) {
       // Apply permission - cast to string subjects for proper typing
-      can(mapped.action as Actions, mapped.subject as Exclude<Subjects, { kind: string; organisationId?: string }>)
+      can(mapped.action as Actions, mapped.subject as Exclude<Subjects, { kind: string; orgId?: string }>)
     }
   }
 

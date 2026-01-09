@@ -5,81 +5,77 @@ import {
   createWebchatIntegrationSchema,
   updateIntegrationSchema,
   integrationIdSchema,
-  getIntegrationsQuerySchema,
 } from '../validators/integration-validator';
 import isAuth from '../../middleware/authenticate';
+import { loadMemberAbility } from '../../middleware/authorize';
 
-const router: Router = Router();
+const router: Router = Router({ mergeParams: true });
+
+// All routes require authentication and organisation membership
+router.use(isAuth, loadMemberAbility);
 
 /**
- * @route   POST /api/v1/integrations/webchat
+ * @route   POST /api/v1/organisations/:orgId/integrations/webchat
  * @desc    Create a new webchat integration
- * @access  Private
+ * @access  Private (org members)
  */
 router.post(
   '/webchat',
-  isAuth,
   validate(createWebchatIntegrationSchema),
   integrationController.createWebchatIntegration
 );
 
 /**
- * @route   GET /api/v1/integrations
- * @desc    Get all integrations with optional filters
- * @access  Private
- * @query   ?orgId=xxx&channel=webchat&status=active
+ * @route   GET /api/v1/organisations/:orgId/integrations
+ * @desc    Get all integrations for organisation
+ * @access  Private (org members)
+ * @query   ?channel=webchat&status=active
  */
 router.get(
   '/',
-  isAuth,
-  validate(getIntegrationsQuerySchema),
   integrationController.getIntegrations
 );
 
 /**
- * @route   GET /api/v1/integrations/:id
+ * @route   GET /api/v1/organisations/:orgId/integrations/:id
  * @desc    Get integration by ID
- * @access  Private
+ * @access  Private (org members)
  */
 router.get(
   '/:id',
-  isAuth,
   validate(integrationIdSchema),
   integrationController.getIntegrationById
 );
 
 /**
- * @route   PUT /api/v1/integrations/:id
+ * @route   PUT /api/v1/organisations/:orgId/integrations/:id
  * @desc    Update integration by ID
- * @access  Private
+ * @access  Private (org members)
  */
 router.put(
   '/:id',
-  isAuth,
   validate(integrationIdSchema.merge(updateIntegrationSchema)),
   integrationController.updateIntegration
 );
 
 /**
- * @route   DELETE /api/v1/integrations/:id
+ * @route   DELETE /api/v1/organisations/:orgId/integrations/:id
  * @desc    Delete integration by ID
- * @access  Private
+ * @access  Private (org members)
  */
 router.delete(
   '/:id',
-  isAuth,
   validate(integrationIdSchema),
   integrationController.deleteIntegration
 );
 
 /**
- * @route   GET /api/v1/integrations/:id/embed-script
+ * @route   GET /api/v1/organisations/:orgId/integrations/:id/embed-script
  * @desc    Generate embed script for integration
- * @access  Private
+ * @access  Private (org members)
  */
 router.get(
   '/:id/embed-script',
-  isAuth,
   validate(integrationIdSchema),
   integrationController.getEmbedScript
 );

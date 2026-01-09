@@ -1,6 +1,6 @@
 "use client"
 
-import { RoleEditor } from "@/components/role-editor"
+import { RoleEditor } from "@/app/(main)/settings/roles/role-editor"
 
 export default function RolesPage() {
   return (

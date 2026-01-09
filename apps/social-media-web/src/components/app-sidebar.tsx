@@ -11,6 +11,7 @@ import {
   CreditCard,
   Frame,
   GalleryVerticalEnd,
+  Key,
   LayoutPanelTop,
   Map,
   MessageCircle,
@@ -35,6 +36,9 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { Separator } from "@radix-ui/react-separator";
+import { useAuthSession } from "@/hooks/use-auth-session";
+import { authClient } from "@/lib/auth.client";
+import { useRouter } from "next/navigation";
 
 // This is sample data.
 const data = {
@@ -56,11 +60,11 @@ const data = {
     },
   ],
   normal_link: [
-    {
-      name: "Dashboard",
-      url: "/dashboard",
-      icon: LayoutPanelTop,
-    },
+    // {
+    //   name: "Dashboard",
+    //   url: "/dashboard",
+    //   icon: LayoutPanelTop,
+    // },
     {
       name: "Integrations",
       url: "/integrations",
@@ -170,37 +174,71 @@ const data = {
       url: "/social_media/engage",
       icon: MessageCircle,
     },
-    {
-      name: "Analyze",
-      url: "/social_media/analyze",
-      icon: PackageSearch,
-    },
+    // {
+    //   name: "Analyze",
+    //   url: "/social_media/analyze",
+    //   icon: PackageSearch,
+    // },
   ],
   settings: [
+    // {
+    //   name: "Profile",
+    //   url: "/settings/profile",
+    //   icon: User,
+    // },
+    // {
+    //   name: "Team",
+    //   url: "/settings/team",
+    //   icon: Users,
+    // },
+    // {
+    //   name: "Billing",
+    //   url: "/settings/billing",
+    //   icon: CreditCard,
+    // },
+    // {
+    //   name: "Organizations",
+    //   url: "/settings/organization",
+    //   icon: Building2,
+    // },
     {
-      name: "Profile",
-      url: "/settings/profile",
-      icon: User,
-    },
-    {
-      name: "Team",
-      url: "/settings/team",
-      icon: Users,
-    },
-    {
-      name: "Billing",
-      url: "/settings/billing",
-      icon: CreditCard,
-    },
-    {
-      name: "Organizations",
-      url: "/settings/organization",
-      icon: Building2,
+      name: "Manage",
+      url: "/settings/credentials",
+      icon: Key,
     },
   ],
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user, isLoading, role } = useAuthSession();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await authClient.signOut();
+      router.push("/login");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
+
+  // Get user data with fallbacks
+  const userData = {
+    avatar: user?.image || "https://i.pinimg.com/736x/4a/94/7f/4a947f329636ebfb8505fb16ca5ae25c.jpg",
+    name: user?.name || "User",
+    email: user?.email || "",
+  };
+
+  const isReseller = role === "reseller";
+
+  const settingsProjects = React.useMemo(
+    () =>
+      isReseller
+        ? data.settings
+        : data.settings.filter((item) => item.url !== "/settings/credentials"),
+    [isReseller]
+  );
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -210,17 +248,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {/* <NavMain items={data.navMain} /> */}
         <NavProjects projects={data.normal_link} />
         <NavProjects heading="Social Media" projects={data.social_media} />
-        <NavProjects heading="Settings" projects={data.settings} />
+        <NavProjects heading="Settings" projects={settingsProjects} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser
-          user={{
-            avatar:
-              "https://i.pinimg.com/736x/4a/94/7f/4a947f329636ebfb8505fb16ca5ae25c.jpg",
-            name: "Ghanisht khurana",
-            email: "ghanishtkhurana9@gmail.com",
-          }}
-        />
+        {!isLoading && (
+          <NavUser
+            user={userData}
+            onLogout={handleLogout}
+          />
+        )}
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

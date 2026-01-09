@@ -18,7 +18,7 @@ export const useSession = () => {
   })
 }
 
-export const useLogout = () => {
+export const useLogout = (options?: { redirect?: boolean }) => {
   return useMutation({
     mutationFn: async () => {
       await authClient.signOut()
@@ -27,7 +27,9 @@ export const useLogout = () => {
       // Todo : Clear organisation store on logout below approach is not working
       // useOrganisationStore.getState().clearStore()
       // localStorage.removeItem("organisation-store")
-      window.location.href = "/sign-in"
+      if (options?.redirect !== false) {
+        window.location.href = "/sign-in"
+      }
     },
   })
 }

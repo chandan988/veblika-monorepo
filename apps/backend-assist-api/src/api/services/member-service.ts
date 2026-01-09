@@ -2,10 +2,15 @@ import mongoose, { Schema } from "mongoose"
 import { Member, IMember } from "../models/member-model"
 import { Role } from "../models/role-model"
 import { getAllPermissions } from "../../permissions/ability"
+import {
+  fetchUsersFromAuthService,
+  fetchUserById,
+} from "../../utils/auth-service"
 
 export interface MemberWithUser {
   _id: string
-  userId: {
+  userId: string
+  user: {
     _id: string
     name: string
     email: string
@@ -31,67 +36,54 @@ export class MemberService {
   /**
    * Get all members of an organisation with user and role details
    */
-  async getMembersByOrganisation(organisationId: string): Promise<MemberWithUser[]> {
-    const members = await Member.aggregate([
-      {
-        $match: {
-          organizationId: new mongoose.Types.ObjectId(organisationId),
-        },
-      },
-      {
-        $lookup: {
-          from: "user",
-          localField: "userId",
-          foreignField: "_id",
-          as: "user",
-        },
-      },
-      {
-        $unwind: {
-          path: "$user",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $lookup: {
-          from: "role",
-          localField: "roleId",
-          foreignField: "_id",
-          as: "role",
-        },
-      },
-      {
-        $unwind: {
-          path: "$role",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          userId: {
-            _id: "$user._id",
-            name: "$user.name",
-            email: "$user.email",
-            image: "$user.image",
-          },
-          role: {
-            _id: "$role._id",
-            name: "$role.name",
-            slug: "$role.slug",
-          },
-          isOwner: 1,
-          extraPermissions: 1,
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      },
-      {
-        $sort: { isOwner: -1, createdAt: 1 },
-      },
-    ])
+  async getMembersByOrganisation(orgId: string): Promise<MemberWithUser[]> {
+    // Fetch members with roles from database
+    const members = await Member.find({
+      orgId: new mongoose.Types.ObjectId(orgId),
+    })
+      .populate("roleId", "_id name slug")
+      .sort({ isOwner: -1, createdAt: 1 })
 
-    return members
+    // Extract unique user IDs
+    const userIds = members.map((member) => member.userId.toString())
+
+    // Fetch user information from auth service
+    const userMap = await fetchUsersFromAuthService(userIds)
+
+    // Enrich members with user data
+    const enrichedMembers: MemberWithUser[] = members.map((member) => {
+      const userId = member.userId.toString()
+      const userInfo = userMap.get(userId) || {
+        _id: userId,
+        name: "Unknown User",
+        email: "",
+      }
+      const role = member.roleId as any
+
+      return {
+        _id: member._id.toString(),
+        userId: userId,
+        user: {
+          _id: userInfo._id,
+          name: userInfo.name,
+          email: userInfo.email,
+          image: userInfo.image,
+        },
+        role: role
+          ? {
+              _id: role._id?.toString(),
+              name: role.name,
+              slug: role.slug,
+            }
+          : null,
+        isOwner: member.isOwner,
+        extraPermissions: member.extraPermissions,
+        createdAt: member.createdAt.toISOString(),
+        updatedAt: member.updatedAt.toISOString(),
+      }
+    })
+
+    return enrichedMembers
   }
 
   /**
@@ -99,70 +91,46 @@ export class MemberService {
    */
   async getMemberById(
     memberId: string,
-    organisationId: string
+    orgId: string
   ): Promise<MemberWithUser | null> {
     if (!mongoose.Types.ObjectId.isValid(memberId)) {
       throw new Error("Invalid member ID")
     }
 
-    const members = await Member.aggregate([
-      {
-        $match: {
-          _id: new mongoose.Types.ObjectId(memberId),
-          organizationId: new mongoose.Types.ObjectId(organisationId),
-        },
-      },
-      {
-        $lookup: {
-          from: "user",
-          localField: "userId",
-          foreignField: "_id",
-          as: "user",
-        },
-      },
-      {
-        $unwind: {
-          path: "$user",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $lookup: {
-          from: "role",
-          localField: "roleId",
-          foreignField: "_id",
-          as: "role",
-        },
-      },
-      {
-        $unwind: {
-          path: "$role",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          userId: {
-            _id: "$user._id",
-            name: "$user.name",
-            email: "$user.email",
-            image: "$user.image",
-          },
-          role: {
-            _id: "$role._id",
-            name: "$role.name",
-            slug: "$role.slug",
-          },
-          isOwner: 1,
-          extraPermissions: 1,
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      },
-    ])
+    const member = await Member.findOne({
+      _id: new mongoose.Types.ObjectId(memberId),
+      orgId: new mongoose.Types.ObjectId(orgId),
+    }).populate("roleId", "_id name slug")
 
-    return members[0] || null
+    if (!member) {
+      return null
+    }
+
+    // Fetch user information from auth service
+    const userInfo = await fetchUserById(member.userId.toString())
+    const role = member.roleId as any
+
+    return {
+      _id: member._id.toString(),
+      userId: member.userId.toString(),
+      user: {
+        _id: userInfo?._id || member.userId.toString(),
+        name: userInfo?.name || "Unknown User",
+        email: userInfo?.email || "",
+        image: userInfo?.image,
+      },
+      role: role
+        ? {
+            _id: role._id?.toString(),
+            name: role.name,
+            slug: role.slug,
+          }
+        : null,
+      isOwner: member.isOwner,
+      extraPermissions: member.extraPermissions,
+      createdAt: member.createdAt.toISOString(),
+      updatedAt: member.updatedAt.toISOString(),
+    }
   }
 
   /**
@@ -170,7 +138,7 @@ export class MemberService {
    */
   async updateMemberRole(
     memberId: string,
-    organisationId: string,
+    orgId: string,
     roleId: string,
     updatedBy: { isOwner: boolean; memberId: string }
   ): Promise<IMember> {
@@ -185,7 +153,7 @@ export class MemberService {
     // Get the member being updated
     const member = await Member.findOne({
       _id: memberId,
-      organizationId: organisationId,
+      orgId: orgId,
     })
 
     if (!member) {
@@ -205,7 +173,7 @@ export class MemberService {
     // Verify the role exists and belongs to the organisation
     const role = await Role.findOne({
       _id: roleId,
-      organisationId: organisationId,
+      orgId: orgId,
     })
 
     if (!role) {
@@ -217,7 +185,9 @@ export class MemberService {
       throw new Error("Cannot assign owner role")
     }
 
-    member.roleId = new mongoose.Types.ObjectId(roleId) as unknown as Schema.Types.ObjectId
+    member.roleId = new mongoose.Types.ObjectId(
+      roleId
+    ) as unknown as Schema.Types.ObjectId
     await member.save()
 
     return member
@@ -228,7 +198,7 @@ export class MemberService {
    */
   async updateMemberExtraPermissions(
     memberId: string,
-    organisationId: string,
+    orgId: string,
     extraPermissions: string[],
     updatedBy: { isOwner: boolean; memberId: string }
   ): Promise<IMember> {
@@ -242,7 +212,7 @@ export class MemberService {
     // Get the member being updated
     const member = await Member.findOne({
       _id: memberId,
-      organizationId: organisationId,
+      orgId: orgId,
     })
 
     if (!member) {
@@ -274,7 +244,7 @@ export class MemberService {
    */
   async removeMember(
     memberId: string,
-    organisationId: string,
+    orgId: string,
     removedBy: { isOwner: boolean; memberId: string }
   ): Promise<void> {
     if (!mongoose.Types.ObjectId.isValid(memberId)) {
@@ -284,7 +254,7 @@ export class MemberService {
     // Get the member being removed
     const member = await Member.findOne({
       _id: memberId,
-      organizationId: organisationId,
+      orgId: orgId,
     })
 
     if (!member) {
@@ -307,19 +277,19 @@ export class MemberService {
   /**
    * Get member count for an organisation
    */
-  async getMemberCount(organisationId: string): Promise<number> {
+  async getMemberCount(orgId: string): Promise<number> {
     return Member.countDocuments({
-      organizationId: new mongoose.Types.ObjectId(organisationId),
+      orgId: new mongoose.Types.ObjectId(orgId),
     })
   }
 
   /**
    * Check if a user is a member of an organisation
    */
-  async isMember(userId: string, organisationId: string): Promise<boolean> {
+  async isMember(userId: string, orgId: string): Promise<boolean> {
     const member = await Member.findOne({
       userId: new mongoose.Types.ObjectId(userId),
-      organizationId: new mongoose.Types.ObjectId(organisationId),
+      orgId: new mongoose.Types.ObjectId(orgId),
     })
     return !!member
   }

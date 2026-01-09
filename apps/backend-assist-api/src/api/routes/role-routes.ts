@@ -5,63 +5,55 @@ import {
   createRoleSchema,
   updateRoleSchema,
   roleIdSchema,
-  organisationIdParamSchema,
+  orgIdParamSchema,
   assignRoleSchema,
   updateMemberPermissionsSchema,
 } from "../validators/role-validator"
 import isAuth from "../../middleware/authenticate"
-import {
-  loadMemberAbility,
-  authorize,
-} from "../../middleware/authorize"
+import { loadMemberAbility, authorize } from "../../middleware/authorize"
 
 const router: Router = Router({ mergeParams: true })
 
 // All routes require authentication and organisation membership
-router.use(isAuth)
-router.use(loadMemberAbility)
+router.use(isAuth, loadMemberAbility)
 
 // ========================================
 // Role Routes
 // ========================================
 
 /**
- * @route   GET /api/v1/organisations/:organisationId/roles
+ * @route   GET /api/v1/organisations/:orgId/roles
  * @desc    Get all roles for an organisation
  * @access  Private (members with role:view)
  */
 router.get(
   "/",
-  validate(organisationIdParamSchema),
+  validate(orgIdParamSchema),
   authorize.viewRoles,
   roleController.getRoles
 )
 
 /**
- * @route   GET /api/v1/organisations/:organisationId/roles/permissions
+ * @route   GET /api/v1/organisations/:orgId/roles/permissions
  * @desc    Get all available permissions
  * @access  Private (members with role:view)
  */
 router.get(
   "/permissions",
-  validate(organisationIdParamSchema),
+  validate(orgIdParamSchema),
   authorize.viewRoles,
   roleController.getAvailablePermissions
 )
 
 /**
- * @route   GET /api/v1/organisations/:organisationId/roles/me
+ * @route   GET /api/v1/organisations/:orgId/roles/me
  * @desc    Get current user's permissions in organisation
  * @access  Private (any member)
  */
-router.get(
-  "/me",
-  validate(organisationIdParamSchema),
-  roleController.getMyPermissions
-)
+router.get("/me", validate(orgIdParamSchema), roleController.getMyPermissions)
 
 /**
- * @route   GET /api/v1/organisations/:organisationId/roles/:roleId
+ * @route   GET /api/v1/organisations/:orgId/roles/:roleId
  * @desc    Get a single role by ID
  * @access  Private (members with role:view)
  */
@@ -73,7 +65,7 @@ router.get(
 )
 
 /**
- * @route   POST /api/v1/organisations/:organisationId/roles
+ * @route   POST /api/v1/organisations/:orgId/roles
  * @desc    Create a new role
  * @access  Private (members with role:create)
  */
@@ -85,7 +77,7 @@ router.post(
 )
 
 /**
- * @route   PUT /api/v1/organisations/:organisationId/roles/:roleId
+ * @route   PUT /api/v1/organisations/:orgId/roles/:roleId
  * @desc    Update a role
  * @access  Private (members with role:edit)
  */
@@ -97,7 +89,7 @@ router.put(
 )
 
 /**
- * @route   DELETE /api/v1/organisations/:organisationId/roles/:roleId
+ * @route   DELETE /api/v1/organisations/:orgId/roles/:roleId
  * @desc    Delete a role
  * @access  Private (members with role:delete)
  */
@@ -109,7 +101,7 @@ router.delete(
 )
 
 /**
- * @route   POST /api/v1/organisations/:organisationId/roles/assign
+ * @route   POST /api/v1/organisations/:orgId/roles/assign
  * @desc    Assign a role to a member
  * @access  Private (members with role:assign)
  */
@@ -121,7 +113,7 @@ router.post(
 )
 
 /**
- * @route   PUT /api/v1/organisations/:organisationId/members/:memberId/permissions
+ * @route   PUT /api/v1/organisations/:orgId/members/:memberId/permissions
  * @desc    Update member's extra permissions
  * @access  Private (members with member:edit)
  */

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
-import { redirect, useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -27,6 +27,7 @@ import {
 } from "@workspace/ui/components/form"
 import { authClient } from "@/lib/auth-client"
 import { toast } from "sonner"
+import { getInvitation } from "@/utils/invitation-storage"
 
 const loginSchema = z.object({
   email: z.string().email({
@@ -44,8 +45,23 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect")
   const emailParam = searchParams.get("email")
-  const invitationId = searchParams.get("invitationId")
+  const inviteToken = searchParams.get("inviteToken")
   const [isLoading, setIsLoading] = useState(false)
+
+  // Check localStorage for pending invitation on page load
+  // This handles the case when user comes back after email verification
+  useEffect(() => {
+    // If no inviteToken in URL, check localStorage for pending invitation
+    if (!inviteToken) {
+      const pendingInvitation = getInvitation()
+      if (pendingInvitation) {
+        // Redirect to login with the stored invitation token
+        router.replace(
+          `/login?inviteToken=${pendingInvitation.inviteToken}&email=${encodeURIComponent(pendingInvitation.email)}`
+        )
+      }
+    }
+  }, [inviteToken, router])
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -69,20 +85,15 @@ function LoginForm() {
       const result = await authClient.signIn.email({
         email: data.email,
         password: data.password,
-        callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
+        callbackURL: inviteToken
+          ? `${process.env.NEXT_PUBLIC_CLIENT_URL}/accept-invite?id=${inviteToken}`
+          : redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
       })
 
       if (result.error) {
         toast.error(result.error.message || "Failed to login")
       } else {
         toast.success("Login successful!")
-        // Redirect after successful login
-        if (invitationId) {
-          // If coming from invitation flow, redirect to accept-invitation page
-          router.push(`/accept-invitation/${invitationId}`)
-        } else if (redirectTo) {
-          router.push(redirectTo)
-        }
       }
     } catch (error) {
       toast.error("An error occurred during login")
@@ -96,10 +107,12 @@ function LoginForm() {
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: invitationId
-          ? process.env.NEXT_PUBLIC_CLIENT_URL +
-            `/accept-invitation/${invitationId}`
+        callbackURL: inviteToken
+          ? `${process.env.NEXT_PUBLIC_CLIENT_URL}/accept-invite?id=${inviteToken}`
           : redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
+        additionalData: {
+          role: inviteToken ? "user" : "admin",
+        },
       })
     } catch (error) {
       toast.error("Failed to login with Google")
@@ -247,9 +260,9 @@ function LoginForm() {
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
-            Don't have an account?{" "}
+            {`Don't have an account?`}
             <Link
-              href="/signup"
+              href={`/signup${inviteToken ? `?inviteToken=${inviteToken}${emailParam ? `&email=${encodeURIComponent(emailParam)}` : ""}` : ""}`}
               className="font-medium text-primary hover:underline"
             >
               Sign up

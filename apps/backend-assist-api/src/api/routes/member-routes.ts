@@ -2,8 +2,9 @@ import { Router, IRouter } from "express"
 import { memberController } from "../controllers/member-controller"
 import { validate } from "../../middleware/validator"
 import { loadMemberAbility, checkPermission } from "../../middleware/authorize"
+import isAuth from "../../middleware/authenticate"
 import {
-  organisationIdParamSchema,
+  orgIdParamSchema,
   memberIdParamSchema,
   updateMemberRoleSchema,
   updateMemberPermissionsSchema,
@@ -12,34 +13,34 @@ import {
 const router: IRouter = Router({ mergeParams: true })
 
 // All routes require authentication and member ability loading
-router.use(loadMemberAbility)
+router.use(isAuth, loadMemberAbility)
 
 /**
- * @route   GET /api/v1/organisations/:organisationId/members
+ * @route   GET /api/v1/organisations/:orgId/members
  * @desc    Get all members of an organisation
  * @access  Private (members with member:view)
  */
 router.get(
   "/",
-  validate(organisationIdParamSchema),
+  validate(orgIdParamSchema),
   checkPermission("view", "Member"),
   memberController.getMembers
 )
 
 /**
- * @route   GET /api/v1/organisations/:organisationId/members/count
+ * @route   GET /api/v1/organisations/:orgId/members/count
  * @desc    Get member count for an organisation
  * @access  Private (members with member:view)
  */
 router.get(
   "/count",
-  validate(organisationIdParamSchema),
+  validate(orgIdParamSchema),
   checkPermission("view", "Member"),
   memberController.getMemberCount
 )
 
 /**
- * @route   GET /api/v1/organisations/:organisationId/members/:memberId
+ * @route   GET /api/v1/organisations/:orgId/members/:memberId
  * @desc    Get a single member by ID
  * @access  Private (members with member:view)
  */
@@ -51,7 +52,7 @@ router.get(
 )
 
 /**
- * @route   PUT /api/v1/organisations/:organisationId/members/:memberId/role
+ * @route   PUT /api/v1/organisations/:orgId/members/:memberId/role
  * @desc    Update a member's role
  * @access  Private (members with role:assign)
  */
@@ -63,7 +64,7 @@ router.put(
 )
 
 /**
- * @route   PUT /api/v1/organisations/:organisationId/members/:memberId/permissions
+ * @route   PUT /api/v1/organisations/:orgId/members/:memberId/permissions
  * @desc    Update a member's extra permissions
  * @access  Private (members with member:edit)
  */
@@ -75,7 +76,7 @@ router.put(
 )
 
 /**
- * @route   DELETE /api/v1/organisations/:organisationId/members/:memberId
+ * @route   DELETE /api/v1/organisations/:orgId/members/:memberId
  * @desc    Remove a member from the organisation
  * @access  Private (members with member:remove)
  */

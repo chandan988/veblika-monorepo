@@ -40,7 +40,7 @@ export type AppAbility = MongoAbility<[Actions, Subjects]>
 const permissionMap: Record<string, { action: Actions; subject: Subjects }> = {
   // Ticket permissions
   "ticket:view": { action: "view", subject: "Ticket" },
-  "ticket:create": { action: "create", subject: "Ticket" },
+  "ticket:reply": { action: "reply", subject: "Ticket" },
   "ticket:edit": { action: "edit", subject: "Ticket" },
   "ticket:delete": { action: "delete", subject: "Ticket" },
   "ticket:assign": { action: "assign", subject: "Ticket" },
@@ -77,7 +77,6 @@ const permissionMap: Record<string, { action: Actions; subject: Subjects }> = {
   "organisation:view": { action: "view", subject: "Organisation" },
   "organisation:edit": { action: "edit", subject: "Organisation" },
   "organisation:delete": { action: "delete", subject: "Organisation" },
-  "organisation:billing": { action: "billing", subject: "Organisation" },
 
   // Integration permissions
   "integration:view": { action: "view", subject: "Integration" },

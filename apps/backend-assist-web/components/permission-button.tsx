@@ -43,7 +43,7 @@ type PermissionButtonProps = Omit<ButtonProps, keyof PermissionButtonOwnProps> &
  * 
  * @example
  * // Using permission string
- * <PermissionButton permission="ticket:create" onClick={handleCreate}>
+ * <PermissionButton permission="ticket:edit" onClick={handleEdit}>
  *   Create Ticket
  * </PermissionButton>
  * 
@@ -77,7 +77,7 @@ export function PermissionButton({
 
   // Determine if user has permission
   let hasPermission = false
-  
+
   if (permission) {
     hasPermission = can(permission)
   } else if (action && subject) {
@@ -92,7 +92,7 @@ export function PermissionButton({
     if (fallback === "hide") {
       return null
     }
-    
+
     if (fallback === "disable") {
       return (
         <Button
@@ -104,7 +104,7 @@ export function PermissionButton({
         </Button>
       )
     }
-    
+
     // Custom fallback
     return <>{fallback}</>
   }

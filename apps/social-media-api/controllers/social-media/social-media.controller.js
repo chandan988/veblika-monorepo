@@ -8,6 +8,7 @@ import { uploadBase64Image } from "./upload-image.controller.js";
 import { uploadMulterFileToS3 } from "../../utils/s3-upload.js";
 import axios from "axios";
 import FormData from "form-data";
+import { getAppConfig } from "../../utils/getAppConfig.js";
 
 // Helper function to extract hashtags from text
 function extractHashtags(text) {
@@ -498,8 +499,9 @@ export const postToSinglePlatform = async (req, res) => {
         break;
 
       case "YOUTUBE":
-        if (postType === "video" && videoFile) {
-          result = await uploadYouTubeVideoFile(userId, content, videoFile);
+        if ((postType === "video" || postType === "short") && videoFile) {
+          // Pass isShort flag to add #Shorts tag for YouTube Shorts
+          result = await uploadYouTubeVideoFile(userId, content, videoFile, { isShort: postType === "short" });
         } else {
           return res.status(400).json({ message: "YouTube requires a video file" });
         }
@@ -1041,7 +1043,9 @@ async function postToInstagramImage(userId, pageId, caption, imageFile) {
 }
 
 // Helper function to upload YouTube video and fetch all required details
-async function uploadYouTubeVideoFile(userId, content, videoFile) {
+async function uploadYouTubeVideoFile(userId, content, videoFile, options = {}) {
+  const { isShort = false } = options;
+  
   // Get valid access token
   const appCredential = await AppCredentials.findOne({
     userId,
@@ -1059,10 +1063,19 @@ async function uploadYouTubeVideoFile(userId, content, videoFile) {
 
   // Check if token is still valid (with 1 minute buffer)
   if (!tokens.expiry || now >= tokens.expiry - 60000) {
+    // Get YouTube/Google app config from database (with fallback to env)
+    let youtubeConfig;
+    try {
+      youtubeConfig = await getAppConfig(userId, "app/youtube");
+    } catch (error) {
+      console.error("[YouTube Social Media] Error getting app config:", error.message);
+      throw new Error("YouTube app configuration not found");
+    }
+
     // Refresh token
     const refreshRes = await axios.post("https://oauth2.googleapis.com/token", {
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      client_id: youtubeConfig.appClientId,
+      client_secret: youtubeConfig.appClientSecret,
       refresh_token: tokens.refresh_token,
       grant_type: "refresh_token",
     });
@@ -1084,14 +1097,32 @@ async function uploadYouTubeVideoFile(userId, content, videoFile) {
   }
 
   try {
+    // Prepare title and description for Shorts
+    let title = content.split("\n")[0] || (isShort ? "Untitled Short" : "Untitled Video");
+    let description = content || "";
+    
+    // For YouTube Shorts, add #Shorts tag to title and description
+    // YouTube uses this to recognize and promote content as Shorts
+    if (isShort) {
+      // Add #Shorts to the title if not already present
+      if (!title.toLowerCase().includes("#shorts")) {
+        title = `${title} #Shorts`;
+      }
+      // Also add #Shorts to description if not present
+      if (!description.toLowerCase().includes("#shorts")) {
+        description = `${description}\n\n#Shorts`;
+      }
+      console.log("[uploadYouTubeVideoFile] Uploading as YouTube Short with #Shorts tag");
+    }
+
     // Step 1: Upload video to YouTube
     console.log("[uploadYouTubeVideoFile] Step 1: Creating YouTube resumable upload session");
     const createRes = await axios.post(
       "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
       {
         snippet: {
-          title: content.split("\n")[0] || "Untitled Video",
-          description: content || "",
+          title: title,
+          description: description,
         },
         status: {
           privacyStatus: "public",
@@ -1147,10 +1178,10 @@ async function uploadYouTubeVideoFile(userId, content, videoFile) {
       throw new Error("Failed to fetch video details from YouTube");
     }
 
-    // Step 5: Extract required fields
+    // Step 5: Extract required fields from the uploaded video
     const channelId = videoDetails.snippet.channelId;
-    const title = videoDetails.snippet.title;
-    const description = videoDetails.snippet.description || "";
+    const uploadedTitle = videoDetails.snippet.title;
+    const uploadedDescription = videoDetails.snippet.description || "";
     
     // Get thumbnail URL (highest quality available)
     const thumbnails = videoDetails.snippet.thumbnails;
@@ -1162,8 +1193,8 @@ async function uploadYouTubeVideoFile(userId, content, videoFile) {
     console.log("[uploadYouTubeVideoFile] Step 5: Extracted video details:", {
       videoId,
       channelId,
-      title: title.substring(0, 50) + "...",
-      hasDescription: !!description,
+      title: uploadedTitle.substring(0, 50) + "...",
+      hasDescription: !!uploadedDescription,
       hasThumbnail: !!thumbnailUrl,
     });
 
@@ -1174,8 +1205,8 @@ async function uploadYouTubeVideoFile(userId, content, videoFile) {
       postId: videoId,
       videoId,
       channelId,
-      title,
-      description,
+      title: uploadedTitle,
+      description: uploadedDescription,
       thumbnailUrl,
       videoUrl,
       // Include access token for potential future use

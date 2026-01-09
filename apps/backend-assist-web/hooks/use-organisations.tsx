@@ -23,7 +23,7 @@ interface UpdateOrganisationInput {
 
 interface Member {
     _id: string
-    organizationId: string
+    orgId: string
     userId: string
     role: "owner" | "admin" | "member"
     invitedBy?: string
@@ -86,14 +86,14 @@ export const useOrganisations = () => {
 /**
  * Get single organisation by ID
  */
-export const useOrganisation = (organisationId: string) => {
+export const useOrganisation = (orgId: string) => {
     return useQuery({
-        queryKey: ["organisation", organisationId],
+        queryKey: ["organisation", orgId],
         queryFn: async () => {
-            const { data } = await api.get(`/organisations/${organisationId}`)
+            const { data } = await api.get(`/organisations/${orgId}`)
             return data.data as Organisation & { role: string }
         },
-        enabled: !!organisationId,
+        enabled: !!orgId,
     })
 }
 
@@ -195,14 +195,14 @@ export const useDeleteOrganisation = () => {
 /**
  * Get members of an organisation
  */
-export const useOrganisationMembers = (organisationId: string) => {
+export const useOrganisationMembers = (orgId: string) => {
     return useQuery({
-        queryKey: ["organisation-members", organisationId],
+        queryKey: ["organisation-members", orgId],
         queryFn: async () => {
-            const { data } = await api.get(`/organisations/${organisationId}/members`)
+            const { data } = await api.get(`/organisations/${orgId}/members`)
             return data.data as Member[]
         },
-        enabled: !!organisationId,
+        enabled: !!orgId,
     })
 }
 
@@ -214,21 +214,21 @@ export const useAddMember = () => {
 
     return useMutation({
         mutationFn: async ({
-            organisationId,
+            orgId,
             input,
         }: {
-            organisationId: string
+            orgId: string
             input: AddMemberInput
         }) => {
             const { data } = await api.post(
-                `/organisations/${organisationId}/members`,
+                `/organisations/${orgId}/members`,
                 input
             )
             return data.data as Member
         },
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({
-                queryKey: ["organisation-members", variables.organisationId],
+                queryKey: ["organisation-members", variables.orgId],
             })
         },
     })
@@ -242,23 +242,23 @@ export const useUpdateMemberRole = () => {
 
     return useMutation({
         mutationFn: async ({
-            organisationId,
+            orgId,
             memberId,
             input,
         }: {
-            organisationId: string
+            orgId: string
             memberId: string
             input: UpdateMemberRoleInput
         }) => {
             const { data } = await api.put(
-                `/organisations/${organisationId}/members/${memberId}`,
+                `/organisations/${orgId}/members/${memberId}`,
                 input
             )
             return data.data as Member
         },
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({
-                queryKey: ["organisation-members", variables.organisationId],
+                queryKey: ["organisation-members", variables.orgId],
             })
         },
     })
@@ -272,17 +272,17 @@ export const useRemoveMember = () => {
 
     return useMutation({
         mutationFn: async ({
-            organisationId,
+            orgId,
             memberId,
         }: {
-            organisationId: string
+            orgId: string
             memberId: string
         }) => {
-            await api.delete(`/organisations/${organisationId}/members/${memberId}`)
+            await api.delete(`/organisations/${orgId}/members/${memberId}`)
         },
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({
-                queryKey: ["organisation-members", variables.organisationId],
+                queryKey: ["organisation-members", variables.orgId],
             })
         },
     })
@@ -296,9 +296,9 @@ export const useLeaveOrganisation = () => {
     const removeOrganisation = useOrganisationStore((s) => s.removeOrganisation)
 
     return useMutation({
-        mutationFn: async (organisationId: string) => {
-            await api.post(`/organisations/${organisationId}/leave`)
-            return organisationId
+        mutationFn: async (orgId: string) => {
+            await api.post(`/organisations/${orgId}/leave`)
+            return orgId
         },
         onSuccess: (id) => {
             removeOrganisation(id)
@@ -320,8 +320,8 @@ export const useSwitchOrganisation = () => {
     )
     const getOrganisationById = useOrganisationStore((s) => s.getOrganisationById)
 
-    return (organisationId: string) => {
-        const org = getOrganisationById(organisationId)
+    return (orgId: string) => {
+        const org = getOrganisationById(orgId)
         if (org) {
             setActiveOrganisation(org)
         }

@@ -7,7 +7,7 @@
 export const ALL_PERMISSIONS = [
   // Ticket permissions
   "ticket:view",
-  "ticket:create",
+  "ticket:reply",
   "ticket:edit",
   "ticket:delete",
   "ticket:assign",
@@ -39,7 +39,6 @@ export const ALL_PERMISSIONS = [
   "organisation:view",
   "organisation:edit",
   "organisation:delete",
-  "organisation:billing",
   // Integration permissions
   "integration:view",
   "integration:create",
@@ -61,7 +60,7 @@ export const PERMISSION_CATEGORIES = {
     label: "Tickets",
     permissions: [
       { key: "ticket:view", label: "View tickets" },
-      { key: "ticket:create", label: "Create tickets" },
+      { key: "ticket:reply", label: "Reply to tickets" },
       { key: "ticket:edit", label: "Edit tickets" },
       { key: "ticket:delete", label: "Delete tickets" },
       { key: "ticket:assign", label: "Assign tickets" },
@@ -113,7 +112,6 @@ export const PERMISSION_CATEGORIES = {
       { key: "organisation:view", label: "View settings" },
       { key: "organisation:edit", label: "Edit settings" },
       { key: "organisation:delete", label: "Delete organisation" },
-      { key: "organisation:billing", label: "Manage billing" },
     ],
   },
   integration: {
@@ -152,7 +150,7 @@ export interface Role {
   permissions: string[]
   isDefault: boolean
   isSystem: boolean
-  organisationId: string
+  orgId: string
   createdAt: string
   updatedAt: string
 }
@@ -161,7 +159,7 @@ export interface Role {
 export interface Member {
   _id: string
   userId: string
-  organisationId: string
+  orgId: string
   roleId: Role | string
   isOwner: boolean
   extraPermissions: string[]

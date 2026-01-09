@@ -233,6 +233,7 @@ export default function ContactsPage() {
 
     try {
       await updateContactMutation.mutateAsync({
+        orgId,
         id: selectedContact._id,
         data,
       });
@@ -261,7 +262,7 @@ export default function ContactsPage() {
     if (!selectedContact) return;
 
     try {
-      await deleteContactMutation.mutateAsync(selectedContact._id);
+      await deleteContactMutation.mutateAsync({ orgId, id: selectedContact._id });
 
       toast({
         title: "Success",

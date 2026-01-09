@@ -2,12 +2,14 @@ import { z } from 'zod';
 
 export const getConversationsQuerySchema = z.object({
   query: z.object({
-    orgId: z.string().optional(),
     status: z.enum(['open', 'pending', 'closed']).optional(),
     channel: z.enum(['gmail', 'imap', 'smtp', 'slack', 'whatsapp', 'webchat']).optional(),
     assignedMemberId: z.string().optional(),
     page: z.string().optional(),
     limit: z.string().optional(),
+  }),
+  params: z.object({
+    orgId: z.string().min(1, 'Organization ID is required'),
   }),
 });
 
@@ -23,6 +25,7 @@ export const updateConversationSchema = z.object({
     assignedMemberId: z.string().optional(),
     tags: z.array(z.string()).optional(),
     priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
+    closedReason: z.enum(['resolved', 'spam', 'duplicate', 'no_response', 'customer_request', 'merged', 'other']).optional(),
   }),
 });
 
@@ -40,7 +43,7 @@ export const getMessagesQuerySchema = z.object({
   }),
 });
 
-export type GetConversationsQuery = z.infer<typeof getConversationsQuerySchema>['query'];
+export type GetConversationsQuery = z.infer<typeof getConversationsQuerySchema>['query'] & { orgId: string };
 export type UpdateConversationInput = z.infer<typeof updateConversationSchema>['body'];
 export type SendMessageInput = z.infer<typeof sendMessageSchema>['body'];
 export type GetMessagesQuery = z.infer<typeof getMessagesQuerySchema>['query'];

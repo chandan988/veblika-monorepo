@@ -1,241 +1,274 @@
+import mongoose from "mongoose";
 import AppConfig from "../../models/appconfig.schema.js";
 import AppCredentials from "../../models/appcredentials.model.js";
-import UserModel from "../../models/user.model.js";
 import { handleInstagramConnect } from "./connection-functions.js";
 
+/**
+ * ========================================================
+ * Helper: Decode OAuth State
+ * ========================================================
+ */
+const decodeOAuthState = (state) => {
+  try {
+    return JSON.parse(Buffer.from(state, "base64").toString("utf-8"));
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * ========================================================
+ * Resolve OAuth App Config
+ *
+ * Order:
+ * 1. Reseller AppConfig (MANDATORY if resellerId exists)
+ * 2. ENV fallback (ONLY if reseller config not found)
+ * ========================================================
+ */
+export const resolveAppConfig = async (appName, resellerId) => {
+  console.log("--------------------------------------------------");
+  console.log("[resolveAppConfig] START");
+  console.log("[resolveAppConfig] appName:", appName);
+  console.log("[resolveAppConfig] resellerId (raw):", resellerId);
+  console.log(
+    "[resolveAppConfig] resellerId valid ObjectId:",
+    resellerId && mongoose.Types.ObjectId.isValid(resellerId)
+  );
+
+  // 1️⃣ Try reseller config first
+  if (resellerId && mongoose.Types.ObjectId.isValid(resellerId)) {
+    const resellerObjectId = new mongoose.Types.ObjectId(resellerId);
+    console.log("[resolveAppConfig] resellerObjectId:", resellerObjectId.toString());
+
+    const resellerConfig = await AppConfig.findOne({
+      appName,
+      resellerId: resellerObjectId,
+    }).lean();
+
+    console.log(
+      "[resolveAppConfig] DB QUERY RESULT:",
+      resellerConfig ? "FOUND" : "NOT FOUND"
+    );
+
+    if (resellerConfig) {
+      console.log("[resolveAppConfig] ✅ USING RESELLER CONFIG");
+      console.log("[resolveAppConfig] resellerConfig:", resellerConfig);
+
+      return {
+        appClientId: resellerConfig.appClientId,
+        appClientSecret: resellerConfig.appClientSecret,
+        redirectUrl: resellerConfig.redirectUrl,
+        source: "reseller",
+      };
+    }
+  }
+
+  console.warn("[resolveAppConfig] ⚠️ FALLING BACK TO ENV");
+
+  const ENV_MAP = {
+    "app/instagram": {
+      appClientId: process.env.INSTAGRAM_APP_ID || process.env.META_APP_ID,
+      appClientSecret:
+        process.env.INSTAGRAM_APP_SECRET || process.env.META_APP_SECRET,
+      redirectUrl: process.env.INSTAGRAM_REDIRECT_URI,
+    },
+    "app/facebook": {
+      appClientId: process.env.FACEBOOK_APP_ID || process.env.META_APP_ID,
+      appClientSecret:
+        process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET,
+      redirectUrl:
+        process.env.FACEBOOK_REDIRECT_URI ||
+        process.env.INSTAGRAM_REDIRECT_URI,
+    },
+    "app/linkedin": {
+      appClientId: process.env.LINKEDIN_CLIENT_ID,
+      appClientSecret: process.env.LINKEDIN_CLIENT_SECRET,
+      redirectUrl: process.env.LINKEDIN_REDIRECT_URI,
+    },
+    "app/youtube": {
+      appClientId: process.env.GOOGLE_CLIENT_ID,
+      appClientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      redirectUrl: process.env.GOOGLE_REDIRECT_URI,
+    },
+  };
+
+  console.log("[resolveAppConfig] ENV USED FOR:", appName);
+  console.log("--------------------------------------------------");
+
+  return ENV_MAP[appName]
+    ? { ...ENV_MAP[appName], source: "env" }
+    : null;
+};
+
+
+/**
+ * ========================================================
+ * SAVE / UPDATE APP CONFIG (RESELLER ONLY)
+ * ========================================================
+ */
 export const appSaveConfigController = async (req, res) => {
   try {
-    const {
-      clientId: appClientId,
-      clientSecret: appClientSecret,
-      redirectUrl,
-      appname,
-    } = req.body;
-
-    if (!req.user?._id) {
-      return res
-        .status(401)
-        .json({ message: "Authentication required", status: false });
-    }
-
-    const userFinder = await UserModel.findById(req.user._id).lean();
-    if (!userFinder) {
-      return res.status(404).json({ message: "User not found", status: false });
-    }
-
-    console.log("userFinder", userFinder);
-
-    const savingObj = {
-      userId: String(userFinder._id),
-      appName: appname,
-      appClientId,
-      appClientSecret,
-      redirectUrl,
-      createdBy: userFinder._id,
-    };
-
-    console.log("savingObj", savingObj);
-
-    const appConfigFinder = await AppConfig.findOne({
-      userId: String(userFinder._id),
-      appName: appname,
-    });
-
-    if (appConfigFinder) {
-      const updatedAppConfig = await AppConfig.findOneAndUpdate(
-        { userId: String(userFinder._id), appName: appname },
-        { appClientId, appClientSecret, redirectUrl },
-        { new: true }
-      );
-
-      return res.status(200).json({
-        message: "App Config Updated Successfully",
-        status: true,
-        data: updatedAppConfig,
+    if (!req.user?._id || req.user.role !== "reseller") {
+      return res.status(403).json({
+        status: false,
+        message: "Only resellers can configure OAuth apps",
       });
     }
 
-    const createAppConfig = new AppConfig(savingObj);
-    await createAppConfig.save();
+    const { clientId, clientSecret, redirectUrl, appname } = req.body;
+    const resellerId = req.user.resellerId;
 
-    res.status(200).json({
-      message: "App Config Saved Successfully",
+    if (!mongoose.Types.ObjectId.isValid(resellerId)) {
+      return res.status(400).json({
+        status: false,
+        message: "Invalid resellerId",
+      });
+    }
+    console.log("[appSaveConfigController] Saving config:");
+    console.log("appname:", appname);
+    console.log("resellerId:", resellerId);
+    console.log("clientId:", clientId);
+    console.log("clientSecret:", clientSecret);
+    console.log("redirectUrl:", redirectUrl);
+
+
+    const saved = await AppConfig.findOneAndUpdate(
+      {
+        appName: appname,
+        resellerId: new mongoose.Types.ObjectId(resellerId),
+      },
+      {
+        appName: appname,
+        resellerId: new mongoose.Types.ObjectId(resellerId),
+        appClientId: clientId,
+        appClientSecret: clientSecret,
+        redirectUrl,
+        createdBy: req.user._id,
+      },
+      { upsert: true, new: true }
+    );
+
+    return res.json({
       status: true,
-      data: createAppConfig,
+      message: "App Config Saved Successfully",
+      data: saved,
     });
   } catch (error) {
-    console.log("err in saving app config", error);
-    return res.status(500).json({ message: error.message, status: false });
+    console.error("[appSaveConfigController]", error);
+    return res.status(500).json({ status: false, message: error.message });
   }
 };
 
+/**
+ * ========================================================
+ * GET AVAILABLE INTEGRATIONS
+ * ========================================================
+ */
 export const getAppsArry = async (req, res) => {
   try {
-    // Multi-tenant: Each user has their own userId
-    // Use user._id as userId - each user is isolated
     if (!req.user?._id) {
-      return res.status(401).json({ message: "Unauthorized", status: false });
+      return res.status(401).json({ status: false, message: "Unauthorized" });
     }
-    
-    const userId = String(req.user._id);
-    
-    console.log("[getAppsArry] Checking connections with userId:", userId);
-    console.log("[getAppsArry] req.user:", req.user);
-    
-    let appConfigsFinder = [];
-    let connectedPlatforms = [];
 
-    // Query only this user's organization
-    appConfigsFinder = await AppConfig.find({ userId }).lean();
-    // Check which platforms are actually connected for this user
-    connectedPlatforms = await AppCredentials.find({
+    const resellerId = req.user.resellerId;
+    const userId = String(req.user._id);
+
+    const connectedPlatforms = await AppCredentials.find({
       userId,
       platform: { $in: ["FACEBOOK", "INSTAGRAM", "LINKEDIN", "YOUTUBE"] },
     }).lean();
-    
-    console.log("[getAppsArry] Found connected platforms:", connectedPlatforms.map(p => ({ platform: p.platform, userId: p.userId })));
-
-    console.log("[appconfig] Loaded env credentials", {
-      hasInstagram: Boolean(process.env.INSTAGRAM_APP_ID || process.env.META_APP_ID),
-      hasFacebook: Boolean(process.env.FACEBOOK_APP_ID || process.env.META_APP_ID),
-      hasLinkedIn: Boolean(process.env.LINKEDIN_CLIENT_ID),
-      hasYouTube: Boolean(process.env.GOOGLE_CLIENT_ID),
-    });
-
-    const envConfigs = {
-      "app/instagram": {
-        appClientId: process.env.INSTAGRAM_APP_ID || process.env.META_APP_ID,
-        appClientSecret: process.env.INSTAGRAM_APP_SECRET || process.env.META_APP_SECRET,
-        redirectUrl: process.env.INSTAGRAM_REDIRECT_URI,
-        source: "env",
-      },
-      "app/facebook": {
-        appClientId: process.env.FACEBOOK_APP_ID || process.env.META_APP_ID,
-        appClientSecret: process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET,
-        redirectUrl: process.env.FACEBOOK_REDIRECT_URI || process.env.INSTAGRAM_REDIRECT_URI,
-        source: "env",
-      },
-      "app/linkedin": {
-        appClientId: process.env.LINKEDIN_CLIENT_ID,
-        appClientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-        redirectUrl: process.env.LINKEDIN_REDIRECT_URI,
-        source: "env",
-      },
-      "app/youtube": {
-        appClientId: process.env.GOOGLE_CLIENT_ID,
-        appClientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        redirectUrl: process.env.GOOGLE_REDIRECT_URI,
-        source: "env",
-      },
-    };
 
     const baseIntegrations = [
-      {
-        id: 1,
-        name: "Instagram",
-        appname: "app/instagram",
-        icon: "/icons/instagram.png",
-        description:
-          "Schedule reels, reply to DMs, and keep your community engaged with creator-first workflows.",
-      },
-      {
-        id: 2,
-        name: "Facebook Pages",
-        appname: "app/facebook",
-        icon: "/icons/facebook.svg",
-        description:
-          "Manage Meta pages, publish carousels, and track engagement insights without leaving the dashboard.",
-      },
-      {
-        id: 3,
-        name: "LinkedIn",
-        appname: "app/linkedin",
-        icon: "https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png",
-        description:
-          "Share professional content, engage with your network, and grow your business presence on LinkedIn.",
-      },
-      {
-        id: 4,
-        name: "YouTube",
-        appname: "app/youtube",
-        icon: "https://upload.wikimedia.org/wikipedia/commons/4/42/YouTube_icon_%282013-2017%29.png",
-        description:
-          "Upload videos, manage your channel, and engage with your audience on the world's largest video platform.",
-      },
+      { name: "Instagram", appname: "app/instagram", platform: "INSTAGRAM" },
+      { name: "Facebook Page", appname: "app/facebook", platform: "FACEBOOK" },
+      { name: "LinkedIn", appname: "app/linkedin", platform: "LINKEDIN" },
+      { name: "YouTube", appname: "app/youtube", platform: "YOUTUBE" },
     ];
 
-    const integrations = baseIntegrations.map((integration) => {
-      const envConfig = envConfigs[integration.appname];
+    const integrations = await Promise.all(
+      
+      baseIntegrations.map(async (integration) => {
+        console.log("[getAppsArry] resellerId from req.user:", req.user.resellerId);
+        const config = await resolveAppConfig(
+          integration.appname,
+          resellerId
+        );
 
-      const matchedConfig = envConfig?.appClientId
-        ? envConfig
-        : appConfigsFinder.find(
-        (app) => app.appName === integration.appname
-          );
+        return {
+          ...integration,
+          connected: connectedPlatforms.some(
+            (p) => p.platform === integration.platform
+          ),
+          config: config
+            ? {
+                appClientId: config.appClientId,
+                redirectUrl: config.redirectUrl,
+                source: config.source,
+              }
+            : null,
+        };
+      })
+    );
 
-      // Check if platform is actually connected
-      const platformMap = {
-        "app/instagram": "INSTAGRAM",
-        "app/facebook": "FACEBOOK",
-        "app/linkedin": "LINKEDIN",
-        "app/youtube": "YOUTUBE",
-      };
-
-      const platformName = platformMap[integration.appname];
-      const isConnected = connectedPlatforms.some(
-        (cp) => cp.platform === platformName
-      );
-
-      return {
-        ...integration,
-        connected: isConnected,
-        config: matchedConfig
-          ? {
-              appClientId: matchedConfig.appClientId,
-              appClientSecret: matchedConfig.appClientSecret,
-              redirectUrl: matchedConfig.redirectUrl,
-              source: matchedConfig.source || "user",
-            }
-          : null,
-      };
-    });
-
-    return res.status(200).json({
-      message: "App Config Fetched Successfully",
-      status: true,
-      data: { integrations },
-    });
+    return res.json({ status: true, data: { integrations } });
   } catch (error) {
-    console.log("err in getting app config", error);
-    return res.status(500).json({ message: error.message, status: false });
+    console.error("[getAppsArry]", error);
+    return res.status(500).json({ status: false, message: error.message });
   }
 };
 
+/**
+ * ========================================================
+ * HANDLE CONNECT (OAUTH CALLBACK)
+ * ========================================================
+ */
 export const handleTheConnect = async (req, res) => {
   try {
-    const { code, appname } = req.body;
+    const { code, appname, state } = req.body;
+
+    // Restore user context from OAuth state (IMPORTANT)
+    if (!req.user && state) {
+      const decoded = decodeOAuthState(state);
+      if (decoded?.userId) {
+        req.user = {
+          _id: decoded.userId,
+          resellerId: decoded.resellerId || null,
+        };
+      }
+    }
 
     if (!req.user?._id) {
-      return res
-        .status(401)
-        .json({ message: "Authentication required", status: false });
+      return res.status(401).json({
+        status: false,
+        message: "Unauthorized OAuth callback",
+      });
     }
 
-    const appCredFinder = await AppConfig.findOne({
-      userId: String(req.user._id),
-      appName: appname,
-    }).lean();
+    const appConfig = await resolveAppConfig(
+      appname,
+      req.user.resellerId
+    );
 
-    if (!appCredFinder) {
-      return res.status(400).json({ message: "App credentials not found" });
+    if (!appConfig) {
+      return res.status(400).json({
+        status: false,
+        message: "OAuth app not configured",
+      });
     }
+
     if (appname === "app/instagram") {
-      await handleInstagramConnect(req, res, code, appCredFinder);
+      return await handleInstagramConnect(req, res, code, appConfig);
     }
+
+    return res.status(400).json({
+      status: false,
+      message: "Unsupported platform",
+    });
   } catch (error) {
-    console.log("error in connect instagram", error);
-    return res
-      .status(500)
-      .json({ message: "Server Error", error: error.message });
+    console.error("[handleTheConnect]", error);
+    return res.status(500).json({
+      status: false,
+      message: error.message,
+    });
   }
 };

@@ -4,11 +4,8 @@ import { validate } from "../../middleware/validator"
 import {
     createOrganisationSchema,
     updateOrganisationSchema,
-    organisationIdSchema,
+    orgIdSchema,
     checkSlugSchema,
-    addMemberSchema,
-    updateMemberRoleSchema,
-    removeMemberSchema,
 } from "../validators/organisation-validator"
 import isAuth from "../../middleware/authenticate"
 
@@ -57,7 +54,7 @@ router.get(
 router.get(
     "/:id",
     isAuth,
-    validate(organisationIdSchema),
+    validate(orgIdSchema),
     organisationController.getOrganisationById
 )
 
@@ -69,7 +66,7 @@ router.get(
 router.put(
     "/:id",
     isAuth,
-    validate(organisationIdSchema.merge(updateOrganisationSchema)),
+    validate(orgIdSchema.merge(updateOrganisationSchema)),
     organisationController.updateOrganisation
 )
 
@@ -81,72 +78,8 @@ router.put(
 router.delete(
     "/:id",
     isAuth,
-    validate(organisationIdSchema),
+    validate(orgIdSchema),
     organisationController.deleteOrganisation
-)
-
-// ========================================
-// Member Routes
-// ========================================
-
-/**
- * @route   GET /api/v1/organisations/:id/members
- * @desc    Get all members of an organisation
- * @access  Private (member only)
- */
-router.get(
-    "/:id/members",
-    isAuth,
-    validate(organisationIdSchema),
-    organisationController.getMembers
-)
-
-/**
- * @route   POST /api/v1/organisations/:id/members
- * @desc    Add member to organisation
- * @access  Private (owner/admin only)
- */
-router.post(
-    "/:id/members",
-    isAuth,
-    validate(addMemberSchema),
-    organisationController.addMember
-)
-
-/**
- * @route   PUT /api/v1/organisations/:id/members/:memberId
- * @desc    Update member role
- * @access  Private (owner only)
- */
-router.put(
-    "/:id/members/:memberId",
-    isAuth,
-    validate(updateMemberRoleSchema),
-    organisationController.updateMemberRole
-)
-
-/**
- * @route   DELETE /api/v1/organisations/:id/members/:memberId
- * @desc    Remove member from organisation
- * @access  Private (owner/admin only)
- */
-router.delete(
-    "/:id/members/:memberId",
-    isAuth,
-    validate(removeMemberSchema),
-    organisationController.removeMember
-)
-
-/**
- * @route   POST /api/v1/organisations/:id/leave
- * @desc    Leave organisation
- * @access  Private
- */
-router.post(
-    "/:id/leave",
-    isAuth,
-    validate(organisationIdSchema),
-    organisationController.leaveOrganisation
 )
 
 export default router

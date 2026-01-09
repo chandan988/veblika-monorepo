@@ -111,12 +111,20 @@ export function MessageThread({
     setShouldAutoScroll(isAtBottom)
   }, [])
 
-  const handleStatusChange = (status: "open" | "pending" | "closed") => {
-    onUpdateConversation?.({ status })
+  const handleStatusChange = (status: "open" | "pending" | "closed", closedReason?: any) => {
+    const updates: any = { status }
+    if (status === "closed" && closedReason) {
+      updates.closedReason = closedReason
+    }
+    onUpdateConversation?.(updates)
   }
 
   const handleAssignmentChange = (memberId: string | null) => {
     onUpdateConversation?.({ assignedMemberId: memberId } as Partial<Conversation>)
+  }
+
+  const handlePriorityChange = (priority: "low" | "normal" | "high" | "urgent") => {
+    onUpdateConversation?.({ priority } as Partial<Conversation>)
   }
 
   // Check if message is consecutive (same sender, within 5 minutes)
@@ -144,6 +152,7 @@ export function MessageThread({
         conversation={conversation}
         onStatusChange={handleStatusChange}
         onAssignmentChange={handleAssignmentChange}
+        onPriorityChange={handlePriorityChange}
       />
 
       {/* Messages Area */}

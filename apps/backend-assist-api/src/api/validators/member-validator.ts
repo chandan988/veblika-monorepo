@@ -1,21 +1,21 @@
 import { z } from "zod"
 
-export const organisationIdParamSchema = z.object({
+export const orgIdParamSchema = z.object({
   params: z.object({
-    organisationId: z.string().min(1, "Organisation ID is required"),
+    orgId: z.string().min(1, "Organisation ID is required"),
   }),
 })
 
 export const memberIdParamSchema = z.object({
   params: z.object({
-    organisationId: z.string().min(1, "Organisation ID is required"),
+    orgId: z.string().min(1, "Organisation ID is required"),
     memberId: z.string().min(1, "Member ID is required"),
   }),
 })
 
 export const updateMemberRoleSchema = z.object({
   params: z.object({
-    organisationId: z.string().min(1, "Organisation ID is required"),
+    orgId: z.string().min(1, "Organisation ID is required"),
     memberId: z.string().min(1, "Member ID is required"),
   }),
   body: z.object({
@@ -25,7 +25,7 @@ export const updateMemberRoleSchema = z.object({
 
 export const updateMemberPermissionsSchema = z.object({
   params: z.object({
-    organisationId: z.string().min(1, "Organisation ID is required"),
+    orgId: z.string().min(1, "Organisation ID is required"),
     memberId: z.string().min(1, "Member ID is required"),
   }),
   body: z.object({

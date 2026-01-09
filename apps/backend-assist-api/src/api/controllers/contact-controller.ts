@@ -8,7 +8,8 @@ export const contactController = {
    */
   getContacts: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { orgId, page = 1, limit = 50, search } = req.query
+      const { page = 1, limit = 50, search } = req.query
+      const orgId = req.params.orgId
 
       if (!orgId) {
         return res.status(400).json({
@@ -59,7 +60,8 @@ export const contactController = {
    */
   createContact: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { orgId, name, email, phone, source } = req.body
+      const { name, email, phone, source } = req.body
+      const orgId = req.params.orgId
 
       // Validate required fields
       if (!orgId) {

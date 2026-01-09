@@ -40,17 +40,23 @@ export function useAuthSession() {
   // Get full session object
   const sessionInfo = sessionData?.session || null;
   
-  // Update API client with token, userId, and email whenever they change
+  // Extract role and resellerId from user object
+  const userRole = (user as any)?.role || null;
+  const resellerId = (user as any)?.resellerId || null;
+  
+  // Update API client with token, userId, email, role, and resellerId whenever they change
   // This ensures all API requests automatically include the token and user info
   useEffect(() => {
-    setAuthToken(token, userId, user?.email || null);
-  }, [token, userId, user?.email]);
+    setAuthToken(token, userId, user?.email || null, userRole, resellerId);
+  }, [token, userId, user?.email, userRole, resellerId]);
   
   return {
     userId,        // "692d7b14b183fc3f9a664d27" - from session.data.user.id
     token,         // "sbztJHMSXHHpYjV8hKSjnGhD6vWryNSq" - from session.data.session.token
     user,          // Full user object with email, name, etc.
     session: sessionInfo,  // Full session object
+    role: userRole, // User role (e.g., "reseller", "admin")
+    resellerId,    // Reseller ID if user belongs to a reseller
     isAuthenticated: !!userId && !!token,
     isLoading: session?.isPending || false,
     error: session?.error || null,

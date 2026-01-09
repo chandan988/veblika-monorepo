@@ -14,20 +14,26 @@ import contactRoutes from "../api/routes/contact-routes"
 import organisationRoutes from "../api/routes/organisation-routes"
 import roleRoutes from "../api/routes/role-routes"
 import memberRoutes from "../api/routes/member-routes"
+import {
+  invitationOrgRouter,
+  invitationPublicRouter,
+} from "../api/routes/invitation-routes"
 
 export const routesLoader = (app: Express): void => {
   const router = Router()
 
   // API routes
   router.use("/organisations", organisationRoutes)
-  router.use("/organisations/:organisationId/roles", roleRoutes)
-  router.use("/organisations/:organisationId/members", memberRoutes)
-  router.use("/integrations", integrationRoutes)
-  router.use("/integrations/gmail", integrationGmailRoutes)
+  router.use("/organisations/:orgId/roles", roleRoutes)
+  router.use("/organisations/:orgId/members", memberRoutes)
+  router.use("/organisations/:orgId/invitations", invitationOrgRouter)
+  router.use("/organisations/:orgId/integrations", integrationRoutes)
+  router.use("/organisations/:orgId/integrations/gmail", integrationGmailRoutes)
+  router.use("/organisations/:orgId/conversations", conversationRoutes)
+  router.use("/organisations/:orgId/contacts", contactRoutes)
+  router.use("/invitations", invitationPublicRouter)
   router.use("/widget", widgetRoutes)
   router.use("/widget", widgetLoaderRoutes)
-  router.use("/conversations", conversationRoutes)
-  router.use("/contacts", contactRoutes)
   router.use("/webhook", gmailWebhookRoutes) // Public webhook endpoint
 
   // Example route

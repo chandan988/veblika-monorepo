@@ -3,10 +3,17 @@
 import { useState } from "react"
 import { PermissionGuard, AccessDenied } from "@/components/permission-guard"
 import { PermissionButton } from "@/components/permission-button"
+import { InviteMemberDialog } from "@/app/(main)/settings/members/invite-member-dialog"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Checkbox } from "@workspace/ui/components/checkbox"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip"
 import {
   Avatar,
   AvatarFallback,
@@ -52,14 +59,18 @@ import {
   Shield,
   Trash2,
   Settings2,
-  Loader2
+  Loader2,
+  Users,
+  Crown,
+  ShieldCheck,
+  Headphones,
 } from "lucide-react"
 import { toast } from "sonner"
 import {
   useMembers,
   useUpdateMemberRole,
   useUpdateMemberPermissions,
-  useRemoveMember
+  useRemoveMember,
 } from "@/hooks/use-members"
 import { useRoles } from "@/hooks/use-roles"
 import { usePermissions } from "@/components/ability-provider"
@@ -68,8 +79,6 @@ import { PERMISSION_CATEGORIES } from "@/types/permissions"
 
 export default function MembersPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
-  const [inviteEmail, setInviteEmail] = useState("")
 
   // Role change dialog
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false)
@@ -78,7 +87,9 @@ export default function MembersPage() {
 
   // Permissions dialog
   const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false)
-  const [selectedExtraPermissions, setSelectedExtraPermissions] = useState<string[]>([])
+  const [selectedExtraPermissions, setSelectedExtraPermissions] = useState<
+    string[]
+  >([])
 
   // Remove dialog
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false)
@@ -146,7 +157,8 @@ export default function MembersPage() {
       setIsRoleDialogOpen(false)
       setSelectedMember(null)
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to update role"
+      const message =
+        error instanceof Error ? error.message : "Failed to update role"
       toast.error(message)
     }
   }
@@ -178,7 +190,8 @@ export default function MembersPage() {
       setIsPermissionsDialogOpen(false)
       setSelectedMember(null)
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to update permissions"
+      const message =
+        error instanceof Error ? error.message : "Failed to update permissions"
       toast.error(message)
     }
   }
@@ -187,6 +200,12 @@ export default function MembersPage() {
   const handleOpenRemoveDialog = (member: Member) => {
     setMemberToRemove(member)
     setIsRemoveDialogOpen(true)
+  }
+
+  const doesRoleHavePermission = (permissionKey: string, roleSlug: string) => {
+    const role = roles.find((r) => r.slug === roleSlug)
+    if (!role) return false
+    return role.permissions.includes(permissionKey)
   }
 
   const handleRemoveMember = async () => {
@@ -198,7 +217,8 @@ export default function MembersPage() {
       setIsRemoveDialogOpen(false)
       setMemberToRemove(null)
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to remove member"
+      const message =
+        error instanceof Error ? error.message : "Failed to remove member"
       toast.error(message)
     }
   }
@@ -217,7 +237,7 @@ export default function MembersPage() {
       fallback={
         <AccessDenied
           title="Access Denied"
-          message="You don&apos;t have permission to view team members."
+          message="You don't have permission to view team members."
         />
       }
     >
@@ -230,15 +250,18 @@ export default function MembersPage() {
               Manage your team and their access levels
             </p>
           </div>
-          <PermissionButton
-            permission="member:add"
-            onClick={() => setIsInviteDialogOpen(true)}
-            fallback="disable"
-            disabledTooltip="You don't have permission to invite members"
-          >
-            <UserPlus className="h-4 w-4 mr-2" />
-            Invite Member
-          </PermissionButton>
+          <InviteMemberDialog
+            trigger={
+              <PermissionButton
+                permission="member:add"
+                fallback="disable"
+                disabledTooltip="You don't have permission to invite members"
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Invite Member
+              </PermissionButton>
+            }
+          />
         </div>
 
         {/* Search */}
@@ -267,7 +290,10 @@ export default function MembersPage() {
                 <div className="flex items-center gap-4">
                   <Avatar className="h-10 w-10">
                     {member.user.image && (
-                      <AvatarImage src={member.user.image} alt={member.user.name} />
+                      <AvatarImage
+                        src={member.user.image}
+                        alt={member.user.name}
+                      />
                     )}
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {getInitials(member.user.name)}
@@ -275,7 +301,9 @@ export default function MembersPage() {
                   </Avatar>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{member.user.name || "Unknown"}</span>
+                      <span className="font-medium">
+                        {member.user.name || "Unknown"}
+                      </span>
                       {member.isOwner && (
                         <Badge variant="default" className="text-xs">
                           Owner
@@ -287,7 +315,9 @@ export default function MembersPage() {
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">{member.user.email}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {member.user.email}
+                    </p>
                   </div>
                 </div>
 
@@ -296,41 +326,52 @@ export default function MembersPage() {
                     {member.isOwner ? "Owner" : member.role?.name || "No Role"}
                   </Badge>
 
-                  {!member.isOwner && (canEditMember || canAssignRole || canRemoveMember) && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {canAssignRole && (
-                          <DropdownMenuItem onClick={() => handleOpenRoleDialog(member)}>
-                            <Shield className="h-4 w-4 mr-2" />
-                            Change Role
-                          </DropdownMenuItem>
-                        )}
-                        {canEditMember && (
-                          <DropdownMenuItem onClick={() => handleOpenPermissionsDialog(member)}>
-                            <Settings2 className="h-4 w-4 mr-2" />
-                            Extra Permissions
-                          </DropdownMenuItem>
-                        )}
-                        {canRemoveMember && (
-                          <>
-                            <DropdownMenuSeparator />
+                  {!member.isOwner &&
+                    (canEditMember || canAssignRole || canRemoveMember) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {canAssignRole && (
                             <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => handleOpenRemoveDialog(member)}
+                              onClick={() => handleOpenRoleDialog(member)}
                             >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Remove Member
+                              <Shield className="h-4 w-4 mr-2" />
+                              Change Role
                             </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                          )}
+                          {canEditMember && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleOpenPermissionsDialog(member)
+                              }
+                            >
+                              <Settings2 className="h-4 w-4 mr-2" />
+                              Extra Permissions
+                            </DropdownMenuItem>
+                          )}
+                          {canRemoveMember && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => handleOpenRemoveDialog(member)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Remove Member
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                 </div>
               </div>
             ))
@@ -340,64 +381,48 @@ export default function MembersPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="border rounded-lg p-4">
-            <p className="text-2xl font-bold">{members.length}</p>
-            <p className="text-sm text-muted-foreground">Total Members</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold">{members.length}</p>
+                <p className="text-sm text-muted-foreground">Total Members</p>
+              </div>
+              <Users className="h-8 w-8 text-muted-foreground/50" />
+            </div>
           </div>
           <div className="border rounded-lg p-4">
-            <p className="text-2xl font-bold">
-              {members.filter((m) => m.isOwner).length}
-            </p>
-            <p className="text-sm text-muted-foreground">Owners</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold">
+                  {members.filter((m) => m.isOwner).length}
+                </p>
+                <p className="text-sm text-muted-foreground">Owners</p>
+              </div>
+              <Crown className="h-8 w-8 text-muted-foreground/50" />
+            </div>
           </div>
           <div className="border rounded-lg p-4">
-            <p className="text-2xl font-bold">
-              {members.filter((m) => m.role?.slug === "admin").length}
-            </p>
-            <p className="text-sm text-muted-foreground">Admins</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold">
+                  {members.filter((m) => m.role?.slug === "admin").length}
+                </p>
+                <p className="text-sm text-muted-foreground">Admins</p>
+              </div>
+              <ShieldCheck className="h-8 w-8 text-muted-foreground/50" />
+            </div>
           </div>
           <div className="border rounded-lg p-4">
-            <p className="text-2xl font-bold">
-              {members.filter((m) => m.role?.slug === "agent").length}
-            </p>
-            <p className="text-sm text-muted-foreground">Agents</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold">
+                  {members.filter((m) => m.role?.slug === "agent").length}
+                </p>
+                <p className="text-sm text-muted-foreground">Agents</p>
+              </div>
+              <Headphones className="h-8 w-8 text-muted-foreground/50" />
+            </div>
           </div>
         </div>
-
-        {/* Invite Dialog (placeholder) */}
-        <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invite Team Member</DialogTitle>
-              <DialogDescription>
-                Send an invitation to join your organisation
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="colleague@example.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                The invited member will receive an email with a link to join.
-                They will be assigned the default &quot;Agent&quot; role.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsInviteDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button disabled>
-                Send Invite (Coming Soon)
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Change Role Dialog */}
         <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
@@ -411,7 +436,10 @@ export default function MembersPage() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Select Role</Label>
-                <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
+                <Select
+                  value={selectedRoleId}
+                  onValueChange={setSelectedRoleId}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
@@ -428,7 +456,10 @@ export default function MembersPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsRoleDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsRoleDialogOpen(false)}
+              >
                 Cancel
               </Button>
               <Button
@@ -444,38 +475,119 @@ export default function MembersPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Extra Permissions Dialog */}
-        <Dialog open={isPermissionsDialogOpen} onOpenChange={setIsPermissionsDialogOpen}>
+        {/* Extra Extra Permissions Dialog */}
+        <Dialog
+          open={isPermissionsDialogOpen}
+          onOpenChange={setIsPermissionsDialogOpen}
+        >
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Extra Permissions</DialogTitle>
               <DialogDescription>
-                Grant additional permissions to {selectedMember?.user?.name} beyond their role
+                Grant additional permissions to {selectedMember?.user?.name}{" "}
+                beyond their role
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-6 py-4">
-              {Object.entries(PERMISSION_CATEGORIES).map(([key, category]) => (
-                <div key={key} className="space-y-3">
-                  <h4 className="font-medium text-sm">{category.label}</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {category.permissions.map((perm) => (
-                      <label
-                        key={perm.key}
-                        className="flex items-center gap-2 text-sm cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={selectedExtraPermissions.includes(perm.key)}
-                          onCheckedChange={() => handleTogglePermission(perm.key)}
-                        />
-                        {perm.label}
-                      </label>
-                    ))}
+            {/* <div className="space-y-6 py-4">
+              {Object.entries(PERMISSION_CATEGORIES).map(([key, category]) => {
+                return (
+                  <div key={key} className="space-y-3">
+                    <h4 className="font-medium text-sm">{category.label}</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {category.permissions.map((perm) => (
+                        <label
+                          key={perm.key}
+                          className="flex items-center gap-2 text-sm cursor-pointer"
+                        >
+                          <Checkbox
+                            disabled={doesRoleHavePermission(
+                              perm.key,
+                              selectedMember?.role?.slug || ""
+                            )}
+                            checked={selectedExtraPermissions.includes(
+                              perm.key
+                            )}
+                            onCheckedChange={() =>
+                              handleTogglePermission(perm.key)
+                            }
+                          />
+                          {perm.label}
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
+            </div> */}
+
+            <div className="space-y-6 py-4">
+              {Object.entries(PERMISSION_CATEGORIES).map(([key, category]) => {
+                return (
+                  <div key={key} className="space-y-3">
+                    <h4 className="font-medium text-sm">{category.label}</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {category.permissions.map((perm) => {
+                        const isInRole = doesRoleHavePermission(
+                          perm.key,
+                          selectedMember?.role?.slug || ""
+                        )
+                        return (
+                          <TooltipProvider key={perm.key}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                  <Checkbox
+                                    disabled={isInRole}
+                                    checked={
+                                      isInRole ||
+                                      selectedExtraPermissions.includes(
+                                        perm.key
+                                      )
+                                    }
+                                    onCheckedChange={() =>
+                                      handleTogglePermission(perm.key)
+                                    }
+                                  />
+                                  <span
+                                    className={
+                                      isInRole ? "text-muted-foreground" : ""
+                                    }
+                                  >
+                                    {perm.label}
+                                    {isInRole && (
+                                      <span className="ml-1.5 text-xs text-muted-foreground">
+                                        (via role)
+                                      </span>
+                                    )}
+                                  </span>
+                                </label>
+                              </TooltipTrigger>
+                              {isInRole && (
+                                <TooltipContent>
+                                  <p>
+                                    Already included in{" "}
+                                    <span className="font-medium">
+                                      {selectedMember?.role?.name}
+                                    </span>{" "}
+                                    role
+                                  </p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
+
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsPermissionsDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsPermissionsDialogOpen(false)}
+              >
                 Cancel
               </Button>
               <Button
@@ -492,13 +604,16 @@ export default function MembersPage() {
         </Dialog>
 
         {/* Remove Member Confirmation */}
-        <AlertDialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
+        <AlertDialog
+          open={isRemoveDialogOpen}
+          onOpenChange={setIsRemoveDialogOpen}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Remove Member</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to remove {memberToRemove?.user?.name} from your organisation?
-                This action cannot be undone.
+                Are you sure you want to remove {memberToRemove?.user?.name}{" "}
+                from your organisation? This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

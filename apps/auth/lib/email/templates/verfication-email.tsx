@@ -25,9 +25,9 @@ const VerificationEmail = ({ url, name }: VerificationEmailProps) => {
 
   return (
     <Html>
-      <Head />
-      <Preview>{previewText}</Preview>
       <Tailwind>
+        <Head />
+        <Preview>{previewText}</Preview>
         <Body className="bg-gray-50 my-auto mx-auto font-sans px-2">
           <Container className="border border-gray-200 rounded-lg my-10 mx-auto p-6 max-w-md bg-white shadow-sm">
             <Section className="mt-8 text-center">

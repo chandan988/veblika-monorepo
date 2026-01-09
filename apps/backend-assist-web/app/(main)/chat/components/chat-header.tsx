@@ -23,11 +23,20 @@ import {
 import type { Conversation } from "@/types/chat"
 import { cn } from "@workspace/ui/lib/utils"
 import { AssignmentDropdown } from "@/components/assignment-dropdown"
+import { StatusDropdown } from "@/components/status-dropdown"
+import { PriorityDropdown, type Priority } from "@/components/priority-dropdown"
+import type { ClosedReason } from "@/components/closed-reason-dropdown"
+import { usePermissionsStore } from "@/stores/permissions-store"
 
 interface ChatHeaderProps {
-  conversation: Conversation & { assignedMemberId?: string | null }
-  onStatusChange?: (status: "open" | "pending" | "closed") => void
+  conversation: Conversation & { 
+    assignedMemberId?: string | null
+    closedReason?: ClosedReason
+    priority?: Priority
+  }
+  onStatusChange?: (status: "open" | "pending" | "closed", closedReason?: ClosedReason) => void
   onAssignmentChange?: (memberId: string | null) => void
+  onPriorityChange?: (priority: Priority) => void
   onClose?: () => void
 }
 
@@ -35,8 +44,11 @@ export function ChatHeader({
   conversation,
   onStatusChange,
   onAssignmentChange,
+  onPriorityChange,
   onClose,
 }: ChatHeaderProps) {
+  const { can } = usePermissionsStore()
+
   const getStatusStyles = (status: string) => {
     switch (status) {
       case "open":
@@ -83,12 +95,31 @@ export function ChatHeader({
       </div>
 
       <div className="flex items-center gap-4 shrink-0">
-        {/* Assignment Dropdown */}
-        <AssignmentDropdown
-          assignedMemberId={conversation.assignedMemberId}
-          onAssign={(memberId) => onAssignmentChange?.(memberId)}
+        {/* Status Dropdown */}
+        <StatusDropdown
+          status={conversation.status || "open"}
+          closedReason={conversation.closedReason}
+          onStatusChange={(status, closedReason) => {
+            onStatusChange?.(status, closedReason)
+          }}
+          variant="badge"
+        />
+
+        {/* Priority Dropdown */}
+        <PriorityDropdown
+          priority={conversation.priority || "normal"}
+          onPriorityChange={(priority) => onPriorityChange?.(priority)}
           compact
         />
+
+        {/* Assignment Dropdown */}
+        {can("chat:assign") && (
+          <AssignmentDropdown
+            assignedMemberId={conversation.assignedMemberId}
+            onAssign={(memberId) => onAssignmentChange?.(memberId)}
+            compact
+          />
+        )}
 
         {/* More options dropdown */}
         <DropdownMenu>
@@ -102,11 +133,18 @@ export function ChatHeader({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => onStatusChange?.("open")}>
-              Mark as Open
+            <DropdownMenuItem>
+              <Archive className="h-4 w-4 mr-2" />
+              Archive
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onStatusChange?.("closed")}>
-              Mark as Closed
+            <DropdownMenuItem>
+              <Flag className="h-4 w-4 mr-2" />
+              Flag
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-destructive">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

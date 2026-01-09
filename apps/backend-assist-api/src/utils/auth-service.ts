@@ -57,3 +57,74 @@ export async function fetchUsersFromAuthService(
     return userMap
   }
 }
+
+/**
+ * Fetches a single user by ID from the auth service
+ * @param userId - User ID to fetch
+ * @returns UserInfo or null if not found
+ */
+export async function fetchUserById(
+  userId: string
+): Promise<UserInfo | null> {
+  try {
+    const userMap = await fetchUsersFromAuthService([userId])
+    return userMap.get(userId) || null
+  } catch (error) {
+    console.error("Error fetching user by ID from auth service:", error)
+    return null
+  }
+}
+
+export interface CheckUserByEmailResult {
+  exists: boolean
+  userId: string | null
+  user?: UserInfo
+}
+
+/**
+ * Checks if a user exists by email in the auth service
+ * @param email - Email address to check
+ * @returns Object with exists flag, userId, and optional user info
+ */
+export async function checkUserByEmail(
+  email: string
+): Promise<CheckUserByEmailResult> {
+  try {
+    const authServiceUrl = config.auth.authUrl
+    const response = await fetch(
+      `${authServiceUrl}/api/internal/users/check-email`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      }
+    )
+
+    if (!response.ok) {
+      console.error(
+        `Failed to check user email: ${response.status} ${response.statusText}`
+      )
+      return { exists: false, userId: null }
+    }
+
+    const data = await response.json()
+    const exists = data.exists || false
+    const userId = data.userId || null
+
+    // If user exists, fetch full user info
+    let user: UserInfo | undefined
+    if (userId) {
+      const userInfo = await fetchUserById(userId)
+      if (userInfo) {
+        user = userInfo
+      }
+    }
+
+    return { exists, userId, user }
+  } catch (error) {
+    console.error("Error checking user email:", error)
+    return { exists: false, userId: null }
+  }
+}

@@ -1,20 +1,30 @@
+import { getAppConfig } from "../../utils/getAppConfig.js";
+import axios from "axios";
+
 export const handleInstagramConnect = async (req, res, code, appCredFinder) => {
   try {
-    // Use Instagram app ID and secret (or fallback to META_APP_ID if not set)
-    const instagramAppId = process.env.INSTAGRAM_APP_ID || process.env.META_APP_ID;
-    const instagramAppSecret = process.env.INSTAGRAM_APP_SECRET || process.env.META_APP_SECRET;
+    const userId = String(req.user._id);
+    
+    // Get Instagram app config from database (with fallback to env)
+    let instagramConfig;
+    try {
+      instagramConfig = await getAppConfig(userId, "app/instagram");
+    } catch (error) {
+      console.error("[handleInstagramConnect] Error getting app config:", error.message);
+      return res.status(500).json({ error: "Instagram app credentials not configured" });
+    }
 
-    if (!instagramAppId || !instagramAppSecret) {
+    if (!instagramConfig.appClientId || !instagramConfig.appClientSecret || !instagramConfig.redirectUrl) {
       return res.status(500).json({ error: "Instagram app credentials not configured" });
     }
 
     const tokenRes = await axios.post(
       "https://api.instagram.com/oauth/access_token",
       new URLSearchParams({
-        client_id: instagramAppId,
-        client_secret: instagramAppSecret,
+        client_id: instagramConfig.appClientId,
+        client_secret: instagramConfig.appClientSecret,
         grant_type: "authorization_code",
-        redirect_uri: process.env.INSTAGRAM_REDIRECT_URI,
+        redirect_uri: instagramConfig.redirectUrl,
         code: code,
       })
     ); 
@@ -26,7 +36,7 @@ export const handleInstagramConnect = async (req, res, code, appCredFinder) => {
       {
         params: {
           grant_type: "ig_exchange_token",
-          client_secret: instagramAppSecret,
+          client_secret: instagramConfig.appClientSecret,
           access_token: accessToken,
         },
       }

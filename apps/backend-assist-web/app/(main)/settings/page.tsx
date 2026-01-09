@@ -1,6 +1,10 @@
 "use client"
 
-import { PermissionGuard, AccessDenied, Guards } from "@/components/permission-guard"
+import {
+  PermissionGuard,
+  AccessDenied,
+  Guards,
+} from "@/components/permission-guard"
 import { PermissionButton } from "@/components/permission-button"
 import { usePermissions } from "@/components/ability-provider"
 import { Input } from "@workspace/ui/components/input"
@@ -17,7 +21,7 @@ export default function SettingsPage() {
       fallback={
         <AccessDenied
           title="Access Denied"
-          message="You don&apos;t have permission to access organisation settings."
+          message="You don't have permission to access organisation settings."
         />
       }
     >
@@ -69,11 +73,11 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <PermissionGuard permission="organisation:edit">
+          {/* <PermissionGuard permission="organisation:edit">
             <PermissionButton permission="organisation:edit">
               Edit Organisation
             </PermissionButton>
-          </PermissionGuard>
+          </PermissionGuard> */}
         </section>
 
         {/* Danger Zone - Owner only */}

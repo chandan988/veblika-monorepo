@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { type Priority } from '@/types/chat';
 
 export interface Message {
   _id: string;
@@ -21,7 +22,7 @@ export interface Conversation {
   contactId: any;
   channel: string;
   status: 'open' | 'pending' | 'closed';
-  priority: string;
+  priority: Priority;
   lastMessageAt: string;
   lastMessagePreview: string;
   tags: string[];

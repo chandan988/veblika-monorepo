@@ -54,10 +54,11 @@ const convertToComponentMessage = (storeMsg: StoreMessage): Message => ({
 
 interface UseMessagesOptions {
   limit?: number;
+  orgId: string;
 }
 
-export const useMessages = (conversationId: string, options: UseMessagesOptions = {}) => {
-  const { limit = 25 } = options; // Default limit is 25
+export const useMessages = (conversationId: string, options: UseMessagesOptions) => {
+  const { limit = 25, orgId } = options; // Default limit is 25
   
   const { socket, isConnected } = useSocket({ autoConnect: true });
   const addMessage = useChatStore((state) => state.addMessage);
@@ -80,7 +81,7 @@ export const useMessages = (conversationId: string, options: UseMessagesOptions 
         params.before = pageParam;
       }
       
-      const { data } = await api.get(`/conversations/${conversationId}/messages`, {
+      const { data } = await api.get(`/organisations/${orgId}/conversations/${conversationId}/messages`, {
         params,
       });
       
