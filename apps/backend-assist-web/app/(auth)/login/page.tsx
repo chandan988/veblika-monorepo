@@ -85,32 +85,15 @@ function LoginForm() {
       const result = await authClient.signIn.email({
         email: data.email,
         password: data.password,
-        ...(inviteToken && {
-          callbackURL: `${process.env.NEXT_PUBLIC_CLIENT_URL}/accept-invite?id=${inviteToken}`,
-        }),
-        // callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
+        callbackURL: inviteToken
+          ? `${process.env.NEXT_PUBLIC_CLIENT_URL}/accept-invite?id=${inviteToken}`
+          : redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
       })
 
       if (result.error) {
         toast.error(result.error.message || "Failed to login")
       } else {
         toast.success("Login successful!")
-        // Redirect after successful login
-        if (inviteToken) {
-          // If coming from invitation flow, redirect to accept-invite page
-          router.push(`/accept-invite?id=${inviteToken}`)
-        } else {
-          // Check localStorage for pending invitation
-          const pendingInvitation = getInvitation()
-          if (
-            pendingInvitation &&
-            pendingInvitation.email.toLowerCase() === data.email.toLowerCase()
-          ) {
-            router.push(`/accept-invite?id=${pendingInvitation.inviteToken}`)
-          } else if (redirectTo) {
-            router.push(redirectTo)
-          }
-        }
       }
     } catch (error) {
       toast.error("An error occurred during login")

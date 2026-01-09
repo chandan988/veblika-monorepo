@@ -56,6 +56,7 @@ export function CreateOrganisationModal({
 }: CreateOrganisationModalProps) {
   const session = useSession()
   const [debouncedSlug, setDebouncedSlug] = useState("")
+  const [hasManuallyEditedSlug, setHasManuallyEditedSlug] = useState(false)
 
   const createOrganisation = useCreateOrganisation()
   const { data: isSlugAvailable, isLoading: isCheckingSlug } =
@@ -73,9 +74,9 @@ export function CreateOrganisationModal({
   const name = form.watch("name")
   const slug = form.watch("slug")
 
-  // Auto-generate slug from name
+  // Auto-generate slug from name only if user hasn't manually edited it
   useEffect(() => {
-    if (name && !slug) {
+    if (name && !hasManuallyEditedSlug) {
       const generatedSlug = name
         .toLowerCase()
         .replace(/[^a-z0-9\s-]/g, "")
@@ -84,7 +85,7 @@ export function CreateOrganisationModal({
         .slice(0, 50)
       form.setValue("slug", generatedSlug)
     }
-  }, [name, slug, form])
+  }, [name, hasManuallyEditedSlug, form])
 
   // Debounce slug for availability check
   useEffect(() => {
@@ -105,6 +106,7 @@ export function CreateOrganisationModal({
         logo: data.logo || undefined,
       })
       form.reset()
+      setHasManuallyEditedSlug(false)
       onOpenChange(false)
     } catch (error) {
       console.error("Failed to create organisation:", error)
@@ -113,6 +115,7 @@ export function CreateOrganisationModal({
 
   const handleClose = () => {
     form.reset()
+    setHasManuallyEditedSlug(false)
     onOpenChange(false)
   }
 
@@ -174,6 +177,7 @@ export function CreateOrganisationModal({
                         placeholder="my-company"
                         {...field}
                         onChange={(e) => {
+                          setHasManuallyEditedSlug(true)
                           const value = e.target.value
                             .toLowerCase()
                             .replace(/[^a-z0-9-]/g, "")

@@ -99,7 +99,7 @@ function SignupForm() {
         name: data.name,
         email: data.email,
         password: data.password,
-        callbackURL: callbackURL,
+        callbackURL: inviteToken ? callbackURL : process.env.NEXT_PUBLIC_CLIENT_URL,
         // Pass role as additional field - invitation signups get 'user' role, direct signups get 'admin'
         role: userRole,
       })
@@ -127,7 +127,7 @@ function SignupForm() {
         provider: "google",
         callbackURL: inviteToken
           ? `${process.env.NEXT_PUBLIC_CLIENT_URL}/accept-invite?id=${inviteToken}`
-          : redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
+          : process.env.NEXT_PUBLIC_CLIENT_URL,
         additionalData: {
           role: inviteToken ? "user" : "admin",
         },
