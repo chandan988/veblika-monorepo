@@ -54,6 +54,8 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
   advanced: {
     crossSubDomainCookies: {
       enabled: true,
+      domain:
+        process.env.NODE_ENV === "production" ? "backendassist.com" : undefined,
     },
     // defaultCookieAttributes: {
     //   secure: true,
