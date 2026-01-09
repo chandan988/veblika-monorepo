@@ -28,7 +28,7 @@ export const useLogout = (options?: { redirect?: boolean }) => {
       // useOrganisationStore.getState().clearStore()
       // localStorage.removeItem("organisation-store")
       if (options?.redirect !== false) {
-        window.location.href = "/sign-in"
+        window.location.href = "/login"
       }
     },
   })

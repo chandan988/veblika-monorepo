@@ -3,8 +3,7 @@ import { getSessionCookie } from "better-auth/cookies"
 
 const authRoutes = ["/login", "/signup", "/forgot-password", "/reset-password"]
 
-// Public routes accessible without authentication
-const publicRoutes: string[] = ["/oauth/callback", "/accept-invitation"]
+const publicRoutes: string[] = ["/oauth/callback", "/accept-invite"]
 
 export async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request)
@@ -16,26 +15,19 @@ export async function middleware(request: NextRequest) {
   }
 
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route))
-  const isPublicRoute = 
-    pathname === "/" || 
-    publicRoutes.some((route) => pathname.startsWith(route))
+  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route))
 
-  // If authenticated and on auth route, redirect to home
   if (sessionCookie && isAuthRoute) {
-    return NextResponse.redirect(new URL("/", request.url))
+    // Get all cookies from the request
+    const response = NextResponse.redirect(new URL("/", request.url))
+    return response
   }
 
-  // If authenticated and on home page, redirect to dashboard
-  if (sessionCookie && pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
-  }
-
-  // If not authenticated and trying to access protected route, redirect to login
   if (!sessionCookie && !isAuthRoute && !isPublicRoute) {
-    const authUrl = process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:3000"
-    const loginUrl = new URL("/login", authUrl)
-    loginUrl.searchParams.set("callback", request.url)
-    return NextResponse.redirect(loginUrl)
+    const loginUrl = new URL("/login", request.url)
+    const response = NextResponse.redirect(loginUrl)
+
+    return response
   }
 
   return NextResponse.next()

@@ -52,7 +52,7 @@ function LoginForm() {
       const result = await authClient.signIn.email({
         email: data.email,
         password: data.password,
-        callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
+        callbackURL: process.env.NEXT_PUBLIC_CLIENT_URL,
       })
 
       if (result.error) {
@@ -72,16 +72,16 @@ function LoginForm() {
   }
 
   const handleGoogleLogin = async () => {
-    console.log('google login initiated')
+    console.log("google login initiated")
     try {
-      console.log('google login')
+      console.log("google login")
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: redirectTo || process.env.NEXT_PUBLIC_CLIENT_URL,
+        callbackURL: process.env.NEXT_PUBLIC_CLIENT_URL,
       })
     } catch (error) {
       toast.error("Failed to login with Google")
-      console.log(error,"google login err")
+      console.log(error, "google login err")
       console.error(error)
     }
   }
@@ -91,9 +91,7 @@ function LoginForm() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Welcome back</CardTitle>
-          <CardDescription>
-            Enter your credentials to sign in
-          </CardDescription>
+          <CardDescription>Enter your credentials to sign in</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Button
@@ -193,11 +191,7 @@ function LoginForm() {
                 )}
               />
 
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Signing in..." : "Sign in"}
               </Button>
             </form>
@@ -206,10 +200,7 @@ function LoginForm() {
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
             Don't have an account?{" "}
-            <Link
-              href="/signup"
-              className="text-primary hover:underline"
-            >
+            <Link href="/signup" className="text-primary hover:underline">
               Sign up
             </Link>
           </p>
