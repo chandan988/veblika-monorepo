@@ -60,11 +60,11 @@ const data = {
     },
   ],
   normal_link: [
-    {
-      name: "Dashboard",
-      url: "/dashboard",
-      icon: LayoutPanelTop,
-    },
+    // {
+    //   name: "Dashboard",
+    //   url: "/dashboard",
+    //   icon: LayoutPanelTop,
+    // },
     {
       name: "Integrations",
       url: "/integrations",
@@ -169,38 +169,38 @@ const data = {
       url: "/social_media/analytics",
       icon: ChartLine,
     },
-    // {
-    //   name: "Engage",
-    //   url: "/social_media/engage",
-    //   icon: MessageCircle,
-    // },
     {
-      name: "Analyze",
-      url: "/social_media/analyze",
-      icon: PackageSearch,
+      name: "Engage",
+      url: "/social_media/engage",
+      icon: MessageCircle,
     },
+    // {
+    //   name: "Analyze",
+    //   url: "/social_media/analyze",
+    //   icon: PackageSearch,
+    // },
   ],
   settings: [
-    {
-      name: "Profile",
-      url: "/settings/profile",
-      icon: User,
-    },
-    {
-      name: "Team",
-      url: "/settings/team",
-      icon: Users,
-    },
-    {
-      name: "Billing",
-      url: "/settings/billing",
-      icon: CreditCard,
-    },
-    {
-      name: "Organizations",
-      url: "/settings/organization",
-      icon: Building2,
-    },
+    // {
+    //   name: "Profile",
+    //   url: "/settings/profile",
+    //   icon: User,
+    // },
+    // {
+    //   name: "Team",
+    //   url: "/settings/team",
+    //   icon: Users,
+    // },
+    // {
+    //   name: "Billing",
+    //   url: "/settings/billing",
+    //   icon: CreditCard,
+    // },
+    // {
+    //   name: "Organizations",
+    //   url: "/settings/organization",
+    //   icon: Building2,
+    // },
     {
       name: "Manage",
       url: "/settings/credentials",
