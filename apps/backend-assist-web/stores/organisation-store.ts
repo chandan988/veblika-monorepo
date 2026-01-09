@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { persist, devtools } from "zustand/middleware"
+import { devtools } from "zustand/middleware"
 
 export interface OrganisationRole {
     _id: string
@@ -42,108 +42,97 @@ interface OrganisationStore {
 
 export const useOrganisationStore = create<OrganisationStore>()(
     devtools(
-        persist(
-            (set, get) => ({
-                // Initial state
-                organisations: [],
-                activeOrganisation: null,
-                isLoaded: false,
+        (set, get) => ({
+            // Initial state
+            organisations: [],
+            activeOrganisation: null,
+            isLoaded: false,
 
-                // Actions
-                setOrganisations: (organisations) => {
-                    set({ organisations, isLoaded: true })
+            // Actions
+            setOrganisations: (organisations) => {
+                set({ organisations, isLoaded: true })
 
-                    // Auto-select first organisation if no active organisation
-                    const state = get()
-                    if (!state.activeOrganisation && organisations.length > 0) {
-                        set({ activeOrganisation: organisations[0] })
+                // Auto-select first organisation if no active organisation
+                const state = get()
+                if (!state.activeOrganisation && organisations.length > 0) {
+                    set({ activeOrganisation: organisations[0] })
+                }
+            },
+
+            setActiveOrganisation: (organisation) => {
+                set({ activeOrganisation: organisation })
+            },
+
+            addOrganisation: (organisation) => {
+                set((state) => {
+                    const exists = state.organisations.some(
+                        (o) => o._id === organisation._id
+                    )
+                    if (exists) return state
+
+                    const newOrganisations = [organisation, ...state.organisations]
+                    return {
+                        organisations: newOrganisations,
+                        // If this is the first organisation, set it as active
+                        activeOrganisation:
+                            state.organisations.length === 0
+                                ? organisation
+                                : state.activeOrganisation,
                     }
-                },
+                })
+            },
 
-                setActiveOrganisation: (organisation) => {
-                    set({ activeOrganisation: organisation })
-                },
+            updateOrganisation: (id, updates) => {
+                set((state) => {
+                    const updatedOrganisations = state.organisations.map((org) =>
+                        org._id === id ? { ...org, ...updates } : org
+                    )
 
-                addOrganisation: (organisation) => {
-                    set((state) => {
-                        const exists = state.organisations.some(
-                            (o) => o._id === organisation._id
-                        )
-                        if (exists) return state
+                    // Also update activeOrganisation if it's the one being updated
+                    const updatedActive =
+                        state.activeOrganisation?._id === id
+                            ? { ...state.activeOrganisation, ...updates }
+                            : state.activeOrganisation
 
-                        const newOrganisations = [organisation, ...state.organisations]
-                        return {
-                            organisations: newOrganisations,
-                            // If this is the first organisation, set it as active
-                            activeOrganisation:
-                                state.organisations.length === 0
-                                    ? organisation
-                                    : state.activeOrganisation,
-                        }
-                    })
-                },
+                    return {
+                        organisations: updatedOrganisations,
+                        activeOrganisation: updatedActive,
+                    }
+                })
+            },
 
-                updateOrganisation: (id, updates) => {
-                    set((state) => {
-                        const updatedOrganisations = state.organisations.map((org) =>
-                            org._id === id ? { ...org, ...updates } : org
-                        )
+            removeOrganisation: (id) => {
+                set((state) => {
+                    const filtered = state.organisations.filter((o) => o._id !== id)
 
-                        // Also update activeOrganisation if it's the one being updated
-                        const updatedActive =
-                            state.activeOrganisation?._id === id
-                                ? { ...state.activeOrganisation, ...updates }
-                                : state.activeOrganisation
+                    // If removing active organisation, select the first available one
+                    const newActive =
+                        state.activeOrganisation?._id === id
+                            ? filtered.length > 0
+                                ? filtered[0]
+                                : null
+                            : state.activeOrganisation
 
-                        return {
-                            organisations: updatedOrganisations,
-                            activeOrganisation: updatedActive,
-                        }
-                    })
-                },
+                    return {
+                        organisations: filtered,
+                        activeOrganisation: newActive,
+                    }
+                })
+            },
 
-                removeOrganisation: (id) => {
-                    set((state) => {
-                        const filtered = state.organisations.filter((o) => o._id !== id)
+            clearStore: () => {
+                set({
+                    organisations: [],
+                    activeOrganisation: null,
+                    isLoaded: false,
+                })
+            },
 
-                        // If removing active organisation, select the first available one
-                        const newActive =
-                            state.activeOrganisation?._id === id
-                                ? filtered.length > 0
-                                    ? filtered[0]
-                                    : null
-                                : state.activeOrganisation
-
-                        return {
-                            organisations: filtered,
-                            activeOrganisation: newActive,
-                        }
-                    })
-                },
-
-                clearStore: () => {
-                    set({
-                        organisations: [],
-                        activeOrganisation: null,
-                        isLoaded: false,
-                    })
-                },
-
-                // Getters
-                getOrganisationById: (id) => {
-                    return get().organisations.find((o) => o._id === id)
-                },
-            }),
-            {
-                name: "organisation-store",
-                // Only persist active organisation ID, not the full data
-                partialize: (state) => ({
-                    activeOrganisation: state.activeOrganisation
-                        ? { _id: state.activeOrganisation._id }
-                        : null,
-                }),
-            }
-        ),
+            // Getters
+            getOrganisationById: (id) => {
+                return get().organisations.find((o) => o._id === id)
+            },
+        }),
         { name: "OrganisationStore" }
     )
 )
