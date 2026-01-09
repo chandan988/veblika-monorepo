@@ -44,8 +44,14 @@ export async function GET(request: NextRequest) {
     // Fetch apps for each reseller
     const resellersWithApps = await Promise.all(
       resellers.map(async (reseller: WithId<Document>) => {
+        const resellerIdString = reseller._id.toString()
+        
+        // Try to match resellerId as both string and ObjectId
         const appsQuery: Record<string, unknown> = {
-          resellerId: reseller._id.toString(),
+          $or: [
+            { resellerId: resellerIdString },
+            { resellerId: reseller._id },
+          ],
           ...(appType && { appType }),
         }
 

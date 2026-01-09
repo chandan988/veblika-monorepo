@@ -32,7 +32,12 @@ export async function GET(
 
     const apps = await db
       .collection("reseller_app")
-      .find({ resellerId: id })
+      .find({
+        $or: [
+          { resellerId: id },
+          { resellerId: new ObjectId(id) },
+        ],
+      })
       .toArray()
 
     return NextResponse.json({

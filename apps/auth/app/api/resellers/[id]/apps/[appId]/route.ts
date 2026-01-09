@@ -64,7 +64,13 @@ export async function PUT(
     const result = await db
       .collection("reseller_app")
       .updateOne(
-        { _id: new ObjectId(appId), resellerId: id },
+        {
+          _id: new ObjectId(appId),
+          $or: [
+            { resellerId: id },
+            { resellerId: new ObjectId(id) },
+          ],
+        },
         { $set: updateData }
       )
 
@@ -105,7 +111,13 @@ export async function DELETE(
 
     const result = await db
       .collection("reseller_app")
-      .deleteOne({ _id: new ObjectId(appId), resellerId: id })
+      .deleteOne({
+        _id: new ObjectId(appId),
+        $or: [
+          { resellerId: id },
+          { resellerId: new ObjectId(id) },
+        ],
+      })
 
     if (result.deletedCount === 0) {
       return NextResponse.json({ error: "App not found" }, { status: 404 })
