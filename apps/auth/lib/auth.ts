@@ -10,31 +10,38 @@ import { getDatabase } from "./mongodb"
 const from = process.env.DEFAULT_FROM_EMAIL || "no-reply.Veblika.com"
 
 export const auth: ReturnType<typeof betterAuth> = betterAuth({
-  trustedOrigins: async (request) => {
-    if (!request) {
-      return ["https://*.backendassist.com", "http://localhost:*"]
-    }
+  trustedOrigins: [
+    "https://*.backendassist.com",
+    "http://localhost:*",
+    "https://*.veblika.com",
+    "https://*.vebxai.com",
+  ],
 
-    // Get all host entries from reseller_app collection
-    const resellerApps = await getDatabase()
-      .db.collection("reseller_app")
-      .find({}, { host: 1, _id: 0 })
-      .toArray()
+  // trustedOrigins: async (request) => {
+  //   if (!request) {
+  //     return ["https://*.backendassist.com", "http://localhost:*"]
+  //   }
 
-    // Here use Set to avoid duplicate origins
-    // Todo : 1 ) Cache this result to avoid DB query on every request
-    // 2 ) Validate the origin
-    const originsSet = new Set<string>()
-    resellerApps.forEach((app: { host: string }) => {
-      originsSet.add("https://*.backendassist.com")
-      originsSet.add("http://localhost:*")
-      if (app?.host) {
-        originsSet.add(`https://${app.host}`)
-      }
-    })
-    console.log("Trusted origins:", Array.from(originsSet))
-    return Array.from(originsSet)
-  },
+  //   // Get all host entries from reseller_app collection
+  //   const resellerApps = await getDatabase()
+  //     .db.collection("reseller_app")
+  //     .find({}, { host: 1, _id: 0 })
+  //     .toArray()
+
+  //   // Here use Set to avoid duplicate origins
+  //   // Todo : 1 ) Cache this result to avoid DB query on every request
+  //   // 2 ) Validate the origin
+  //   const originsSet = new Set<string>()
+  //   resellerApps.forEach((app: { host: string }) => {
+  //     originsSet.add("https://*.backendassist.com")
+  //     originsSet.add("http://localhost:*")
+  //     if (app?.host) {
+  //       originsSet.add(`https://${app.host}`)
+  //     }
+  //   })
+  //   console.log("Trusted origins:", Array.from(originsSet))
+  //   return Array.from(originsSet)
+  // },
   // advanced: {
   //   crossSubDomainCookies: {
   //           enabled: true,
