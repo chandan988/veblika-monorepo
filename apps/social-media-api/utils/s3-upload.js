@@ -7,6 +7,7 @@ let s3Client = null;
 /**
  * Get or create S3 client instance
  */
+
 const getS3Client = () => {
   if (s3Client) {
     return s3Client;
