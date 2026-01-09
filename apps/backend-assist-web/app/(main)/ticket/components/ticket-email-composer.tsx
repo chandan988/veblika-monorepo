@@ -26,7 +26,7 @@ import {
     Quote,
     Code,
     Undo,
-    Redo,
+    Redo, 
 } from "lucide-react"
 import {
     Tooltip,

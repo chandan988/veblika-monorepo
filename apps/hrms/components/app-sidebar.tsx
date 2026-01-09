@@ -6,6 +6,20 @@ import {
   FileText,
   BarChart3,
   LogOut,
+  Building2,
+  GitBranch,
+  Briefcase,
+  Award,
+  ChevronRight,
+  UserCheck,
+  UserPlus,
+  CheckCircle,
+  Factory,
+  ToggleLeft,
+  Clock,
+  DollarSign,
+  Briefcase as BriefcaseAlt,
+  FileCheck,
 } from "lucide-react"
 
 import {
@@ -19,7 +33,15 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@workspace/ui/components/sidebar"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@workspace/ui/components/collapsible"
 import {
   Avatar,
   AvatarFallback,
@@ -41,9 +63,29 @@ import { authClient } from "@/lib/auth-client"
 const menuItems = [
   { title: "Home", icon: Home, url: "/" },
   { title: "Dashboard", icon: BarChart3, url: "/dashboard" },
+  { title: "Organisations", icon: Building2, url: "/organisation" },
+  { title: "Employees", icon: UserCheck, url: "/employee" },
+  {title:"Upload File",icon:FileCheck,url:"/file-upload"},
   { title: "Users", icon: Users, url: "/users" },
   { title: "Documents", icon: FileText, url: "/documents" },
-  { title: "Settings", icon: Settings, url: "/settings" },
+]
+
+// Settings submenu items
+const settingsItems = [
+  { title: "Branch", icon: GitBranch, url: "/settings/branch" },
+  { title: "Department", icon: Briefcase, url: "/settings/department" },
+  { title: "Designation", icon: Award, url: "/settings/designation" },
+  { title: "Hiring Source", icon: UserPlus, url: "/settings/hiring-source" },
+  { title: "Employment Status", icon: CheckCircle, url: "/settings/employment-status" },
+]
+
+// ATS submenu items
+const atsSettingsItems = [
+  { title: "Industry", icon: Factory, url: "/ats/settings/industry" },
+  { title: "Job Opening Status", icon: ToggleLeft, url: "/ats/settings/job-opening-status" },
+  { title: "Job Type", icon: BriefcaseAlt, url: "/ats/settings/job-type" },
+  { title: "Salary", icon: DollarSign, url: "/ats/settings/salary" },
+  { title: "Work Experience", icon: Clock, url: "/ats/settings/work-experience" },
 ]
 
 export function AppSidebar() {
@@ -83,6 +125,86 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              
+              {/* ATS with submenu */}
+              <Collapsible asChild defaultOpen={false} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="ATS">
+                      <UserCheck className="h-4 w-4" />
+                      <span>ATS</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {/* Job Opening menu item */}
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild>
+                          <a href="/ats/job-opening">
+                            <FileCheck className="h-4 w-4" />
+                            <span>Job Openings</span>
+                          </a>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      
+                      {/* Settings nested submenu */}
+                      <Collapsible asChild defaultOpen={false} className="group/nested">
+                        <SidebarMenuSubItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuSubButton>
+                              <Settings className="h-4 w-4" />
+                              <span>Settings</span>
+                              <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/nested:rotate-90" />
+                            </SidebarMenuSubButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <SidebarMenuSub>
+                              {atsSettingsItems.map((item) => (
+                                <SidebarMenuSubItem key={item.title}>
+                                  <SidebarMenuSubButton asChild>
+                                    <a href={item.url} className="pl-6">
+                                      <item.icon className="h-4 w-4" />
+                                      <span>{item.title}</span>
+                                    </a>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
+                        </SidebarMenuSubItem>
+                      </Collapsible>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+              
+              {/* Settings with submenu */}
+              <Collapsible asChild defaultOpen={false} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="Settings">
+                      <Settings className="h-4 w-4" />
+                      <span>Settings</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {settingsItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild>
+                            <a href={item.url}>
+                              <item.icon className="h-4 w-4" />
+                              <span>{item.title}</span>
+                            </a>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
